@@ -1,0 +1,280 @@
+﻿@model EMS.WebApp.Data.OrgPlant
+
+<!-- Enhanced Audit Details Display -->
+<div class="audit-details-container">
+    <!-- Plant Summary -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3 border">
+                <div class="flex-shrink-0">
+                    <div class="audit-icon">
+                        <i class="bi bi-building text-primary" style="font-size: 24px;"></i>
+                    </div>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="mb-1 fw-bold">@Model.plant_name</h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary">@Model.plant_code</span>
+                        <span class="text-muted">•</span>
+                        <small class="text-muted">Plant ID: @Model.plant_id</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Creation Information -->
+    @if (Model.CreatedOn.HasValue)
+    {
+        <div class="audit-timeline-item">
+            <div class="audit-timeline-marker audit-timeline-create">
+                <i class="bi bi-plus-circle"></i>
+            </div>
+            <div class="audit-timeline-content">
+                <div class="audit-timeline-header">
+                    <h6 class="mb-1">Plant Created</h6>
+                    <span class="text-muted small">@(Model.CreatedOn?.ToString("dd MMMM yyyy, hh:mm:ss tt") ?? "N/A")</span>
+                </div>
+                <div class="audit-timeline-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="audit-field-inline">
+                                <i class="bi bi-person text-success"></i>
+                                <div>
+                                    <label>Created By</label>
+                                    <div class="fw-semibold">@(Model.CreatedBy ?? "System")</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="audit-field-inline">
+                                <i class="bi bi-calendar-plus text-success"></i>
+                                <div>
+                                    <label>Date Created</label>
+                                    <div class="fw-semibold">@(Model.CreatedOn?.ToString("dd-MMM-yyyy") ?? "N/A")</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="audit-field-inline">
+                                <i class="bi bi-clock text-success"></i>
+                                <div>
+                                    <label>Time Created</label>
+                                    <div class="fw-semibold">@(Model.CreatedOn?.ToString("hh:mm:ss tt") ?? "N/A")</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="audit-field-inline">
+                                <i class="bi bi-stopwatch text-success"></i>
+                                <div>
+                                    <label>Days Ago</label>
+                                    <div class="fw-semibold">
+                                        @if (Model.CreatedOn.HasValue)
+                                        {
+                                            var daysAgo = (DateTime.Now - Model.CreatedOn.Value).Days;
+                                            @($"{daysAgo} days ago")
+                                        }
+                                        else
+                                        {
+                                            @("N/A")
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Modification Information -->
+    @if (Model.ModifiedOn.HasValue)
+    {
+        <div class="audit-timeline-item">
+            <div class="audit-timeline-marker audit-timeline-modify">
+                <i class="bi bi-pencil-square"></i>
+            </div>
+            <div class="audit-timeline-content">
+                <div class="audit-timeline-header">
+                    <h6 class="mb-1">Last Modified</h6>
+                    <span class="text-muted small">@(Model.ModifiedOn?.ToString("dd MMMM yyyy, hh:mm:ss tt") ?? "N/A")</span>
+                </div>
+                <div class="audit-timeline-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="audit-field-inline">
+                                <i class="bi bi-person-gear text-warning"></i>
+                                <div>
+                                    <label>Modified By</label>
+                                    <div class="fw-semibold">@(Model.ModifiedBy ?? "System")</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="audit-field-inline">
+                                <i class="bi bi-calendar-check text-warning"></i>
+                                <div>
+                                    <label>Date Modified</label>
+                                    <div class="fw-semibold">@(Model.ModifiedOn?.ToString("dd-MMM-yyyy") ?? "N/A")</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="audit-field-inline">
+                                <i class="bi bi-clock text-warning"></i>
+                                <div>
+                                    <label>Time Modified</label>
+                                    <div class="fw-semibold">@(Model.ModifiedOn?.ToString("hh:mm:ss tt") ?? "N/A")</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="audit-field-inline">
+                                <i class="bi bi-stopwatch text-warning"></i>
+                                <div>
+                                    <label>Days Ago</label>
+                                    <div class="fw-semibold">
+                                        @if (Model.ModifiedOn.HasValue)
+                                        {
+                                            var daysAgo = (DateTime.Now - Model.ModifiedOn.Value).Days;
+                                            @($"{daysAgo} days ago")
+                                        }
+                                        else
+                                        {
+                                            @("N/A")
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!Model.CreatedOn.HasValue && !Model.ModifiedOn.HasValue)
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-info-circle text-muted" style="font-size: 48px;"></i>
+            <h6 class="mt-3 text-muted">No Audit Information Available</h6>
+            <p class="text-muted mb-0">No creation or modification data is available for this plant.</p>
+        </div>
+    }
+</div>
+
+<style>
+    /* Audit Details Specific Styles */
+    .audit-details-container {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .audit-timeline-item {
+        position: relative;
+        padding-left: 50px;
+        margin-bottom: 30px;
+    }
+
+        .audit-timeline-item:not(:last-child)::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 40px;
+            bottom: -30px;
+            width: 2px;
+            background: #e2e8f0;
+        }
+
+    .audit-timeline-marker {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 16px;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .audit-timeline-create {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .audit-timeline-modify {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .audit-timeline-content {
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .audit-timeline-header {
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+        .audit-timeline-header h6 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+
+    .audit-timeline-body {
+        padding: 20px;
+    }
+
+    .audit-field-inline {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+
+        .audit-field-inline i {
+            font-size: 18px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .audit-field-inline label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .audit-field-inline .fw-semibold {
+            color: #1f2937;
+            font-size: 14px;
+        }
+
+    .audit-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>

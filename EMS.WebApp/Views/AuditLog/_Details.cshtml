@@ -1,0 +1,72 @@
+﻿@model EMS.WebApp.Data.SysAuditLog
+
+<div class="row">
+    <div class="col-md-6">
+        <h5>Audit Information</h5>
+        <table class="table table-bordered">
+            <tr>
+                <th width="30%">Audit ID:</th>
+                <td>@Model.AuditId</td>
+            </tr>
+            <tr>
+                <th>Table Name:</th>
+                <td>@Model.TableName</td>
+            </tr>
+            <tr>
+                <th>Action Type:</th>
+                <td>@Model.ActionType</td>
+            </tr>
+            <tr>
+                <th>Record ID:</th>
+                <td>@Model.RecordId</td>
+            </tr>
+            <tr>
+                <th>User Name:</th>
+                <td>@Model.UserName</td>
+            </tr>
+            
+            <tr>
+                <th>IP Address:</th>
+                <td>@Model.IpAddress</td>
+            </tr>
+            <tr>
+                <th>Timestamp:</th>
+                <td>@Model.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+            </tr>
+            <tr>
+                <th>Controller/Action:</th>
+                <td>@Model.ControllerAction</td>
+            </tr>
+        </table>
+    </div>
+    <div class="col-md-6">
+        <h5>User Agent</h5>
+        <p class="text-muted small">@Model.UserAgent</p>
+
+        @if (!string.IsNullOrEmpty(Model.AdditionalInfo))
+        {
+            <h5>Additional Information</h5>
+            <p class="text-muted">@Model.AdditionalInfo</p>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.OldValues))
+{
+    <div class="row mt-3">
+        <div class="col-12">
+            <h5>Old Values</h5>
+            <pre class="bg-light p-3 border rounded"><code>@Model.OldValues</code></pre>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.NewValues))
+{
+    <div class="row mt-3">
+        <div class="col-12">
+            <h5>New Values</h5>
+            <pre class="bg-light p-3 border rounded"><code>@Model.NewValues</code></pre>
+        </div>
+    </div>
+}

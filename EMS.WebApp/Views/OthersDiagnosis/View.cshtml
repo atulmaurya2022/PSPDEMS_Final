@@ -1,0 +1,838 @@
+﻿@model EMS.WebApp.Data.OthersDiagnosisDetailsViewModel
+@{
+    ViewData["Title"] = $"Diagnosis - {Model.PatientName}";
+    var shouldMaskData = ViewBag.ShouldMaskData ?? true;
+    var userRole = ViewBag.UserRole ?? "";
+}
+
+<!-- Store masking information -->
+<input type="hidden" id="shouldMaskData" value="@shouldMaskData.ToString().ToLower()" />
+<input type="hidden" id="userRole" value="@userRole" />
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 mb-1">
+                <i class="bi bi-clipboard2-pulse text-primary me-2"></i>
+                Diagnosis Details
+                @if (shouldMaskData)
+                {
+                    <span class="badge bg-warning text-dark ms-2">
+                        <i class="bi bi-shield-lock"></i> Limited Access
+                    </span>
+                }
+                <!-- Visit Type and Status Badges -->
+                <div class="mt-2">
+                    @if (Model.VisitType == "First Aid or Emergency")
+                    {
+                        <span class="badge bg-danger fs-6 me-2">🚨 Emergency Visit</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-info fs-6 me-2">Regular Visit</span>
+                    }
+                    
+                    @switch (Model.ApprovalStatus)
+                    {
+                        case "Pending":
+                            <span class="badge bg-warning text-dark fs-6">
+                                <i class="bi bi-clock"></i> Pending Approval
+                            </span>
+                            break;
+                        case "Approved":
+                            <span class="badge bg-success fs-6">
+                                <i class="bi bi-check-circle"></i> Approved
+                            </span>
+                            break;
+                        case "Rejected":
+                            <span class="badge bg-danger fs-6">
+                                <i class="bi bi-x-circle"></i> Rejected
+                            </span>
+                            break;
+                    }
+                </div>
+            </h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb small">
+                    <li class="breadcrumb-item">
+                        <a href="@Url.Action("Index", "OthersDiagnosis")">
+                            <i class="bi bi-list-ul me-1"></i>Diagnosis List
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active">@Model.TreatmentId - @Model.PatientName</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="btn-group">
+            <a href="@Url.Action("Index", "OthersDiagnosis")" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back to List
+            </a>
+            @if (!shouldMaskData)
+            {
+                <a href="@Url.Action("Add", "OthersDiagnosis")" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>Add New
+                </a>
+            }
+        </div>
+    </div>
+
+    <!-- Alert Container -->
+    <div id="alertContainer"></div>
+
+    <!-- ======= NEW: Access Warning for Masked Users ======= -->
+    @if (shouldMaskData)
+    {
+        <div class="alert alert-info d-flex align-items-center mb-4">
+            <i class="bi bi-info-circle me-2"></i>
+            <div>
+                <strong>Viewing Mode:</strong> Some sensitive information is hidden due to your access level. 
+                Vital signs and medicine names are masked for privacy protection.
+            </div>
+        </div>
+    }
+
+    <!-- Patient & Diagnosis Info -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="glass p-3">
+                <h6 class="mb-3 text-primary">
+                    <i class="bi bi-person-fill me-2"></i>Patient Information
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Treatment ID</label>
+                        <div class="fw-medium">@Model.TreatmentId</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Name</label>
+                        <div class="fw-medium">@Model.PatientName</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Age</label>
+                        <div class="fw-medium">@Model.Age years</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">P. Number</label>
+                        <div class="fw-medium">@(Model.PNumber ?? "N/A")</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Category</label>
+                        <div class="fw-medium">@(Model.Category ?? "N/A")</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Other Details</label>
+                        <div class="fw-medium">@(Model.OtherDetails ?? "N/A")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="glass p-3">
+                <h6 class="mb-3 text-success">
+                    <i class="bi bi-clipboard2-pulse-fill me-2"></i>Diagnosis Information
+                    @if (shouldMaskData)
+                    {
+                        <i class="bi bi-shield-lock text-warning ms-2" title="Some data is masked"></i>
+                    }
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Visit Date</label>
+                        <div class="fw-medium">@Model.VisitDate.ToString("dd-MMM-yyyy HH:mm")</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Diagnosed By</label>
+                        <div class="fw-medium">@Model.DiagnosedBy</div>
+                    </div>
+                    <!-- Visit Type Display -->
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Visit Type</label>
+                        <div class="fw-medium">
+                            @if (Model.VisitType == "First Aid or Emergency")
+                            {
+                                <span class="text-danger">🚨 @Model.VisitType</span>
+                            }
+                            else
+                            {
+                                <span class="text-info">@Model.VisitType</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Status</label>
+                        <div class="fw-medium">
+                            @switch (Model.ApprovalStatus)
+                            {
+                                case "Pending":
+                                    <span class="text-warning">⏳ Pending Approval</span>
+                                    break;
+                                case "Approved":
+                                    <span class="text-success">✅ Approved</span>
+                                    break;
+                                case "Rejected":
+                                    <span class="text-danger">❌ Rejected</span>
+                                    break;
+                                default:
+                                    <span class="text-muted">@Model.ApprovalStatus</span>
+                                    break;
+                            }
+                        </div>
+                    </div>
+                    <!-- ======= FIXED: Properly display vital signs (already decrypted in repository) ======= -->
+                    @if (!string.IsNullOrEmpty(Model.BloodPressure))
+                    {
+                        <div class="col-6">
+                            <label class="form-label text-muted mb-0">
+                                Blood Pressure
+                                @if (shouldMaskData)
+                                {
+                                    <i class="bi bi-eye-slash text-warning" title="Data is masked"></i>
+                                }
+                            </label>
+                            <div class="fw-medium @(shouldMaskData ? "text-warning" : "")">
+                                @(shouldMaskData ? "*****" : Model.BloodPressure)
+                            </div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.PulseRate))
+                    {
+                        <div class="col-6">
+                            <label class="form-label text-muted mb-0">
+                                Pulse Rate
+                                @if (shouldMaskData)
+                                {
+                                    <i class="bi bi-eye-slash text-warning" title="Data is masked"></i>
+                                }
+                            </label>
+                            <div class="fw-medium @(shouldMaskData ? "text-warning" : "")">
+                                @(shouldMaskData ? "*****" : Model.PulseRate)
+                            </div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Sugar))
+                    {
+                        <div class="col-12">
+                            <label class="form-label text-muted mb-0">
+                                Sugar
+                                @if (shouldMaskData)
+                                {
+                                    <i class="bi bi-eye-slash text-warning" title="Data is masked"></i>
+                                }
+                            </label>
+                            <div class="fw-medium @(shouldMaskData ? "text-warning" : "")">
+                                @(shouldMaskData ? "*****" : Model.Sugar)
+                            </div>
+                        </div>
+                    }
+                    @if (Model.LastVisitDate.HasValue)
+                    {
+                        <div class="col-12">
+                            <label class="form-label text-muted mb-0">Last Visit Date</label>
+                            <div class="fw-medium">@Model.LastVisitDate.Value.ToString("dd-MMM-yyyy")</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Approval Information Section -->
+    @if (Model.ApprovalStatus == "Approved" && !string.IsNullOrEmpty(Model.ApprovedBy))
+    {
+        <div class="mb-4">
+            <div class="glass p-3 border-success border-2">
+                <h6 class="mb-3 text-success">
+                    <i class="bi bi-check-circle-fill me-2"></i>Approval Information
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted mb-0">Approved By</label>
+                        <div class="fw-medium text-success">@Model.ApprovedBy</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted mb-0">Approved Date</label>
+                        <div class="fw-medium text-success">@Model.ApprovedDate?.ToString("dd-MMM-yyyy HH:mm")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (Model.ApprovalStatus == "Rejected")
+    {
+        <div class="mb-4">
+            <div class="glass p-3 border-danger border-2">
+                <h6 class="mb-3 text-danger">
+                    <i class="bi bi-x-circle-fill me-2"></i>Rejection Information
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted mb-0">Rejected By</label>
+                        <div class="fw-medium text-danger">@Model.ApprovedBy</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted mb-0">Rejected Date</label>
+                        <div class="fw-medium text-danger">@Model.ApprovedDate?.ToString("dd-MMM-yyyy HH:mm")</div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(Model.RejectionReason))
+                    {
+                        <div class="col-12">
+                            <label class="form-label text-muted mb-0">Rejection Reason</label>
+                            <div class="fw-medium text-danger bg-danger bg-opacity-10 p-2 rounded">
+                                @Model.RejectionReason
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @* @if (Model.ApprovalStatus == "Pending")
+    {
+        <div class="mb-4">
+            <div class="glass p-3 border-warning border-2">
+                <h6 class="mb-3 text-warning">
+                    <i class="bi bi-clock-fill me-2"></i>Pending Approval
+                </h6>
+                <div class="alert alert-warning d-flex align-items-center mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div>
+                        This emergency diagnosis is awaiting doctor approval. The prescribed medicines will be available once approved.
+                    </div>
+                </div>
+            </div>
+        </div>
+    } *@
+
+    <!-- Diagnosed Diseases -->
+    <div class="mb-4">
+        <div class="glass p-3">
+            <h6 class="mb-3 text-warning">
+                <i class="bi bi-bug-fill me-2"></i>Diagnosed Diseases
+                <span class="badge bg-warning text-dark ms-2">@(Model.Diseases?.Count ?? 0)</span>
+            </h6>
+            @if (Model.Diseases?.Any() == true)
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var disease in Model.Diseases)
+                    {
+                        <span class="badge bg-warning text-dark fs-6 p-2" title="@disease.DiseaseDescription">
+                            @disease.DiseaseName
+                        </span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-3">
+                    <i class="bi bi-info-circle text-muted" style="font-size: 1.5rem;"></i>
+                    <p class="text-muted mb-0 mt-2">No diseases diagnosed.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Prescribed Medicines -->
+    <div class="mb-4">
+        <div class="glass p-3">
+            <h6 class="mb-3 text-info">
+                <i class="bi bi-capsule me-2"></i>Prescribed Medicines
+                <span class="badge bg-info ms-2">@(Model.Medicines?.Count ?? 0)</span>
+                @if (shouldMaskData && Model.Medicines?.Any() == true)
+                {
+                    <span class="badge bg-warning text-dark ms-2">
+                        <i class="bi bi-eye-slash"></i> Names Masked
+                    </span>
+                }
+                <!-- Show approval status for medicines -->
+                @if (Model.ApprovalStatus == "Pending" && Model.Medicines?.Any() == true)
+                {
+                    <span class="badge bg-warning text-dark ms-2">
+                        <i class="bi bi-clock"></i> Awaiting Approval
+                    </span>
+                }
+                else if (Model.ApprovalStatus == "Approved" && Model.Medicines?.Any() == true)
+                {
+                    <span class="badge bg-success ms-2">
+                        <i class="bi bi-check-circle"></i> Approved for Dispensing
+                    </span>
+                }
+                else if (Model.ApprovalStatus == "Rejected" && Model.Medicines?.Any() == true)
+                {
+                    <span class="badge bg-danger ms-2">
+                        <i class="bi bi-x-circle"></i> Not Approved
+                    </span>
+                }
+            </h6>
+
+            @if (Model.Medicines?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm glass-table w-100 align-middle">
+                        <thead>
+                            <tr class="table-info">
+                                <th style="width:60px">#</th>
+                                <th>
+                                    Medicine Name
+                                    @if (shouldMaskData)
+                                    {
+                                        <i class="bi bi-eye-slash text-warning ms-1" title="Medicine names are masked"></i>
+                                    }
+                                </th>
+                                <th style="width:100px">Quantity</th>
+                                <th style="width:120px">Dose</th>
+                                <th>Instructions</th>
+                                @if (Model.Medicines.Any(m => !string.IsNullOrEmpty(m.CompanyName)))
+                                {
+                                    <th style="width:120px">Company</th>
+                                }
+                                <!-- Status column for medicines -->
+                                <th style="width:100px">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < Model.Medicines.Count; i++)
+                            {
+                                var medicine = Model.Medicines[i];
+                                <tr class="@(Model.ApprovalStatus == "Pending" ? "table-warning" : Model.ApprovalStatus == "Rejected" ? "table-danger" : "")">
+                                    <td class="text-center">@(i + 1)</td>
+                                    <td class="fw-medium @(shouldMaskData ? "text-warning" : "")">
+                                        @{
+                                            // ======= FIXED: Proper medicine name display with masking =======
+                                            var displayMedicineName = shouldMaskData ? "*****" : medicine.MedicineName;
+                                        }
+                                        @displayMedicineName
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark">@medicine.Quantity</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary">@medicine.Dose</span>
+                                    </td>
+                                    <td>
+                                        @{
+                                            // ======= FIXED: Clean instructions display without encrypted data =======
+                                            var cleanInstructions = shouldMaskData ? "*****" : medicine.Dose;
+                                            
+                                            // If instructions exist and contain encrypted data, show only the dose part
+                                            if (!shouldMaskData && !string.IsNullOrEmpty(medicine.Instructions))
+                                            {
+                                                // Extract the non-encrypted part (after " - ")
+                                                if (medicine.Instructions.Contains(" - "))
+                                                {
+                                                    var parts = medicine.Instructions.Split(" - ", 2);
+                                                    cleanInstructions = parts.Length > 1 ? parts[1] : medicine.Dose;
+                                                }
+                                                else
+                                                {
+                                                    cleanInstructions = medicine.Dose;
+                                                }
+                                            }
+                                        }
+                                        @cleanInstructions
+                                    </td>
+                                    @if (Model.Medicines.Any(m => !string.IsNullOrEmpty(m.CompanyName)))
+                                    {
+                                        <td class="small text-muted">@(medicine.CompanyName ?? "N/A")</td>
+                                    }
+                                    <!-- Medicine status -->
+                                    <td>
+                                        @switch (Model.ApprovalStatus)
+                                        {
+                                            case "Pending":
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-clock"></i> Pending
+                                                </span>
+                                                break;
+                                            case "Approved":
+                                                <span class="badge bg-success">
+                                                    <i class="bi bi-check"></i> Ready
+                                                </span>
+                                                break;
+                                            case "Rejected":
+                                                <span class="badge bg-danger">
+                                                    <i class="bi bi-x"></i> Denied
+                                                </span>
+                                                break;
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ======= UPDATED: Masking explanation for medicines ======= -->
+                @if (shouldMaskData)
+                {
+                    <div class="mt-3 p-2 bg-warning bg-opacity-10 rounded border-start border-warning border-3">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle text-warning me-1"></i>
+                            <strong>Privacy Notice:</strong> Medicine names and instructions are masked for confidentiality. 
+                            Contact a doctor or compounder to view full details.
+                        </small>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="bi bi-capsule text-muted" style="font-size: 2rem;"></i>
+                    <p class="text-muted mb-0 mt-2">No medicines prescribed.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Remarks -->
+    @if (!string.IsNullOrWhiteSpace(Model.Remarks))
+    {
+        <div class="mb-4">
+            <div class="glass p-3">
+                <h6 class="mb-3 text-secondary">
+                    <i class="bi bi-chat-square-text-fill me-2"></i>Remarks
+                </h6>
+                <div class="bg-light p-3 rounded border-start border-primary border-4">
+                    <p class="mb-0">@Model.Remarks</p>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Actions -->
+    @* <div class="mt-4 d-flex justify-content-between align-items-center">
+        <div>
+            <small class="text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                Record created on @Model.VisitDate.ToString("dd-MMM-yyyy HH:mm")
+                <!-- Show approval timeline -->
+                @if (Model.ApprovalStatus != "Pending" && Model.ApprovedDate.HasValue)
+                {
+                    <br>
+                    @if (Model.ApprovalStatus == "Approved")
+                    {
+                        <span class="text-success">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Approved by @Model.ApprovedBy on @Model.ApprovedDate.Value.ToString("dd-MMM-yyyy HH:mm")
+                        </span>
+                    }
+                    else if (Model.ApprovalStatus == "Rejected")
+                    {
+                        <span class="text-danger">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Rejected by @Model.ApprovedBy on @Model.ApprovedDate.Value.ToString("dd-MMM-yyyy HH:mm")
+                        </span>
+                    }
+                }
+            </small>
+        </div>
+        <div class="btn-group">
+            <!-- Only show delete for non-pending or if user has permissions -->
+            @if (Model.ApprovalStatus != "Pending" && !shouldMaskData)
+            {
+                <form method="post" action="@Url.Action("Delete", "OthersDiagnosis")" class="d-inline"
+                      onsubmit="return confirm('Are you sure you want to delete this diagnosis record?')">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.DiagnosisId" />
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                </form>
+            }
+            else if (Model.ApprovalStatus == "Pending")
+            {
+                <div class="text-muted small">
+                    <i class="bi bi-lock me-1"></i>
+                    Cannot delete pending diagnosis
+                </div>
+            }
+            else if (shouldMaskData)
+            {
+                <div class="text-muted small">
+                    <i class="bi bi-shield-lock me-1"></i>
+                    Insufficient permissions
+                </div>
+            }
+        </div>
+    </div> *@
+</div>
+
+@section Scripts {
+    <script>
+        // Get masking info
+        const shouldMaskData = $('#shouldMaskData').val() === 'true';
+        const userRole = $('#userRole').val();
+
+        console.log('🔒 View Masking Status:', shouldMaskData, 'User Role:', userRole);
+
+        // Show success/error messages from TempData
+        @if (TempData["Success"] != null)
+        {
+                <text>
+                $(document).ready(function() {
+                    showAlert('success', '@TempData["Success"]');
+                });
+                </text>
+        }
+
+        @if (TempData["Error"] != null)
+        {
+                <text>
+                $(document).ready(function() {
+                    showAlert('error', '@TempData["Error"]');
+                });
+                </text>
+        }
+
+        function showAlert(type, message) {
+            const alertClass = type === 'success' ? 'alert-success' : type === 'info' ? 'alert-info' : 'alert-danger';
+            const alertId = 'alert-' + Date.now();
+            const alertHtml = '<div id="' + alertId + '" class="alert ' + alertClass + ' alert-dismissible fade show" role="alert">' +
+                message +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+            '</div>';
+
+            $('#alertContainer').html(alertHtml);
+
+            setTimeout(function() {
+                const alertEl = document.getElementById(alertId);
+                if (alertEl) {
+                    bootstrap.Alert.getOrCreateInstance(alertEl).close();
+                }
+            }, 4000);
+        }
+
+        // Auto-refresh for pending diagnoses
+        @if (Model.ApprovalStatus == "Pending")
+        {
+            <text>
+            // Auto-refresh every 30 seconds for pending diagnoses
+            setInterval(function() {
+                // Check if diagnosis status has changed
+                $.ajax({
+                    url: '@Url.Action("View", "OthersDiagnosis", new { id = Model.DiagnosisId })',
+                    type: 'GET',
+                    success: function(response) {
+                        // Check if status has changed by looking for approval badges
+                        if ($(response).find('.badge.bg-success').length > 0 || 
+                            $(response).find('.badge.bg-danger').length > 0) {
+                            // Status changed, reload page
+                            location.reload();
+                        }
+                    }
+                });
+            }, 30000);
+            </text>
+        }
+
+        // Show masking info on page load
+        $(document).ready(function() {
+            if (shouldMaskData) {
+                console.log('🔒 Sensitive data is masked for user role:', userRole);
+                
+                // Add visual indicators for masked data
+                setTimeout(function() {
+                    $('.text-warning').each(function() {
+                        if ($(this).text().includes('*****')) {
+                            $(this).addClass('masked-data');
+                        }
+                    });
+                }, 500);
+            }
+        });
+    </script>
+
+    <style>
+        @@media print {
+            .btn, .btn-group, nav, .d-flex.justify-content-between {
+                display: none !important;
+            }
+
+            .container-fluid {
+                margin: 0;
+                padding: 0;
+            }
+
+            .glass {
+                background: white !important;
+                box-shadow: none !important;
+            }
+
+            /* Hide masking indicators in print */
+            .bi-shield-lock, .bi-eye-slash {
+                display: none !important;
+            }
+        }
+    </style>
+}
+
+<style>
+    .glass {
+        background: rgba(255, 255, 255, 0.30);
+        backdrop-filter: blur(6px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .glass-table {
+        background: rgba(255, 255, 255, 0.20);
+        backdrop-filter: blur(6px);
+    }
+
+        .glass-table th {
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-table td {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+    .breadcrumb {
+        background: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: "›";
+        color: #6c757d;
+    }
+
+    .badge {
+        font-size: 0.8em;
+    }
+
+    /* Approval status specific styling */
+    .border-success {
+        border-color: #198754 !important;
+    }
+
+    .border-danger {
+        border-color: #dc3545 !important;
+    }
+
+    .border-warning {
+        border-color: #ffc107 !important;
+    }
+
+    .border-2 {
+        border-width: 2px !important;
+    }
+
+    /* Table row highlighting based on approval status */
+    .table-warning {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+    }
+
+    .table-danger {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+    }
+
+    /* Badge improvements */
+    .fs-6 {
+        font-size: 1rem !important;
+    }
+
+    /* Status indicators */
+    .text-success {
+        color: #198754 !important;
+    }
+
+    .text-danger {
+        color: #dc3545 !important;
+    }
+
+    .text-warning {
+        color: #ffc107 !important;
+    }
+
+    /* Approval information boxes */
+    .bg-danger.bg-opacity-10 {
+        background-color: rgba(220, 53, 69, 0.1) !important;
+    }
+
+    /* ======= FIXED: Masking specific styles ======= */
+    .masked-data {
+        position: relative;
+        font-family: monospace;
+        letter-spacing: 2px;
+        animation: pulse 2s infinite;
+    }
+
+    .masked-data::after {
+        content: " 🔒";
+        font-size: 0.7em;
+        opacity: 0.7;
+    }
+
+    @@keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+
+    /* Visual indicators for masked fields */
+    .bi-eye-slash, .bi-shield-lock {
+        font-size: 0.8em;
+        opacity: 0.7;
+    }
+
+    /* Warning banner styling */
+    .alert-info .bi-info-circle {
+        font-size: 1.2em;
+    }
+
+    /* Privacy notice styling */
+    .bg-warning.bg-opacity-10 {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+    }
+
+    .border-3 {
+        border-width: 3px !important;
+    }
+
+    /* Auto-refresh indicator for pending status */
+    @if (Model.ApprovalStatus == "Pending")
+    {
+        <text>
+        .badge.bg-warning {
+            animation: pulse 2s infinite;
+        }
+        </text>
+    }
+
+    /* Responsive improvements */
+    @@media (max-width: 768px) {
+        .badge.fs-6 {
+            font-size: 0.8rem !important;
+        }
+        
+        .table-responsive {
+            font-size: 0.9rem;
+        }
+
+        /* Stack masking indicators on mobile */
+        .bi-eye-slash, .bi-shield-lock {
+            display: block;
+            margin-top: 2px;
+        }
+    }
+
+    /* ======= NEW: Enhanced visual feedback for decryption issues ======= */
+    .decryption-error {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-family: monospace;
+        font-size: 0.8rem;
+        color: #856404;
+    }
+
+    .decryption-error::before {
+        content: "🔐 ";
+        font-size: 0.9em;
+    }
+</style>

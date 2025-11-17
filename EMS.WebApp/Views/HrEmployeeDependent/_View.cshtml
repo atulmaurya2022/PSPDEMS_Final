@@ -1,0 +1,189 @@
+﻿@model EMS.WebApp.Data.HrEmployeeDependent
+
+<!-- Employee Dependent Information Display -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-person-badge"></i>
+            Employee Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong>@(Model.HrEmployee?.emp_name ?? "N/A")</strong>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-person"></i>
+            Dependent Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong class="text-primary">@Model.dep_name</strong>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-calendar-event"></i>
+            Date of Birth
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (Model.dep_dob.HasValue)
+            {
+                <strong>@Model.dep_dob.Value.ToString("dd-MMM-yyyy")</strong>
+                
+                    var age = DateTime.Now.Year - Model.dep_dob.Value.Year;
+                    if (DateTime.Now.DayOfYear < Model.dep_dob.Value.DayOfYear) age--;
+               
+                
+                <small class="text-muted d-block">Age: @age years</small>
+            }
+            else
+            {
+                <em class="text-muted">Not provided</em>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-diagram-3"></i>
+            Relation
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @{
+                string relationBadgeClass = Model.relation?.ToLower() switch {
+                    "child" => "bg-info",
+                    "wife" or "husband" => "bg-success",
+                    _ => "bg-secondary"
+                };
+            }
+            <span class="badge @relationBadgeClass">@Model.relation</span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-gender-ambiguous"></i>
+            Gender
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @{
+                string genderDisplay = Model.gender switch {
+                    "M" => "Male",
+                    "F" => "Female", 
+                    "O" => "Other",
+                    _ => "N/A"
+                };
+                string genderIcon = Model.gender switch {
+                    "M" => "bi-gender-male text-primary",
+                    "F" => "bi-gender-female text-danger",
+                    "O" => "bi-gender-trans text-warning",
+                    _ => "bi-question-circle text-muted"
+                };
+            }
+            <i class="bi @genderIcon"></i> <strong>@genderDisplay</strong>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-toggle2-on"></i>
+            Status
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @{
+                bool isActive = Model.is_active == true;
+                string statusBadgeClass = isActive ? "bg-success" : "bg-warning";
+                string statusIcon = isActive ? "bi-check-circle" : "bi-pause-circle";
+                string statusText = isActive ? "Active" : "Inactive";
+            }
+            <span class="badge @statusBadgeClass">
+                <i class="bi @statusIcon"></i> @statusText
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-heart"></i>
+            Marital Status
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @{
+                string maritalStatusDisplay = Model.marital_status switch {
+                    true => "Married",
+                    false => "Single",
+                    _ => "N/A"
+                };
+                string maritalBadgeClass = Model.marital_status switch {
+                    true => "bg-primary",
+                    false => "bg-secondary",
+                    _ => "bg-light text-dark"
+                };
+            }
+            <span class="badge @maritalBadgeClass">@maritalStatusDisplay</span>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-hash"></i>
+            Dependent ID
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong class="text-primary">@Model.emp_dep_id</strong>
+        </div>
+    </div>
+</div>
+
+@if (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue)
+{
+    <div class="audit-section">
+        <h6>
+            <i class="bi bi-clock-history"></i>
+            Audit Information
+        </h6>
+
+        @if (Model.CreatedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>Created By</label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>Created On</label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.ModifiedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>Modified By</label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>Modified On</label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="modal-footer modal-footer-master">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        Close
+    </button>
+</div>

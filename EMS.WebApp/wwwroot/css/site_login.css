@@ -1,0 +1,317 @@
+﻿html {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  margin-bottom: 60px;
+}
+
+
+/* =============================
+   Global Brand Palette & Glass
+   ============================= */
+:root {
+    --brand-primary: #004b8d;
+    /*--glass-bg: rgba(255, 255, 255, 0.28);*/
+    --glass-bg: rgba(255, 255, 255, 0.65) !important;
+    --glass-border: rgba(255, 255, 255, 0.45);
+    --header-bg: rgba(0, 75, 141, 0.089);
+    --radius-sm: 0.75rem;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: "Montserrat", "Segoe UI", system-ui, sans-serif;
+    /* Local hero background */
+    /*--bg-image: url('../images/medical-glass-bg1.png');*/
+    --bg-image: url('../images/bg1.png');
+    background: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), var(--bg-image) center/cover fixed no-repeat;
+    color: #212529;
+}
+
+/* === Glass helper === */
+.glass {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+}
+
+/* === Header === */
+.app-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1030;
+    padding: 0.6rem 1rem;
+    background: var(--header-bg);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: 5px 5px 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+    .app-header .nav-link,
+    .app-header .navbar-brand {
+        color: #0a0d36;
+    }
+
+    .app-header .btn-outline-light {
+        --bs-btn-color: #fff;
+        --bs-btn-border-color: rgba(255, 255, 255, 0.65);
+        --bs-btn-hover-bg: rgba(255, 255, 255, 0.18);
+    }
+
+/* === Desktop Top Nav === */
+.top-nav .dropdown-menu {
+    backdrop-filter: blur(22px) saturate(180%);
+    background: var(--glass-bg);
+/*    background: rgb(255 255 255 / 1) !important;*/
+    border: none;
+}
+
+/* === Mobile Sidebar === */
+#sidebarMenu {
+    width: 260px;
+    /*    background: var(--header-bg);*/
+    background: rgb(255 255 255 / 1) !important;
+    border-right: none;
+}
+
+.sidebar .nav-link {
+    color: #f1f4fa;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    background: rgba(255, 255, 255, 0.38);
+    color: #fff;
+}
+
+.sidebar .collapse .nav-link {
+    padding-left: 2rem;
+    font-weight: 400;
+}
+
+/* === Layout Helpers === */
+main {
+    padding-top: 4.5rem;
+}
+
+.content-wrapper {
+    padding: 2rem;
+}
+
+footer {
+    font-size: 0.8rem;
+    color: #fff;
+    text-align: center;
+    padding: 0.75rem;
+}
+
+/* === Responsive === */
+@media (min-width: 768px) {
+    /* Hide sidebar on md+ */
+    #sidebarMenu {
+        display: none !important;
+    }
+}
+
+/* === Enhanced Glass Table Header & Alternating Rows === */
+.table.glass-table thead {
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    background: rgba(0, 75, 141, 0.45);
+    color: #fff;
+}
+
+.table.glass-table tbody tr {
+    backdrop-filter: blur(18px) saturate(170%);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    background: rgba(255, 255, 255, 0.22);
+}
+
+    .table.glass-table tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.28);
+    }
+
+    .table.glass-table tbody tr:hover {
+        background: rgba(0, 123, 255, 0.25) !important;
+        cursor: pointer;
+    }
+
+.table > :not(caption) > * > * {
+    background-color: var(--header-bg) !important;
+}
+
+
+
+/* === Card‑view DataTable === */
+.table.card-view {
+    border-collapse: separate !important; /* allow spacing between card rows */
+    border-spacing: 0 14px !important; /* vertical gap = 14px */
+}
+
+.table.card-view tbody tr {
+    background: var(--glass-bg);
+    backdrop-filter: blur(18px) saturate(170%);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.table.card-view tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.35); /* slightly denser opacity for alternating row */
+}
+
+.table.card-view tbody tr:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+.table.card-view th, .table.card-view td {
+padding: 0.85rem 1rem !important;
+border: none !important;
+vertical-align: middle;
+}
+
+/* === Card‑view DataTable === */
+.table.card-view {
+    border-collapse: separate !important; /* spacing between cards */
+    border-spacing: 0 14px !important; /* vertical gap */
+}
+
+.table.card-view tbody tr {
+    background: var(--glass-bg);
+    backdrop-filter: blur(18px) saturate(170%);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.table.card-view tbody tr:nth-child(even) {
+    background: rgba(255,255,255,.35);
+}
+
+.table.card-view tbody tr:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 16px rgba(0,0,0,.18);
+}
+
+.table.card-view th, .table.card-view td {
+    padding: .9rem 1rem !important;
+    border: none !important;
+}
+
+
+.form-control {
+    background: var(--header-bg);
+    box-shadow: inset 1px 1px 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+
+.table1 {
+    width: 100% !important;
+    padding-bottom: 1rem;
+    color: #212529;
+    margin-bottom: 0;
+}
+
+.table th:last-child,
+.table td:last-child {
+    position: sticky;
+    right: 0;
+    background-color: #ad6c80;
+    color: #373737;
+}
+
+.table td {
+    white-space: nowrap;
+}
+
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+
+
+
+table.dataTable thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5; /* higher than column z-index */
+}
+
+
+
+
+/* Sticky First Column */
+.sticky-col-1 {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+}
+
+/* Sticky Second Column */
+.sticky-col-2 {
+    position: sticky;
+    left: 75px; /* Adjust according to your column width */
+    z-index: 4;
+}
+
+/* Sticky Last Column */
+.sticky-last {
+    position: sticky;
+    right: 0;
+    z-index: 4;
+}
+
+
+table.dataTable th,
+table.dataTable td {
+    white-space: nowrap;
+}
+
+.grow-on-hover {
+    transition: transform 0.2s ease-in-out;
+}
+    .grow-on-hover:hover {
+        transform: scale(1.1);
+    }
+.login-form {
+    width: 100%;
+    
+    margin: 100px auto; /* Vertically down + center horizontally */
+    text-align: center;
+    border: 1px solid #ffff !important;
+}
+

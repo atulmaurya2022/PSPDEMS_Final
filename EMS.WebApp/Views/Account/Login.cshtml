@@ -1,0 +1,201 @@
+﻿
+@{
+    Layout = null;
+    ViewData["Title"] = "Log in";
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Login | EMS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Local Bootstrap CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
+
+
+  @*   <link href="~/lib/datatables/css/datatables.min.css" rel="stylesheet" />
+    <link href="~/css/site_login.css" rel="stylesheet" />
+    @section Styles {
+        <link rel="stylesheet" href="~/css/login.custom.css" asp-append-version="true" />
+    } *@
+<style>
+
+
+
+
+        <style type="text/css" >
+        .modalload {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            background: rgba( 255, 255, 255, .8 ) url('/Content/assets/img/preloader.gif') 50% 50% no-repeat;
+        }
+
+
+        .loading .modalload {
+            overflow: hidden;
+        }
+
+        .loading .modalload {
+            display: block;
+        }
+
+        .input_custom > .form-control,
+        .input-group-lg > .input-group-prepend > .input-group-text {
+            height: calc(2.875rem + 2px);
+            padding: .5rem 1rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .swal-text {
+            text-align: center !important;
+        }
+
+        .swal-footer {
+            text-align: center !important;
+        }
+
+        .swal-button {
+            font-size: 18px;
+            padding: 20px 60px;
+            background-color: green;
+        }
+
+        .LoginCard {
+            margin-top: 10%;
+            margin-left: 35%;
+            margin-right: 35%;
+            color: black;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+            padding: 4px !important;
+            border: 10px solid #062f62 !important;
+        }
+
+        .menufont {
+            font-family: Exo2-Regular !important;
+            color: #062f62 !important;
+        }
+
+        .btnClass {
+            font-family: Exo2-Regular !important;
+            color: white !important;
+        }
+
+   
+
+        .card-body {
+            padding-bottom: 0px !important;
+            border: 0px solid #062f62 !important;
+            margin: 2px !important;
+            /* background-color: white !important; */
+            background: linear-gradient(96deg, #e0e7ff 0%, #ffffff 100%) !important;
+        }
+    </style>
+
+
+</head>
+@* <body class="login-page" style="background-size: cover;"> *@
+
+<body style="background:linear-gradient(272deg, #237be9 0%, #ffffff 100%);">
+
+    <div class="card LoginCard">
+        <div class="card" style="background-color: #062f62 !important; margin: 5px !important;">
+            <div class="card-body">
+                <center>
+                    <img width="120" height="120" src="~/images/itclogo.png" />
+                    <br />
+                    <br />
+                    <h5 class="menufont" style="font-size: 18px !important;"><b>EMPLOYEE MEDICAL SYSTEM</b></h5>
+                    <br />
+                    @{
+                        // string[] names = User.Identity.Name.Split('\\');
+                        // string ID = names[1];
+
+                        // string IP = HttpContext.Connection.RemoteIpAddress?.ToString();
+                        // string MachineName = System.Net.Dns.GetHostEntry(HttpContext.Connection.UserHostAddress).HostName;
+
+
+
+                        string names = User.Identity?.Name;
+                        string ID = names != null && names.Length > 0 ? names : "";
+
+                        // 2. Get the IP address from the current HTTP context
+                        string IP = Context.Connection.RemoteIpAddress?.ToString();
+
+                        // 3. Get the machine name (may return "Unknown" if not resolvable)
+                        string MachineName = "Unknown";
+                        try
+                        {
+                            var hostEntry = System.Net.Dns.GetHostEntry(Context.Connection.RemoteIpAddress);
+                            MachineName = hostEntry.HostName;
+                        }
+                        catch
+                        {
+                            // Could not resolve hostname
+                        }
+
+
+
+
+
+
+
+
+
+                    }
+                    <h5 class="menufont" style="font-size: 16px !important;"><b>Welcome &nbsp; @ID !</b></h5>
+                    <input type="hidden" id="UID" value="@User.Identity.Name" />
+                    <br />
+                    <!--Notification section -->
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @TempData["Error"]
+                        </div>
+                    }
+                </center>
+                <div class="row">
+                    <div class="col-sm-12 text-center">
+                        <form asp-action="AutoLogin" method="post">
+                        <button type="submit" class="btn btn-success btnClass" id="login" style="color:white !important; font-size:16px;padding-right:30px; padding-left:30px;"><b>L O G I N</b></button>
+                       
+                            
+                        </form>
+                    </div>
+                </div>
+                <br />
+                <div class="row" id="MessageID" style="display:none;">
+                    <div class="col-sm-12 text-center">
+                        <label class="menufont" style="font-size:12px !important">Please wait...</label>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-3">
+                        <label class="menufont" style="color:grey !important; font-size:8px !important;">Version: 1.1.0.5</label>
+                    </div>
+                    <div class="col-sm-3 text-center">
+                        <label class="menufont" style="color:grey !important; font-size:8px !important;">@IP</label>
+                    </div>
+                    <div class="col-sm-3 text-center">
+                        <label class="menufont" style="color:grey !important; font-size:8px !important;">@MachineName</label>
+                    </div>
+                    <div class="col-sm-3 text-right">
+                        <label class="menufont" style="color:grey !important; font-size:8px !important;">@User.Identity.Name</label>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

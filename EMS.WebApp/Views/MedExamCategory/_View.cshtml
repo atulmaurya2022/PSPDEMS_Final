@@ -1,0 +1,180 @@
+﻿@model EMS.WebApp.Data.MedExamCategory
+
+<!-- Medical Examination Category Information Display -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-hash"></i>
+            Category ID
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong class="text-primary">@Model.CatId</strong>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-calendar2-check"></i>
+            Medical Exam Category
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong class="text-primary">@Model.CatName</strong>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <label class="form-label form-label-master">
+            <i class="bi bi-arrow-repeat"></i>
+            Years Frequency
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @{
+                var yearsBadgeClass = Model.YearsFreq >= 5 ? "bg-danger" : Model.YearsFreq >= 3 ? "bg-warning" : "bg-success";
+            }
+            <span class="badge @yearsBadgeClass">
+                @Model.YearsFreq year@(Model.YearsFreq > 1 ? "s" : "")
+            </span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label form-label-master">
+            <i class="bi bi-calendar3"></i>
+            Annually Rule
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @{
+                string annuallyRuleDisplay = Model.AnnuallyRule switch
+                {
+                    "once" => "Once",
+                    "twice" => "Twice",
+                    "thrice" => "Thrice",
+                    _ => Model.AnnuallyRule
+                };
+                string ruleBadgeClass = Model.AnnuallyRule switch
+                {
+                    "once" => "bg-info",
+                    "twice" => "bg-warning",
+                    "thrice" => "bg-primary",
+                    _ => "bg-secondary"
+                };
+            }
+            <span class="badge @ruleBadgeClass">@annuallyRuleDisplay</span>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-list-check"></i>
+            Medical Criteria
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (!string.IsNullOrEmpty(Model.med_criteria?.criteria_name))
+            {
+                <span class="badge bg-secondary">@Model.med_criteria.criteria_name</span>
+            }
+            else
+            {
+                <em class="text-muted">No criteria specified</em>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label class="form-label form-label-master">
+            <i class="bi bi-calendar-range"></i>
+            Monthly Schedule
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 60px; padding: 12px;">
+            @if (!string.IsNullOrEmpty(Model.MonthsSched))
+            {
+                var months = Model.MonthsSched.Split(',');
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var month in months)
+                    {
+                        <span class="badge bg-primary">
+                            <i class="bi bi-calendar-month"></i> @month.Trim()
+                        </span>
+                    }
+                </div>
+                <small class="text-muted d-block mt-2">@months.Length month(s) scheduled</small>
+            }
+            else
+            {
+                <em class="text-muted">No schedule defined</em>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label class="form-label form-label-master">
+            <i class="bi bi-chat-square-text"></i>
+            Remarks
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 80px; padding: 12px;">
+            @if (!string.IsNullOrEmpty(Model.Remarks))
+            {
+                @Model.Remarks
+            }
+            else
+            {
+                <em class="text-muted">No remarks provided</em>
+            }
+        </div>
+    </div>
+</div>
+
+@if (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue)
+{
+    <div class="audit-section">
+        <h6>
+            <i class="bi bi-clock-history"></i>
+            Audit Information
+        </h6>
+
+        @if (Model.CreatedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>Created By</label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>Created On</label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.ModifiedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>Modified By</label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>Modified On</label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="modal-footer modal-footer-master">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        Close
+    </button>
+</div>

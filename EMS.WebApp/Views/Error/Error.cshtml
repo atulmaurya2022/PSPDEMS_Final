@@ -1,0 +1,127 @@
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+    Layout = "_Layout";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="text-center">
+                @if (ViewBag.StatusCode != null)
+                {
+                    <div class="error-code display-1 text-danger fw-bold">
+                        @ViewBag.StatusCode
+                    </div>
+
+                    @switch ((int)ViewBag.StatusCode)
+                    {
+                        case 404:
+                            <h2 class="mb-3">Page Not Found</h2>
+                            <div class="mb-4">
+                                <i class="fas fa-search fa-5x text-muted mb-3"></i>
+                            </div>
+                            break;
+                        case 500:
+                            <h2 class="mb-3">Internal Server Error</h2>
+                            <div class="mb-4">
+                                <i class="fas fa-server fa-5x text-muted mb-3"></i>
+                            </div>
+                            break;
+                        case 403:
+                            <h2 class="mb-3">Access Forbidden</h2>
+                            <div class="mb-4">
+                                <i class="fas fa-lock fa-5x text-muted mb-3"></i>
+                            </div>
+                            break;
+                        default:
+                            <h2 class="mb-3">Error</h2>
+                            <div class="mb-4">
+                                <i class="fas fa-exclamation-triangle fa-5x text-muted mb-3"></i>
+                            </div>
+                            break;
+                    }
+                }
+                else
+                {
+                    <div class="error-code display-1 text-danger fw-bold">!</div>
+                    <h2 class="mb-3">An Error Occurred</h2>
+                    <div class="mb-4">
+                        <i class="fas fa-bug fa-5x text-muted mb-3"></i>
+                    </div>
+                }
+
+                <div class="alert alert-light border" role="alert">
+                    <p class="mb-0">
+                        @if (ViewBag.ErrorMessage != null)
+                        {
+                            @ViewBag.ErrorMessage
+                        }
+                        else
+                        {
+                            <text>We're sorry, but something went wrong.</text>
+                        }
+                    </p>
+                </div>
+
+                <div class="mt-4">
+                    <a href="@Url.Action("Index", "Home")" class="btn btn-primary me-2">
+                        <i class="fas fa-home"></i> Go to Homepage
+                    </a>
+                    <button onclick="history.back()" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Go Back
+                    </button>
+                </div>
+
+                @if (ViewBag.Path != null && !string.IsNullOrEmpty(ViewBag.Path.ToString()))
+                {
+                    <div class="mt-4">
+                        <details class="text-start">
+                            <summary class="btn btn-link text-muted">Technical Details</summary>
+                            <div class="mt-2 p-3 bg-light rounded">
+                                <small class="text-muted">
+                                    <strong>Requested Path:</strong> @ViewBag.Path<br>
+                                    @if (ViewBag.QS != null && !string.IsNullOrEmpty(ViewBag.QS.ToString()))
+                                    {
+                                        <strong>Query String:</strong> 
+                                        @ViewBag.QS
+                                
+                                        <br>
+                                    }
+                                    @if (Model != null && Model.ShowRequestId)
+                                    {
+                                        <strong>Request ID:</strong> 
+                                        @Model.RequestId
+                                    }
+                                </small>
+                            </div>
+                        </details>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-code {
+        font-size: 8rem;
+        line-height: 1;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .error-page {
+        min-height: 60vh;
+        display: flex;
+        align-items: center;
+    }
+
+    @@media (max-width: 768px) {
+        .error-code
+
+    {
+        font-size: 4rem;
+    }
+
+    }
+</style>

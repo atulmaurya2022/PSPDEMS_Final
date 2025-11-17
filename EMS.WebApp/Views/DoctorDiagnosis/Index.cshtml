@@ -1,0 +1,1245 @@
+﻿@using EMS.WebApp.Data
+@model List<EmployeeDiagnosisListViewModel>
+@{
+    ViewData["Title"] = "Doctor Diagnoses";
+    var isDoctor = ViewBag.IsDoctor ?? false;
+    var userRole = ViewBag.UserRole ?? "";
+    var shouldMaskData = ViewBag.ShouldMaskData ?? true;
+    var currentUser = ViewBag.CurrentUser ?? ""; // NEW: Get current user
+}
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+
+<!-- Enhanced Master Header -->
+@* <div class="master-header">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="flex-grow-1">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-master">
+                    <li class="breadcrumb-item">Home</li>
+                    <li class="breadcrumb-item active" aria-current="page">@userRole Diagnoses</li>
+                </ol>
+            </nav>
+            <h1 class="master-title">
+                <i class="bi bi-grid-3x3"></i>
+                @userRole Diagnoses
+            </h1>
+            <p class="master-subtitle">Manage medical categories and classification systems</p>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-flex gap-2">
+                @if (isDoctor)
+                {
+                    <button class="btn btn-warning btn-lg position-relative" type="button" id="pendingApprovalBtn" style="display: none;">
+                        <i class="bi bi-clipboard-check"></i> Pending Approval
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="pendingCount" style="display: none;">0</span>
+                    </button>
+                }
+
+                @if (!shouldMaskData)
+                {
+                    <a href="@Url.Action("Create", "DoctorDiagnosis")" class="btn btn-lg btn-primary">
+                        <i class="bi bi-plus-lg"></i> New Diagnoses
+                    </a>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-secondary" disabled title="You don't have permission to create prescriptions">
+                        <i class="bi bi-plus-lg"></i> New Diagnoses
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+</div> *@
+
+
+<input type="hidden" id="shouldMaskData" value="@shouldMaskData.ToString().ToLower()" />
+<input type="hidden" id="userRole" value="@userRole" />
+<input type="hidden" id="isDoctor" value="@isDoctor.ToString().ToLower()" />
+<input type="hidden" id="currentUser" value="@currentUser" /> <!-- NEW: Add current user -->
+
+<div id="alertContainer"></div>
+
+<div class="glass p-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            @if (shouldMaskData)
+            {
+                <small class="text-muted d-block mt-1">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Some features are restricted based on your access level.
+                </small>
+            }
+        </div>
+
+        <div class="d-flex gap-2">
+            @if (isDoctor)
+            {
+                <button class="btn btn-warning btn-lg position-relative" type="button" id="pendingApprovalBtn" style="display: none;">
+                    <i class="bi bi-clipboard-check"></i> Pending Approval
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="pendingCount" style="display: none;">0</span>
+                </button>
+            }
+
+            @if (!shouldMaskData)
+            {
+                <a href="@Url.Action("Create", "DoctorDiagnosis")" class="btn btn-lg btn-primary">
+                    <i class="bi bi-plus-lg"></i> New Diagnoses
+                </a>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-secondary" disabled title="You don't have permission to create prescriptions">
+                    <i class="bi bi-plus-lg"></i> New Diagnoses
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (shouldMaskData)
+    {
+        <div class="alert alert-info d-flex align-items-center mb-3">
+            <i class="bi bi-info-circle me-2"></i>
+            <div>
+                <strong>Viewing Mode:</strong> You're viewing prescription records with limited permissions.
+                Some actions are restricted and sensitive data may be hidden.
+            </div>
+        </div>
+    }
+
+    <div class="table-responsive mb-3">
+        <table id="tblDiagList" class="table table-sm glass-table card-view w-100 align-middle">
+            <thead>
+                <tr>
+                    <th style="width:60px">Sl.No</th>
+                    <th>Patient Name</th>
+                    <th style="width:140px">Prescription Date</th>
+                    <th style="width:120px">Visit Type</th>
+                    <th style="width:100px">Status</th>
+                    <th>Prescribed By</th>
+                    <th style="width:140px">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model?.Any() == true)
+                {
+                    @for (int i = 0; i < Model.Count; i++)
+                    {
+                        <tr>
+                            <td>@(i + 1)</td>
+                            <td>
+                                <div>
+                                    <strong>@GetPatientDisplayName(Model[i])</strong>
+                                    <br><small class="text-muted">@GetPatientContext(Model[i])</small>
+                                </div>
+                            </td>
+                            <td>@Model[i].PrescriptionDate.ToString("dd‑MMM‑yyyy HH:mm")</td>
+                            <td>
+                                @if (Model[i].VisitType == "First Aid or Emergency")
+                                {
+                                    <span class="badge bg-danger">🚨 Emergency</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-info">Regular</span>
+                                }
+                            </td>
+                            <!-- Approval Status Column -->
+                            <td>
+                                @switch (Model[i].ApprovalStatus)
+                                {
+                                    case "Pending":
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-clock"></i> Pending
+                                        </span>
+                                        break;
+                                    case "Approved":
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Approved
+                                        </span>
+                                        break;
+                                    case "Rejected":
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle"></i> Rejected
+                                        </span>
+                                        break;
+                                    default:
+                                        <span class="badge bg-secondary">Unknown</span>
+                                        break;
+                                }
+                            </td>
+                            <td>@Model[i].CreatedBy</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-action-view view me-1"
+                                            onclick="viewPrescription(@Model[i].PrescriptionId)" title="View Details">
+                                        <i class="bi bi-eye fs-6"></i>
+                                    </button>
+
+                                    @{
+                                        // NEW: Check if current user can edit/delete
+                                        var canEditDelete = !shouldMaskData &&
+                                        (Model[i].CreatedBy == currentUser || isDoctor);
+                                    }
+
+                                    @if (canEditDelete)
+                                    {
+                                        <!-- Edit button - only show for Pending or Rejected prescriptions -->
+                                        @if (Model[i].ApprovalStatus == "Pending" || Model[i].ApprovalStatus == "Rejected")
+                                        {
+                                            <a href="@Url.Action("Edit", "DoctorDiagnosis", new { id = Model[i].PrescriptionId })"
+                                               class="btn btn-action-edit edit me-1" title="Edit Prescription">
+                                                <i class="bi bi-pencil fs-6"></i>
+                                            </a>
+                                        }
+
+                                        @if (Model[i].ApprovalStatus == "Pending" || Model[i].ApprovalStatus == "Rejected")
+                                        {
+                                            <button type="button" class="btn btn-action-delete delete"
+                                                    onclick="deletePrescription(@Model[i].PrescriptionId, '@GetPatientDisplayName(Model[i])')"
+                                                    title="Delete Prescription">
+                                                <i class="bi bi-trash fs-6"></i>
+                                            </button>
+                                        }
+                                    }
+                                    @* else if (!shouldMaskData)
+                                    {
+                                        <!-- Show disabled buttons with tooltip for unauthorized users -->
+                                        @if (Model[i].ApprovalStatus == "Pending" || Model[i].ApprovalStatus == "Rejected")
+                                        {
+                                            <button type="button" class="btn btn-action-edit edit me-1" disabled
+                                                    title="Only the creator or a doctor can edit this prescription">
+                                                <i class="bi bi-pencil fs-6"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-action-delete delete" disabled
+                                                    title="Only the creator or a doctor can delete this prescription">
+                                                <i class="bi bi-trash fs-6"></i>
+                                            </button>
+                                        }
+                                    } *@
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            No prescription records found.
+                            @if (!shouldMaskData)
+                            {
+                                <br>
+                                <small>
+                                    <a href="@Url.Action("Create", "DoctorDiagnosis")" class="text-decoration-none">
+                                        <i class="bi bi-plus-circle me-1"></i>Create the first prescription
+                                    </a>
+                                </small>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- View Prescription Modal -->
+<div class="modal fade" id="viewPrescriptionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content glass p-3">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title">View Prescription Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Loading state -->
+                <div id="prescriptionLoadingState" class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    Loading prescription details...
+                </div>
+
+                <!-- Prescription content -->
+                <div id="prescriptionContent" style="display: none;">
+                    <!-- Employee & Prescription Info -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="glass p-3">
+                                <h6 class="mb-3">Employee Information</h6>
+                                <div class="row g-2 small">
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Employee ID</label>
+                                        <div class="fw-medium" id="viewEmpId"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Employee Name</label>
+                                        <div class="fw-medium" id="viewEmpName"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Department</label>
+                                        <div class="fw-medium" id="viewEmpDept"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Plant</label>
+                                        <div class="fw-medium" id="viewEmpPlant"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="glass p-3">
+                                <h6 class="mb-3">Prescription Information</h6>
+                                <div class="row g-2 small">
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Prescription Date</label>
+                                        <div class="fw-medium" id="viewPrescDate"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Doctor</label>
+                                        <div class="fw-medium" id="viewDoctor"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Patient Status</label>
+                                        <div class="fw-medium" id="viewPatientStatus"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Blood Pressure</label>
+                                        <div class="fw-medium" id="viewBP"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Pulse</label>
+                                        <div class="fw-medium" id="viewPulse"></div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label text-muted mb-0">Temperature</label>
+                                        <div class="fw-medium" id="viewTemperature"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Patient Information Section -->
+                    <div class="row mb-4" id="patientInfoSection" style="display: none;">
+                        <div class="col-md-12">
+                            <div class="glass p-3">
+                                <h6 class="mb-3">
+                                    <i class="bi bi-people"></i> Patient Information
+                                </h6>
+                                <div id="patientInfoContent">
+                                    <!-- Patient details will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Diagnosed Diseases -->
+                    <div class="mb-4">
+                        <div class="glass p-3">
+                            <h6 class="mb-3">Diagnosed Diseases</h6>
+                            <div id="viewDiseases">
+                                <p class="text-muted small">No diseases diagnosed.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prescribed Medicines -->
+                    <div class="mb-4">
+                        <div class="glass p-3">
+                            <h6 class="mb-3">Prescribed Medicines</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm glass-table w-100 align-middle" id="viewMedicinesTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:60px">Sl.</th>
+                                            <th>Medicine</th>
+                                            <th style="width:100px">Quantity</th>
+                                            <th>Dose</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted">No medicines prescribed.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Remarks -->
+                    <div id="remarksSection" style="display: none;">
+                        <div class="glass p-3">
+                            <h6 class="mb-3">Remarks</h6>
+                            <p id="viewRemarks" class="mb-0"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error state -->
+                <div id="prescriptionErrorState" style="display: none;" class="text-center py-4">
+                    <div class="text-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <span id="prescriptionErrorMessage">Error loading prescription details.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button class="btn btn-outline-primary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Approvals Modal -->
+<div class="modal fade" id="pendingApprovalsModal" tabindex="-1" aria-labelledby="pendingApprovalsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="pendingApprovalsModalLabel">
+                    <i class="bi bi-clipboard-check"></i> Pending Prescription Approvals
+                    <span class="badge bg-warning ms-2" id="pendingModalBadge">0 Pending</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;" id="pendingApprovalsModalBody">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Close
+                </button>
+                <button type="button" class="btn btn-success" id="approveAllSelectedBtn" disabled>
+                    <i class="bi bi-check-all"></i> Approve All Selected
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Reason Modal -->
+<div class="modal fade" id="rejectReasonModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog ">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-x-circle"></i> Reject Prescription
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="rejectionReason" class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="rejectionReason" rows="4"
+                              placeholder="Please provide a detailed reason for rejecting this prescription..."
+                              required></textarea>
+                    <div class="form-text">Minimum 10 characters required</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmRejectBtn">
+                    <i class="bi bi-x-circle"></i> Reject Prescription
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle"></i> Confirm Delete
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> This action cannot be undone.
+                </div>
+                <p>Are you sure you want to delete the prescription for:</p>
+                <div class="p-3 bg-light rounded">
+                    <strong id="deletePatientName"></strong>
+                </div>
+                <p class="mt-3 text-muted small">This will permanently remove all prescription data including medicines and diagnoses.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="bi bi-trash"></i> Delete Prescription
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Helper functions for patient display *@
+@functions {
+    private string GetPatientDisplayName(EmployeeDiagnosisListViewModel model)
+    {
+        if (!string.IsNullOrEmpty(model.PatientName) && model.PatientName != "N/A")
+        {
+            return model.PatientName;
+        }
+
+        var dependentName = ExtractDependentFromRemarks(model.Remarks);
+
+        if (!string.IsNullOrEmpty(dependentName) && dependentName != "Self")
+        {
+            return dependentName;
+        }
+
+        return model.EmployeeName ?? "N/A";
+    }
+
+    private string GetPatientContext(EmployeeDiagnosisListViewModel model)
+    {
+        var isDependent = false;
+        var dependentName = "";
+
+        if (!string.IsNullOrEmpty(model.DependentName) && model.DependentName != "Self")
+        {
+            isDependent = true;
+            dependentName = model.DependentName;
+        }
+        else
+        {
+            dependentName = ExtractDependentFromRemarks(model.Remarks);
+            isDependent = !string.IsNullOrEmpty(dependentName) && dependentName != "Self";
+        }
+
+        if (isDependent)
+        {
+            return $"Dependent of {model.EmployeeName} (ID: {model.EmployeeId})";
+        }
+
+        return $"Employee ID: {model.EmployeeId}";
+    }
+
+    private string ExtractDependentFromRemarks(string remarks)
+    {
+        if (string.IsNullOrEmpty(remarks))
+            return "Self";
+
+        try
+        {
+            if (remarks.Contains("Patient: Dependent -", StringComparison.OrdinalIgnoreCase))
+            {
+                var startIndex = remarks.IndexOf("Patient: Dependent -", StringComparison.OrdinalIgnoreCase);
+                if (startIndex >= 0)
+                {
+                    var afterPrefix = remarks.Substring(startIndex + "Patient: Dependent -".Length).Trim();
+                    var endIndex = afterPrefix.IndexOf(';');
+                    if (endIndex > 0)
+                    {
+                        return afterPrefix.Substring(0, endIndex).Trim();
+                    }
+                    else
+                    {
+                        return afterPrefix.Trim();
+                    }
+                }
+            }
+
+            if (remarks.Contains("Patient: Employee (Self)", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Self";
+            }
+
+            return "Self";
+        }
+        catch
+        {
+            return "Self";
+        }
+    }
+}
+
+@section Scripts {
+    <script>
+        let currentPrescriptionId = null;
+        let currentDeletePrescriptionId = null;
+
+        const isDoctor = $('#isDoctor').val() === 'true';
+        const shouldMaskData = $('#shouldMaskData').val() === 'true';
+        const userRole = $('#userRole').val();
+
+        function maskValue(value) {
+            return shouldMaskData ? '*****' : (value || '');
+        }
+
+        $(document).ready(function() {
+            if (isDoctor) {
+                checkUserRoleAndInitialize();
+            }
+
+            $('#pendingApprovalBtn').on('click', function() {
+                loadPendingApprovals();
+            });
+
+            $('#confirmDeleteBtn').on('click', function() {
+                if (currentDeletePrescriptionId) {
+                    performDelete(currentDeletePrescriptionId);
+                }
+            });
+
+            setupModalEventHandlers();
+        });
+
+        function setupModalEventHandlers() {
+            $('#pendingApprovalsModal').on('change', '#selectAllCheckbox', function() {
+                const isChecked = $(this).is(':checked');
+                $('.prescription-checkbox').prop('checked', isChecked);
+                updateApproveButtonState();
+            });
+
+            $('#pendingApprovalsModal').on('change', '.prescription-checkbox', function() {
+                updateApproveButtonState();
+                const totalCheckboxes = $('.prescription-checkbox').length;
+                const checkedCheckboxes = $('.prescription-checkbox:checked').length;
+                $('#selectAllCheckbox').prop('indeterminate', checkedCheckboxes > 0 && checkedCheckboxes < totalCheckboxes);
+                $('#selectAllCheckbox').prop('checked', checkedCheckboxes === totalCheckboxes);
+            });
+
+            $('#pendingApprovalsModal').on('click', '#selectAllBtn', function() {
+                const allChecked = $('.prescription-checkbox:checked').length === $('.prescription-checkbox').length;
+                $('.prescription-checkbox').prop('checked', !allChecked);
+                $('#selectAllCheckbox').prop('checked', !allChecked);
+                updateApproveButtonState();
+            });
+
+            $('#pendingApprovalsModal').on('click', '.approve-btn', function() {
+                const prescriptionId = $(this).data('prescription-id');
+                approvePrescription(prescriptionId);
+            });
+
+            $('#pendingApprovalsModal').on('click', '.reject-btn', function() {
+                currentPrescriptionId = $(this).data('prescription-id');
+                $('#rejectionReason').val('');
+                $('#rejectReasonModal').modal('show');
+            });
+
+            $('#pendingApprovalsModal').on('click', '#approveAllBtn, #approveAllSelectedBtn', function() {
+                const selectedIds = $('.prescription-checkbox:checked').map(function() {
+                    return parseInt($(this).val());
+                }).get();
+
+                if (selectedIds.length === 0) {
+                    showAlert('warning', 'Please select at least one prescription to approve.');
+                    return;
+                }
+
+                approveMultiplePrescriptions(selectedIds);
+            });
+
+            $('#confirmRejectBtn').on('click', function() {
+                const reason = $('#rejectionReason').val().trim();
+
+                if (reason.length < 10) {
+                    showAlert('error', 'Please provide a detailed rejection reason (minimum 10 characters).');
+                    return;
+                }
+
+                rejectPrescription(currentPrescriptionId, reason);
+            });
+        }
+
+        function deletePrescription(prescriptionId, patientName) {
+            currentDeletePrescriptionId = prescriptionId;
+            $('#deletePatientName').text(patientName);
+            $('#deleteConfirmModal').modal('show');
+        }
+
+        function performDelete(prescriptionId) {
+            $.ajax({
+                url: '@Url.Action("DeletePrescription", "DoctorDiagnosis")',
+                type: 'POST',
+                data: { prescriptionId: prescriptionId },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert('success', response.message || 'Prescription deleted successfully.');
+                        $('#deleteConfirmModal').modal('hide');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showAlert('error', response.message || 'Error deleting prescription.');
+                    }
+                },
+                error: function() {
+                    showAlert('error', 'Error deleting prescription.');
+                }
+            });
+        }
+
+        function viewPrescription(prescriptionId) {
+            viewDiagnosis(prescriptionId);
+        }
+
+        function viewDiagnosis(prescriptionId) {
+            $('#viewPrescriptionModal').modal('show');
+
+            $('#prescriptionLoadingState').show();
+            $('#prescriptionContent').hide();
+            $('#prescriptionErrorState').hide();
+
+            $.ajax({
+                url: '@Url.Action("GetPrescriptionDetails", "DoctorDiagnosis")',
+                type: 'GET',
+                data: { prescriptionId: prescriptionId },
+                success: function (data) {
+                    if (data.success) {
+                        populatePrescriptionModal(data.prescription);
+                        $('#prescriptionLoadingState').hide();
+                        $('#prescriptionContent').show();
+                    } else {
+                        showPrescriptionError(data.message || 'Failed to load prescription details.');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error loading prescription:', error);
+                    showPrescriptionError('Error loading prescription details: ' + error);
+                }
+            });
+        }
+
+        function populatePrescriptionModal(prescription) {
+            $('#viewEmpId').text(prescription.employeeId || 'N/A');
+            $('#viewEmpName').text(prescription.employeeName || 'N/A');
+            $('#viewEmpDept').text(prescription.department || 'N/A');
+            $('#viewEmpPlant').text(prescription.plant || 'N/A');
+
+            $('#viewPrescDate').text(formatDate(prescription.prescriptionDate));
+            $('#viewDoctor').text(prescription.createdBy || 'N/A');
+            $('#viewPatientStatus').text(prescription.patientStatus || 'N/A');
+            $('#viewBP').text(maskValue(prescription.bloodPressure) || 'Not recorded');
+            $('#viewPulse').text(maskValue(prescription.pulse) || 'Not recorded');
+            $('#viewTemperature').text(maskValue(prescription.temperature) || 'Not recorded');
+
+            var dependentInfo = extractDependentInfoFromRemarks(prescription.remarks);
+            if (dependentInfo.isDependent) {
+                var patientInfoHtml = `
+                    <div class="alert alert-info mb-3">
+                        <div class="row g-2 small">
+                            <div class="col-12">
+                                <strong><i class="bi bi-info-circle"></i> This prescription is for the employee's dependent</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-2 small">
+                        <div class="col-4">
+                            <label class="form-label text-muted mb-0">Patient Name</label>
+                            <div class="fw-medium text-primary">${dependentInfo.name}</div>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label text-muted mb-0">Patient Type</label>
+                            <div class="fw-medium">Dependent</div>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label text-muted mb-0">Relation</label>
+                            <div class="fw-medium">${dependentInfo.relation || '-'}</div>
+                        </div>
+                    </div>
+                `;
+
+                if (prescription.dependentDetails) {
+                    patientInfoHtml += `
+                        <div class="row g-2 small mt-2">
+                            <div class="col-3">
+                                <label class="form-label text-muted mb-0">Age</label>
+                                <div class="fw-medium">${prescription.dependentDetails.age || 'N/A'} years</div>
+                            </div>
+                            <div class="col-3">
+                                <label class="form-label text-muted mb-0">Gender</label>
+                                <div class="fw-medium">${prescription.dependentDetails.gender || 'N/A'}</div>
+                            </div>
+                            <div class="col-3">
+                                <label class="form-label text-muted mb-0">DOB</label>
+                                <div class="fw-medium">${prescription.dependentDetails.dob || 'N/A'}</div>
+                            </div>
+                            <div class="col-3">
+                                <label class="form-label text-muted mb-0">Status</label>
+                                <div class="fw-medium">
+                                    ${prescription.dependentDetails.isActive ?
+                                        '<span class="badge bg-success">Active</span>' :
+                                        '<span class="badge bg-secondary">Inactive</span>'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                $('#patientInfoContent').html(patientInfoHtml);
+                $('#patientInfoSection').show();
+            } else {
+                var selfPatientHtml = `
+                    <div class="alert alert-success mb-0">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-check-circle me-2"></i>
+                            <div>
+                                <strong>Patient: ${prescription.employeeName} (Employee - Self)</strong>
+                                <div class="small text-muted">This prescription is for the employee themselves.</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $('#patientInfoContent').html(selfPatientHtml);
+                $('#patientInfoSection').show();
+            }
+
+            populateDiseases(prescription.diseases);
+            populateMedicinesWithMasking(prescription.medicines);
+
+            if (prescription.remarks && prescription.remarks.trim()) {
+                $('#viewRemarks').text(prescription.remarks);
+                $('#remarksSection').show();
+            } else {
+                $('#remarksSection').hide();
+            }
+        }
+
+        function extractDependentInfoFromRemarks(remarks) {
+            if (!remarks) return { isDependent: false, name: null, relation: null };
+
+            try {
+                if (remarks.includes('Patient: Dependent -')) {
+                    var startIndex = remarks.indexOf('Patient: Dependent -');
+                    var afterPrefix = remarks.substring(startIndex + 'Patient: Dependent -'.length).trim();
+                    var endIndex = afterPrefix.indexOf(';');
+                    var dependentName = endIndex > 0 ?
+                        afterPrefix.substring(0, endIndex).trim() :
+                        afterPrefix.trim();
+
+                    var relation = null;
+                    if (remarks.includes('Relation:')) {
+                        var relationStart = remarks.indexOf('Relation:') + 'Relation:'.length;
+                        var relationPart = remarks.substring(relationStart).trim();
+                        var relationEnd = relationPart.indexOf(';');
+                        relation = relationEnd > 0 ?
+                            relationPart.substring(0, relationEnd).trim() :
+                            relationPart.split(' ')[0].trim();
+                    }
+
+                    return {
+                        isDependent: true,
+                        name: dependentName,
+                        relation: relation
+                    };
+                }
+
+                return { isDependent: false, name: null, relation: null };
+            } catch (error) {
+                console.log('Error parsing dependent info:', error);
+                return { isDependent: false, name: null, relation: null };
+            }
+        }
+
+        function populateDiseases(diseases) {
+            const diseaseContainer = $('#viewDiseases');
+
+            if (diseases && diseases.length > 0) {
+                var diseaseList = '';
+                diseases.forEach(function(disease) {
+                    diseaseList += '<span class="badge bg-info me-2 mb-2">' + disease.diseaseName + '</span>';
+                });
+                diseaseContainer.html(diseaseList);
+            } else {
+                diseaseContainer.html('<p class="text-muted small mb-0">No diseases diagnosed.</p>');
+            }
+        }
+
+        function populateMedicinesWithMasking(medicines) {
+            const tbody = $('#viewMedicinesTable tbody');
+            tbody.empty();
+
+            if (medicines && medicines.length > 0) {
+                medicines.forEach(function (medicine, index) {
+                    const row = '<tr>' +
+                        '<td>' + (index + 1) + '</td>' +
+                        '<td>' + maskValue(medicine.baseName +' - '+ medicine.medicineName) + '</td>' +
+                        '<td>' + medicine.quantity + '</td>' +
+                        '<td>' + (medicine.dose || 'Not specified') + '</td>' +
+                    '</tr>';
+                    tbody.append(row);
+                });
+            } else {
+                tbody.append('<tr><td colspan="4" class="text-center text-muted">No medicines prescribed.</td></tr>');
+            }
+        }
+
+        function showPrescriptionError(message) {
+            $('#prescriptionLoadingState').hide();
+            $('#prescriptionContent').hide();
+            $('#prescriptionErrorMessage').text(message);
+            $('#prescriptionErrorState').show();
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function checkUserRoleAndInitialize() {
+            $.ajax({
+                url: '@Url.Action("GetPendingApprovalCount", "DoctorDiagnosis")',
+                type: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        $('#pendingApprovalBtn').show();
+                        updatePendingCount(response.count);
+                        setInterval(updatePendingApprovalCount, 30000);
+                    }
+                },
+                error: function() {
+                    console.log('Failed to check user role or get pending count');
+                }
+            });
+        }
+
+        function updatePendingApprovalCount() {
+            $.ajax({
+                url: '@Url.Action("GetPendingApprovalCount", "DoctorDiagnosis")',
+                type: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        updatePendingCount(response.count);
+                    }
+                },
+                error: function() {
+                    console.log('Failed to update pending count');
+                }
+            });
+        }
+
+        function updatePendingCount(count) {
+            const badge = $('#pendingCount');
+            if (count > 0) {
+                badge.text(count).show();
+                $('#pendingApprovalBtn').removeClass('btn-warning').addClass('btn-danger');
+            } else {
+                badge.hide();
+                $('#pendingApprovalBtn').removeClass('btn-danger').addClass('btn-warning');
+            }
+        }
+
+        function loadPendingApprovals() {
+            $.ajax({
+                url: '@Url.Action("PendingApprovals", "DoctorDiagnosis")',
+                type: 'GET',
+                success: function(response) {
+                    if (typeof response === 'string') {
+                        $('#pendingApprovalsModalBody').html(response);
+
+                        const pendingCount = $('.prescription-checkbox').length;
+                        $('#pendingModalBadge').text(pendingCount + ' Pending');
+
+                        if (pendingCount > 0) {
+                            $('#approveAllSelectedBtn').show();
+                        } else {
+                            $('#approveAllSelectedBtn').hide();
+                        }
+
+                        $('#pendingApprovalsModal').modal('show');
+                    } else if (response.success === false) {
+                        showAlert('error', response.message);
+                    }
+                },
+                error: function() {
+                    showAlert('error', 'Error loading pending approvals.');
+                }
+            });
+        }
+
+        function updateApproveButtonState() {
+            const hasSelected = $('.prescription-checkbox:checked').length > 0;
+            $('#approveAllBtn, #approveAllSelectedBtn').prop('disabled', !hasSelected);
+        }
+
+        function approvePrescription(prescriptionId) {
+            if (!prescriptionId) return;
+
+            $.ajax({
+                url: '@Url.Action("ApprovePrescription", "DoctorDiagnosis")',
+                type: 'POST',
+                data: { prescriptionId: prescriptionId },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert('success', response.message);
+                        $(`tr[data-prescription-id="${prescriptionId}"]`).fadeOut(function() {
+                            $(this).remove();
+                            updateModalAfterAction();
+                        });
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showAlert('error', response.message);
+                    }
+                },
+                error: function() {
+                    showAlert('error', 'Error approving prescription.');
+                }
+            });
+        }
+
+        function rejectPrescription(prescriptionId, reason) {
+            if (!prescriptionId || !reason) return;
+
+            $.ajax({
+                url: '@Url.Action("RejectPrescription", "DoctorDiagnosis")',
+                type: 'POST',
+                data: {
+                    prescriptionId: prescriptionId,
+                    rejectionReason: reason
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert('success', response.message);
+                        $('#rejectReasonModal').modal('hide');
+                        $(`tr[data-prescription-id="${prescriptionId}"]`).fadeOut(function() {
+                            $(this).remove();
+                            updateModalAfterAction();
+                        });
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showAlert('error', response.message);
+                    }
+                },
+                error: function() {
+                    showAlert('error', 'Error rejecting prescription.');
+                }
+            });
+        }
+
+        function approveMultiplePrescriptions(prescriptionIds) {
+            if (!prescriptionIds || prescriptionIds.length === 0) return;
+
+            $.ajax({
+                url: '@Url.Action("ApproveAllPrescriptions", "DoctorDiagnosis")',
+                type: 'POST',
+                data: { prescriptionIds: prescriptionIds },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert('success', response.message);
+                        prescriptionIds.forEach(function(id) {
+                            $(`tr[data-prescription-id="${id}"]`).fadeOut(function() {
+                                $(this).remove();
+                                updateModalAfterAction();
+                            });
+                        });
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showAlert('error', response.message);
+                    }
+                },
+                error: function() {
+                    showAlert('error', 'Error approving prescriptions.');
+                }
+            });
+        }
+
+        function updateModalAfterAction() {
+            const remainingCount = $('tbody tr[data-prescription-id]').length;
+            $('#pendingModalBadge').text(remainingCount + ' Pending');
+
+            if (remainingCount === 0) {
+                $('#pendingApprovalsModalBody').html(`
+                    <div class="text-center py-5">
+                        <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+                        <h5 class="mt-3">All Prescriptions Processed</h5>
+                        <p class="text-muted">No more pending approvals.</p>
+                    </div>
+                `);
+                $('#approveAllSelectedBtn').hide();
+            }
+
+            $('#selectAllCheckbox').prop('checked', false).prop('indeterminate', false);
+            updateApproveButtonState();
+            updatePendingApprovalCount();
+        }
+
+        function showAlert(type, message) {
+            const alertClass = type === 'success' ? 'alert-success' :
+                              type === 'info' ? 'alert-info' :
+                              type === 'warning' ? 'alert-warning' : 'alert-danger';
+
+            const alert = $(`
+                <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `);
+
+            $('#alertContainer').html(alert);
+
+            setTimeout(() => {
+                alert.alert('close');
+            }, 5000);
+        }
+    </script>
+}
+
+<style>
+    .modal-backdrop {
+        z-index: -1 !important;
+    }
+
+    .glass {
+        --glass-bg: rgba(255, 255, 255, 0.30) !important;
+    }
+
+    .glass-table {
+        background: var(--glass-bg);
+        backdrop-filter: blur(6px);
+    }
+
+        .glass-table th {
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-table td {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+    .btn-group .btn {
+        margin-right: 2px;
+    }
+
+    /* NEW: Disabled button styling */
+    .btn[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    #pendingApprovalBtn {
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+
+        #pendingApprovalBtn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        #pendingApprovalBtn.btn-danger {
+            animation: pulse 2s infinite;
+        }
+
+    @@keyframes pulse {
+        0%
+
+    {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+    }
+
+    }
+
+    #pendingCount {
+        font-size: 0.7rem;
+        min-width: 18px;
+        height: 18px;
+        line-height: 18px;
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+        .badge.bg-danger {
+            background-color: #dc3545 !important;
+        }
+
+        .badge.bg-info {
+            background-color: #0dcaf0 !important;
+        }
+
+        .badge.bg-warning.text-dark {
+            background-color: #ffc107 !important;
+            color: #212529 !important;
+        }
+
+        .badge.bg-success {
+            background-color: #198754 !important;
+        }
+
+    .glass-table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-header.bg-primary {
+        border-bottom: none;
+    }
+
+    .modal-header.bg-danger {
+        border-bottom: none;
+    }
+
+    .btn-close-white {
+        filter: invert(1);
+    }
+
+    .alert-info {
+        border-left: 4px solid #0dcaf0;
+    }
+
+    .btn-secondary[disabled] {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        opacity: 0.65;
+    }
+
+    .btn-outline-secondary[disabled] {
+        color: #6c757d;
+        border-color: #6c757d;
+        opacity: 0.65;
+    }
+
+    #alertContainer {
+        position: fixed !important;
+        top: 20px !important;
+        right: 20px !important;
+        z-index: 9999 !important;
+        max-width: 400px !important;
+    }
+
+    .modal {
+        z-index: 1055 !important;
+    }
+
+    @@media (max-width: 768px) {
+        .table-responsive
+
+    {
+        font-size: 0.8rem;
+    }
+
+    .badge {
+        font-size: 0.65rem;
+        padding: 0.25em 0.4em;
+    }
+
+    .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    }</style>

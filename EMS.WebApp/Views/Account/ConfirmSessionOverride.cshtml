@@ -1,0 +1,15 @@
+﻿@{
+    ViewData["Title"] = "Confirm Login";
+    var user_name = ViewBag.user_name;
+    var password = ViewBag.password;
+}
+
+<h2>Active Session Detected</h2>
+<p>An active session is already in progress. Proceeding will terminate the existing session. Do you wish to continue?</p>
+
+<form method="post" asp-action="ProceedConfirmedLogin">
+    <input type="hidden" name="user_name" value="@user_name" />
+    <input type="hidden" name="password" value="@password" />
+    <button type="submit" class="btn btn-primary">Yes, Continue</button>
+    <a href='@Url.Action("Login", "Account")' class="btn btn-secondary">Cancel</a>
+</form>

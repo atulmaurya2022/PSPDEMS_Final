@@ -1,0 +1,659 @@
+﻿@model EMS.WebApp.Data.MedRefHospital
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Warning</strong>
+                @ViewBag.Error
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form asp-action="@(Model.hosp_id == 0 ? "Create" : "Edit")" method="post" id="medRefHospitalForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="hosp_id" type="hidden" />
+    <input asp-for="CreatedBy" type="hidden" />
+    <input asp-for="CreatedOn" type="hidden" />
+    <input type="hidden" id="checkUrlHidden" value="@Url.Action("CheckHospitalNameCodeExists", "MedRefHospital")" />
+
+    <!-- Display general validation message -->
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-x-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Validation Error</strong>
+                Please correct the errors below and try again.
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- Hospital Information Section -->
+    <div class="form-section">
+        <h6 class="section-title">
+            <i class="bi bi-hospital"></i>
+            Hospital Information
+        </h6>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label asp-for="hosp_name" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.hosp_name)
+                    <span class="text-danger">*</span>
+                </label>
+                <input asp-for="hosp_name" class="form-control form-control-master" id="hospNameInput" maxlength="120" placeholder="Enter hospital name" />
+                <div class="char-counter-container">
+                    <span asp-validation-for="hosp_name" class="field-validation-error" id="hospNameValidation"></span>
+                    <small class="char-counter" id="hospNameCharCount">0/120</small>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="hosp_code" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.hosp_code)
+                    <span class="text-danger">*</span>
+                </label>
+                <input asp-for="hosp_code" class="form-control form-control-master" id="hospCodeInput" maxlength="20" placeholder="Enter hospital code" />
+                <div class="char-counter-container">
+                    <span asp-validation-for="hosp_code" class="field-validation-error" id="hospCodeValidation"></span>
+                    <small class="char-counter" id="hospCodeCharCount">0/20</small>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="speciality" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.speciality)
+                    <span class="text-danger">*</span>
+                </label>
+                <input asp-for="speciality" class="form-control form-control-master" id="specialityInput" maxlength="100" placeholder="Enter speciality" />
+                <div class="char-counter-container">
+                    <span asp-validation-for="speciality" class="field-validation-error" id="specialityValidation"></span>
+                    <small class="char-counter" id="specialityCharCount">0/100</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label asp-for="address" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.address)
+                </label>
+                <textarea asp-for="address" class="form-control form-control-master" rows="3" id="addressInput" maxlength="500" placeholder="Enter hospital address"></textarea>
+                <div class="char-counter-container">
+                    <span asp-validation-for="address" class="field-validation-error" id="addressValidation"></span>
+                    <small class="char-counter" id="addressCharCount">0/500</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="description" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.description)
+                </label>
+                <textarea asp-for="description" class="form-control form-control-master" rows="3" id="descriptionInput" maxlength="500" placeholder="Enter hospital description"></textarea>
+                <div class="char-counter-container">
+                    <span asp-validation-for="description" class="field-validation-error" id="descriptionValidation"></span>
+                    <small class="char-counter" id="descriptionCharCount">0/500</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vendor Information Section -->
+    <div class="form-section">
+        <h6 class="section-title">
+            <i class="bi bi-building"></i>
+            Vendor Information
+        </h6>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label asp-for="tax_category" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.tax_category)
+                    <span class="text-danger">*</span>
+                </label>
+                <div class="tax-radio-group">
+                    <div class="form-check form-check-master">
+                        <input class="form-check-input" type="radio" asp-for="tax_category" value="T" id="taxable">
+                        <label class="form-check-label" for="taxable">
+                            <i class="bi bi-check-circle text-success"></i>
+                            Taxable
+                        </label>
+                    </div>
+                    <div class="form-check form-check-master">
+                        <input class="form-check-input" type="radio" asp-for="tax_category" value="N" id="nonTaxable">
+                        <label class="form-check-label" for="nonTaxable">
+                            <i class="bi bi-x-circle text-danger"></i>
+                            Non-Taxable
+                        </label>
+                    </div>
+                </div>
+                <span asp-validation-for="tax_category" class="field-validation-error" id="taxCategoryValidation"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="vendor_name" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.vendor_name)
+                    <span class="text-danger">*</span>
+                </label>
+                <input asp-for="vendor_name" class="form-control form-control-master" id="vendorNameInput" maxlength="120" placeholder="Enter vendor name" />
+                <div class="char-counter-container">
+                    <span asp-validation-for="vendor_name" class="field-validation-error" id="vendorNameValidation"></span>
+                    <small class="char-counter" id="vendorNameCharCount">0/120</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <label asp-for="vendor_code" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.vendor_code)
+                    <span class="text-danger">*</span>
+                </label>
+                <input asp-for="vendor_code" class="form-control form-control-master" id="vendorCodeInput" maxlength="20" placeholder="Enter vendor code" />
+                <div class="char-counter-container">
+                    <span asp-validation-for="vendor_code" class="field-validation-error" id="vendorCodeValidation"></span>
+                    <small class="char-counter" id="vendorCodeCharCount">0/20</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Information Section -->
+    <div class="form-section">
+        <h6 class="section-title">
+            <i class="bi bi-person-lines-fill"></i>
+            Contact Information
+        </h6>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label asp-for="contact_person_name" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.contact_person_name)
+                </label>
+                <input asp-for="contact_person_name" class="form-control form-control-master" id="contactPersonInput" maxlength="100" placeholder="Enter contact person name" />
+                <div class="char-counter-container">
+                    <span asp-validation-for="contact_person_name" class="field-validation-error" id="contactPersonValidation"></span>
+                    <small class="char-counter" id="contactPersonCharCount">0/100</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="contact_person_email_id" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.contact_person_email_id)
+                </label>
+                <input asp-for="contact_person_email_id" type="email" class="form-control form-control-master" id="contactEmailInput" maxlength="100" placeholder="Enter email address" />
+                <div class="char-counter-container">
+                    <span asp-validation-for="contact_person_email_id" class="field-validation-error" id="contactEmailValidation"></span>
+                    <small class="char-counter" id="contactEmailCharCount">0/100</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <label asp-for="mobile_number_1" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.mobile_number_1)
+                </label>
+                <input asp-for="mobile_number_1" type="tel" class="form-control form-control-master" id="mobile1Input" maxlength="10" placeholder="10-digit mobile" />
+                <span asp-validation-for="mobile_number_1" class="field-validation-error" id="mobile1Validation"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="mobile_number_2" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.mobile_number_2)
+                </label>
+                <input asp-for="mobile_number_2" type="tel" class="form-control form-control-master" id="mobile2Input" maxlength="10" placeholder="10-digit mobile" />
+                <span asp-validation-for="mobile_number_2" class="field-validation-error" id="mobile2Validation"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="phone_number_1" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.phone_number_1)
+                </label>
+                <input asp-for="phone_number_1" type="tel" class="form-control form-control-master" id="phone1Input" maxlength="11" placeholder="10-11 digit phone" />
+                <span asp-validation-for="phone_number_1" class="field-validation-error" id="phone1Validation"></span>
+            </div>
+            <div class="col-md-3">
+                <label asp-for="phone_number_2" class="form-label form-label-master">
+                    @Html.DisplayNameFor(m => m.phone_number_2)
+                </label>
+                <input asp-for="phone_number_2" type="tel" class="form-control form-control-master" id="phone2Input" maxlength="11" placeholder="10-11 digit phone" />
+                <span asp-validation-for="phone_number_2" class="field-validation-error" id="phone2Validation"></span>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.hosp_id > 0 && (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue))
+    {
+        <div class="audit-section">
+            <h6>
+                <i class="bi bi-clock-history"></i>
+                Audit Information
+            </h6>
+
+            @if (Model.CreatedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Created By</label>
+                        <input class="form-control" value="@(Model.CreatedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Created On</label>
+                        <input class="form-control" value="@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ModifiedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Modified By</label>
+                        <input class="form-control" value="@(Model.ModifiedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Modified On</label>
+                        <input class="form-control" value="@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="modal-footer modal-footer-master">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            @(Model.hosp_id == 0 ? "Save Hospital" : "Update Hospital")
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    
+   @*  <script type="text/javascript">
+        $(document).ready(function() {
+            // Form elements
+            const form = $('#medRefHospitalForm');
+            const submitBtn = $('#submitBtn');
+            const hospNameInput = $('#hospNameInput');
+            const hospCodeInput = $('#hospCodeInput');
+            const specialityInput = $('#specialityInput');
+            const addressInput = $('#addressInput');
+            const descriptionInput = $('#descriptionInput');
+            const vendorNameInput = $('#vendorNameInput');
+            const vendorCodeInput = $('#vendorCodeInput');
+            const contactPersonInput = $('#contactPersonInput');
+            const contactEmailInput = $('#contactEmailInput');
+            const mobile1Input = $('#mobile1Input');
+            const mobile2Input = $('#mobile2Input');
+            const phone1Input = $('#phone1Input');
+            const phone2Input = $('#phone2Input');
+            const hospId = $('#hosp_id').val();
+
+            // Character count elements
+            const hospNameCharCount = $('#hospNameCharCount');
+            const hospCodeCharCount = $('#hospCodeCharCount');
+            const specialityCharCount = $('#specialityCharCount');
+            const addressCharCount = $('#addressCharCount');
+            const descriptionCharCount = $('#descriptionCharCount');
+            const vendorNameCharCount = $('#vendorNameCharCount');
+            const vendorCodeCharCount = $('#vendorCodeCharCount');
+            const contactPersonCharCount = $('#contactPersonCharCount');
+            const contactEmailCharCount = $('#contactEmailCharCount');
+
+            // Validation flags
+            let isCheckingCombination = false;
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Security patterns to check for
+            const dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            // Function to check for dangerous input
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Enhanced character count functions
+            function updateCharCount(input, countElement, maxLength) {
+                const currentLength = input.val().length;
+                countElement.text(`${currentLength}/${maxLength}`);
+
+                // Remove previous classes
+                countElement.removeClass('text-warning text-danger');
+
+                // Calculate thresholds
+                const warningThreshold = Math.floor(maxLength * 0.8);
+
+                if (currentLength >= maxLength) {
+                    countElement.addClass('text-danger');
+                } else if (currentLength >= warningThreshold) {
+                    countElement.addClass('text-warning');
+                }
+            }
+
+            // Enhanced validation functions
+            function validateTextInput(input, validationSpan, fieldName, minLength, maxLength, pattern, isRequired = false) {
+                const value = input.val().trim();
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                input.removeClass('is-invalid is-valid');
+
+                if (isRequired && !value) {
+                    showFieldError(validationSpan, input, fieldName + ' is required.');
+                    isValid = false;
+                } else if (value && value.length < minLength) {
+                    showFieldError(validationSpan, input, fieldName + ' must be at least ' + minLength + ' characters.');
+                    isValid = false;
+                } else if (value && value.length > maxLength) {
+                    showFieldError(validationSpan, input, fieldName + ' cannot exceed ' + maxLength + ' characters.');
+                    isValid = false;
+                } else if (value && containsDangerousInput(value)) {
+                    showFieldError(validationSpan, input, fieldName + ' contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (value && pattern && !pattern.test(value)) {
+                    showFieldError(validationSpan, input, fieldName + ' contains invalid characters.');
+                    isValid = false;
+                } else if (value) {
+                    input.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateEmail(input, validationSpan) {
+                const email = input.val().trim();
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                input.removeClass('is-invalid is-valid');
+
+                if (email && email.length > 100) {
+                    showFieldError(validationSpan, input, 'Email cannot exceed 100 characters.');
+                    isValid = false;
+                } else if (email && containsDangerousInput(email)) {
+                    showFieldError(validationSpan, input, 'Email contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (email && !/^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(email)) {
+                    showFieldError(validationSpan, input, 'Please enter a valid email address.');
+                    isValid = false;
+                } else if (email) {
+                    input.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validatePhone(input, validationSpan, fieldName, minLength, maxLength) {
+                const value = input.val().trim();
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                input.removeClass('is-invalid is-valid');
+
+                if (value && (!/^\d+$/.test(value) || value.length < minLength || value.length > maxLength)) {
+                    showFieldError(validationSpan, input, fieldName + ' must be ' + minLength + (minLength === maxLength ? '' : '-' + maxLength) + ' digits.');
+                    isValid = false;
+                } else if (value) {
+                    input.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            // Real-time validation for hospital name and code combination
+            function checkHospitalNameCodeCombination() {
+                const hospName = hospNameInput.val().trim();
+                const hospCode = hospCodeInput.val().trim();
+                const hospNameValidation = $('#hospNameValidation');
+                const hospCodeValidation = $('#hospCodeValidation');
+
+                if (!hospName || !hospCode) {
+                    updateSubmitButton();
+                    return;
+                }
+
+                if (isCheckingCombination) return;
+
+                isCheckingCombination = true;
+                submitBtn.prop('disabled', true);
+
+                $.post('@Html.Raw(Url.Action("CheckHospitalNameCodeExists", "MedRefHospital"))', {
+                    hospName: hospName,
+                    hospCode: hospCode,
+                    hospId: hospId || null
+                })
+                .done(function(response) {
+                    if (response.exists) {
+                        const errorMessage = 'This hospital name and code combination already exists.';
+                        showFieldError(hospNameValidation, hospNameInput, errorMessage);
+                        showFieldError(hospCodeValidation, hospCodeInput, errorMessage);
+                        submitBtn.prop('disabled', true);
+                    } else {
+                        updateSubmitButton();
+                    }
+                })
+                .fail(function() {
+                    console.log('Error checking hospital name and code combination');
+                    updateSubmitButton();
+                })
+                .always(function() {
+                    isCheckingCombination = false;
+                });
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0 ||
+                                isCheckingCombination;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Event handlers for character counting and validation
+            hospNameInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), hospNameCharCount, 120);
+                    validateTextInput($(this), $('#hospNameValidation'), 'Hospital Name', 2, 120, /^[a-zA-Z0-9\s\-_\.\(\)\[\]]+$/, true);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            hospCodeInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), hospCodeCharCount, 20);
+                    validateTextInput($(this), $('#hospCodeValidation'), 'Hospital Code', 2, 20, /^[a-zA-Z0-9\-_]+$/, true);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            specialityInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), specialityCharCount, 100);
+                    validateTextInput($(this), $('#specialityValidation'), 'Speciality', 2, 100, /^[a-zA-Z0-9\s\-_\.\,\(\)\[\]]+$/, true);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            addressInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), addressCharCount, 500);
+                    validateTextInput($(this), $('#addressValidation'), 'Address', 0, 500, /^[a-zA-Z0-9\s\-_\.\,\;\:\!\?\(\)\[\]\{\}#/]*$/);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            descriptionInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), descriptionCharCount, 500);
+                    validateTextInput($(this), $('#descriptionValidation'), 'Description', 0, 500, /^[a-zA-Z0-9\s\-_\.\,\;\:\!\?\(\)\[\]\{\}]*$/);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            vendorNameInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), vendorNameCharCount, 120);
+                    validateTextInput($(this), $('#vendorNameValidation'), 'Vendor Name', 2, 120, /^[a-zA-Z0-9\s\-_\.\(\)\[\]]+$/, true);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            vendorCodeInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), vendorCodeCharCount, 20);
+                    validateTextInput($(this), $('#vendorCodeValidation'), 'Vendor Code', 2, 20, /^[a-zA-Z0-9\-_]+$/, true);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            contactPersonInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), contactPersonCharCount, 100);
+                    validateTextInput($(this), $('#contactPersonValidation'), 'Contact Person Name', 0, 100, /^[a-zA-Z\s\-\.]*$/);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            contactEmailInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), contactEmailCharCount, 100);
+                    validateEmail($(this), $('#contactEmailValidation'));
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            mobile1Input.on('input paste keyup', function() {
+                setTimeout(() => {
+                    validatePhone($(this), $('#mobile1Validation'), 'Mobile Number One', 10, 10);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            mobile2Input.on('input paste keyup', function() {
+                setTimeout(() => {
+                    validatePhone($(this), $('#mobile2Validation'), 'Mobile Number Two', 10, 10);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            phone1Input.on('input paste keyup', function() {
+                setTimeout(() => {
+                    validatePhone($(this), $('#phone1Validation'), 'Phone Number One', 10, 11);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            phone2Input.on('input paste keyup', function() {
+                setTimeout(() => {
+                    validatePhone($(this), $('#phone2Validation'), 'Phone Number Two', 10, 11);
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            // Debounced combination check
+            let combinationCheckTimeout;
+            function debouncedCombinationCheck() {
+                clearTimeout(combinationCheckTimeout);
+                combinationCheckTimeout = setTimeout(checkHospitalNameCodeCombination, 500);
+            }
+
+            hospNameInput.on('input keyup blur', debouncedCombinationCheck);
+            hospCodeInput.on('input keyup blur', debouncedCombinationCheck);
+
+            // Initialize character counts and validation
+            updateCharCount(hospNameInput, hospNameCharCount, 120);
+            updateCharCount(hospCodeInput, hospCodeCharCount, 20);
+            updateCharCount(specialityInput, specialityCharCount, 100);
+            updateCharCount(addressInput, addressCharCount, 500);
+            updateCharCount(descriptionInput, descriptionCharCount, 500);
+            updateCharCount(vendorNameInput, vendorNameCharCount, 120);
+            updateCharCount(vendorCodeInput, vendorCodeCharCount, 20);
+            updateCharCount(contactPersonInput, contactPersonCharCount, 100);
+            updateCharCount(contactEmailInput, contactEmailCharCount, 100);
+
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (isCheckingCombination) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Double-check for dangerous input before submission
+                const inputs = [hospNameInput, hospCodeInput, specialityInput, addressInput, descriptionInput, vendorNameInput, vendorCodeInput, contactPersonInput, contactEmailInput];
+                for (let input of inputs) {
+                    if (containsDangerousInput(input.val())) {
+                        e.preventDefault();
+                        alert('Invalid input detected. Please remove any script tags or unsafe characters.');
+                        return false;
+                    }
+                }
+            });
+
+            // Prevent pasting of dangerous content
+            function handleDangerousPaste(input, inputName) {
+                input.on('paste', function(e) {
+                    setTimeout(function() {
+                        const pastedContent = input.val();
+                        if (containsDangerousInput(pastedContent)) {
+                            input.val('');
+                            alert('Pasted content in ' + inputName + ' contains unsafe characters and has been removed.');
+                        }
+                    }, 10);
+                });
+            }
+
+            // Apply paste protection to all text inputs
+            const allInputs = [
+                { input: hospNameInput, name: 'Hospital Name' },
+                { input: hospCodeInput, name: 'Hospital Code' },
+                { input: specialityInput, name: 'Speciality' },
+                { input: addressInput, name: 'Address' },
+                { input: descriptionInput, name: 'Description' },
+                { input: vendorNameInput, name: 'Vendor Name' },
+                { input: vendorCodeInput, name: 'Vendor Code' },
+                { input: contactPersonInput, name: 'Contact Person Name' },
+                { input: contactEmailInput, name: 'Contact Email' }
+            ];
+
+            allInputs.forEach(item => {
+                handleDangerousPaste(item.input, item.name);
+            });
+        });
+    </script> *@
+}

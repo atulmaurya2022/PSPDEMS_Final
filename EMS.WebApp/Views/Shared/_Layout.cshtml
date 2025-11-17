@@ -1,0 +1,1432 @@
+﻿@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@inject IAuthorizationService AuthorizationService
+@using Microsoft.AspNetCore.Identity
+@inject IHttpContextAccessor HttpContextAccessor
+@using EMS.WebApp.Authorization
+@using EMS.WebApp.Data
+@using EMS.WebApp.Services
+@inject IMenuService MenuService
+@{
+    var userName = User.Identity.Name ?? User.FindFirst("name")?.Value ?? "";
+    var groupedMenus = await MenuService.GetGroupedMenuItemsForUserAsync(userName);
+    var UserRole = User.FindFirst("RoleName")?.Value ?? "";
+}
+
+@{
+    var allowedScreens = ViewBag.AllowedScreens as List<MenuItemViewModel>;
+}
+@functions {
+    public string InsertSpaceBeforeCapsAfterSecondIndex(string input)
+    {
+        if (string.IsNullOrEmpty(input) || input.Length <= 2)
+            return input;
+        var result = new System.Text.StringBuilder();
+        result.Append(input[0]);
+        result.Append(input[1]);
+        for (int i = 2; i < input.Length; i++)
+        {
+            char c = input[i];
+            if (char.IsUpper(c))
+            {
+                result.Append(' ');
+            }
+            result.Append(c);
+        }
+        return result.ToString();
+    }
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] | EMS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Local Bootstrap CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/css/bootstrap.min.css" />
+    <link href="~/css/site.css" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/jquery-ui.min.css">
+
+    
+
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <script src="~/js/session-timeout.js"></script>
+    }
+   
+    <link rel="stylesheet" href="~/lib/bootstrap/bootstrap-icons/bootstrap-icons.css"/>
+
+</head>
+<body>
+    <!-- ===== Header ===== -->
+
+    <header class="app-header d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            <a class="navbar-brand d-flex align-items-center gap-2" asp-controller="Dashboard" asp-action="">
+                <img src="~/images/logo_itc.png" alt="Logo" style="height:32px" />
+            </a>
+            <span class="mainTexinNav">Employee Medical System (EMS)  </span>
+            @* <ul class="nav top-nav d-none d-md-flex">
+                <li class="nav-item"><a class="nav-link" asp-controller="Dashboard" asp-action="Doctor">Dashboard</a></li>
+                <!-- Masters Menu -->
+                @if (groupedMenus.ContainsKey("Masters") && groupedMenus["Masters"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="mastersDropdown" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear"></i> Masters
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="mastersDropdown" style="background:#fff !important;">
+                            @foreach (var item in groupedMenus["Masters"])
+                            {
+                                string screenName = item.ScreenName;
+
+                                if (screenName.Contains("SysAttachScreenRole"))
+                                {
+                                    screenName = screenName.Replace("SysAttachScreenRole", "Role Mapping");
+                                }
+                                if (screenName.Contains("Hr"))
+                                {
+                                    screenName = screenName.Replace("Hr", "");
+                                }
+                                if (screenName.Contains("MedExamCategory"))
+                                {
+                                    screenName = screenName.Replace("MedExamCategory", "Medical Examination Category");
+                                }
+                                else if (screenName.Contains("MedCategory"))
+                                {
+                                    screenName = screenName.Replace("MedCategory", "Medical Category ");
+                                }
+                                else if (screenName.Contains("Med"))
+                                {
+                                    screenName = screenName.Replace("Med", "Medicine ");
+                                }
+                                if (screenName.Contains("System"))
+                                {
+                                    screenName = screenName.Replace("System", "");
+                                }
+                                if (screenName.Contains("Sys"))
+                                {
+                                    screenName = screenName.Replace("Sys", "");
+                                }
+                                if (!screenName.Contains("Master") && !screenName.Contains("Base") && screenName != "Role Mapping" && !screenName.Contains("Category"))
+                                {
+                                    screenName = screenName + " Master";
+                                }
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="@Url.Action(item.ActionName, item.ControllerName)">
+                                        @screenName
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </li>
+                }
+
+                <!-- Transactions Menu -->
+                @if (groupedMenus.ContainsKey("Transactions") && groupedMenus["Transactions"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="transactionsDropdown" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-arrow-left-right"></i> Transactions
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="transactionsDropdown" style="background:#fff !important;">
+                            @foreach (var item in groupedMenus["Transactions"])
+                            {
+                                string screenName = item.ScreenName;
+
+                                if (screenName.Contains("OthersDiagnosis"))
+                                {
+                                    screenName = screenName.Replace("OthersDiagnosis", "Doctor Diagnosis - Others");
+                                }
+
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="@Url.Action(item.ActionName, item.ControllerName)">
+                                        @screenName
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </li>
+                }
+
+                <!-- Reports Menu -->
+                @if (groupedMenus.ContainsKey("Reports") && groupedMenus["Reports"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-bar-chart"></i> Reports
+                        </a>
+                        <ul class="dropdown-menu border-0 shadow glass" aria-labelledby="reportsDropdown" style="background:#fff !important;">
+                            @foreach (var item in groupedMenus["Reports"])
+                            {
+                                string screenName = item.ScreenName;
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+                                <li>
+                                    <a class="dropdown-item" href="@Url.Action(item.ActionName, item.ControllerName)">
+                                        @screenName
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </li>
+                }
+
+                <!-- AuditLog Menu - FIXED VERSION -->
+                @if (groupedMenus.ContainsKey("AuditLog") && groupedMenus["AuditLog"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="auditLogDropdown" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-clock-history"></i> Audit Log
+                        </a>
+                        <ul class="dropdown-menu border-0 shadow glass" aria-labelledby="auditLogDropdown" style="background:#fff !important;">
+                            @foreach (var item in groupedMenus["AuditLog"])
+                            {
+                                string screenName = item.ScreenName;
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+                                <li>
+                                    <a class="dropdown-item" href="@Url.Action(item.ActionName, item.ControllerName)">
+                                        @screenName
+                                    </a>
+                                </li>
+                            }
+                        </ul>
+                    </li>
+                }
+
+
+            </ul>
+        
+         *@
+
+
+@* 
+            <ul class="nav top-nav d-none d-md-flex">
+                <li class="nav-item"><a class="nav-link" asp-controller="Dashboard" asp-action="Doctor">Dashboard</a></li>
+
+                <!-- Masters Menu -->
+                @if (groupedMenus.ContainsKey("Masters") && groupedMenus["Masters"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="mastersDropdown" role="button"
+                            aria-expanded="false">
+                            <i class="bi bi-gear"></i> Masters
+                        </a>
+                        <div class="dropdown-menu mega-menu" aria-labelledby="mastersDropdown">
+                            @{
+                                var masterItems = groupedMenus["Masters"].ToList();
+                                var itemsPerColumn = 3;
+                                var columnCount = (int)Math.Ceiling((double)masterItems.Count / itemsPerColumn);
+                            }
+
+                            @for (int col = 0; col < Math.Min(columnCount, 3); col++)
+                            {
+                                <div class="mega-menu-category">
+                                    <h6>Masters - Category @(col + 1)</h6>
+                                    @for (int i = col * itemsPerColumn; i < Math.Min((col + 1) * itemsPerColumn, masterItems.Count); i++)
+                                    {
+                                        var item = masterItems[i];
+                                        string screenName = item.ScreenName;
+                                        string iconClass = "fa-cog"; // Default icon
+
+                                        // Process screen names as per existing logic
+                                        if (screenName.Contains("SysAttachScreenRole"))
+                                        {
+                                            screenName = "Role Mapping";
+                                            iconClass = "fa-user-shield";
+                                        }
+                                        else if (screenName.Contains("Hr"))
+                                        {
+                                            screenName = screenName.Replace("Hr", "");
+                                            iconClass = "fa-users";
+                                        }
+                                        else if (screenName.Contains("Med"))
+                                        {
+                                            screenName = screenName.Replace("Med", "Medicine ");
+                                            iconClass = "fa-pills";
+                                        }
+                                        else if (screenName.Contains("System"))
+                                        {
+                                            screenName = screenName.Replace("System", "");
+                                            iconClass = "fa-cogs";
+                                        }
+                                        else if (screenName.Contains("Sys"))
+                                        {
+                                            screenName = screenName.Replace("Sys", "");
+                                        }
+
+                                        if (!screenName.Contains("Master") && !screenName.Contains("Base") && screenName != "Role Mapping")
+                                        {
+                                            screenName = screenName + " Master";
+                                        }
+
+                                        screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                        screenName = screenName.Trim();
+
+                                        // Check if this is the active controller
+                                        bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                        <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                           class="dropdown-item menu-tile @(isActive ? "active" : "")">
+                                            <div class="menu-tile-icon">
+                                                <i class="fas @iconClass"></i>
+                                            </div>
+                                            <div class="menu-tile-content">
+                                                <span class="menu-tile-title">@screenName</span>
+                                                <span class="menu-tile-description">Manage @screenName.ToLower() settings</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Quick Links Column -->
+                            <div class="mega-menu-category featured">
+                                <h6>Quick Actions</h6>
+                                <ul class="menu-simple-list">
+                                    <li><a href="#">Add New User</a></li>
+                                    <li><a href="#">Import Masters</a></li>
+                                    <li><a href="#">Export Data</a></li>
+                                    <li><a href="#">Settings</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </li>
+                }
+
+                <!-- Transactions Menu -->
+                @if (groupedMenus.ContainsKey("Transactions") && groupedMenus["Transactions"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="transactionsDropdown" role="button"
+                            aria-expanded="false">
+                            <i class="bi bi-arrow-left-right"></i> Transactions
+                        </a>
+                        <div class="dropdown-menu mega-menu" aria-labelledby="transactionsDropdown">
+                            @{
+                                var transactionItems = groupedMenus["Transactions"].ToList();
+                                var transItemsPerColumn = 3;
+                                var transColumnCount = (int)Math.Ceiling((double)transactionItems.Count / transItemsPerColumn);
+                            }
+
+                            @for (int col = 0; col < Math.Min(transColumnCount, 3); col++)
+                            {
+                                <div class="mega-menu-category">
+                                    <h6>Transactions - Category @(col + 1)</h6>
+                                    @for (int i = col * transItemsPerColumn; i < Math.Min((col + 1) * transItemsPerColumn, transactionItems.Count); i++)
+                                    {
+                                        var item = transactionItems[i];
+                                        string screenName = item.ScreenName;
+                                        string iconClass = "fa-exchange-alt"; // Default icon
+
+                                        if (screenName.Contains("OthersDiagnosis"))
+                                        {
+                                            screenName = "Doctor Diagnosis - Others";
+                                            iconClass = "fa-stethoscope";
+                                        }
+                                        else if (screenName.Contains("Diagnosis"))
+                                        {
+                                            iconClass = "fa-stethoscope";
+                                        }
+                                        else if (screenName.Contains("Patient"))
+                                        {
+                                            iconClass = "fa-user-injured";
+                                        }
+
+                                        screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                        screenName = screenName.Trim();
+
+                                        bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                        <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                           class="dropdown-item menu-tile @(isActive ? "active" : "")">
+                                            <div class="menu-tile-icon">
+                                                <i class="fas @iconClass"></i>
+                                            </div>
+                                            <div class="menu-tile-content">
+                                                <span class="menu-tile-title">@screenName</span>
+                                                <span class="menu-tile-description">Process @screenName.ToLower()</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Quick Links Column -->
+                            <div class="mega-menu-category featured">
+                                <h6>Quick Actions</h6>
+                                <ul class="menu-simple-list">
+                                    <li><a href="#">New Transaction</a></li>
+                                    <li><a href="#">Pending Items</a></li>
+                                    <li><a href="#">Recent Activity</a></li>
+                                    <li><a href="#">Transaction History</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </li>
+                }
+
+                <!-- Reports Menu -->
+                @if (groupedMenus.ContainsKey("Reports") && groupedMenus["Reports"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button"
+                            aria-expanded="false">
+                            <i class="bi bi-bar-chart"></i> Reports
+                        </a>
+                        <div class="dropdown-menu mega-menu" aria-labelledby="reportsDropdown">
+                            @{
+                                var reportItems = groupedMenus["Reports"].ToList();
+                                var reportItemsPerColumn = 3;
+                                var reportColumnCount = (int)Math.Ceiling((double)reportItems.Count / reportItemsPerColumn);
+                            }
+
+                            @for (int col = 0; col < Math.Min(reportColumnCount, 3); col++)
+                            {
+                                <div class="mega-menu-category">
+                                    <h6>Reports - Category @(col + 1)</h6>
+                                    @for (int i = col * reportItemsPerColumn; i < Math.Min((col + 1) * reportItemsPerColumn, reportItems.Count); i++)
+                                    {
+                                        var item = reportItems[i];
+                                        string screenName = item.ScreenName;
+                                        string iconClass = "fa-chart-line"; // Default icon
+
+                                        if (screenName.Contains("Login"))
+                                        {
+                                            iconClass = "fa-sign-in-alt";
+                                        }
+                                        else if (screenName.Contains("Medicine"))
+                                        {
+                                            iconClass = "fa-pills";
+                                        }
+                                        else if (screenName.Contains("Patient"))
+                                        {
+                                            iconClass = "fa-user-injured";
+                                        }
+
+                                        screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                        screenName = screenName.Trim();
+
+                                        bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                        <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                           class="dropdown-item menu-tile @(isActive ? "active" : "")">
+                                            <div class="menu-tile-icon">
+                                                <i class="fas @iconClass"></i>
+                                            </div>
+                                            <div class="menu-tile-content">
+                                                <span class="menu-tile-title">@screenName</span>
+                                                <span class="menu-tile-description">View @screenName.ToLower() analytics</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Quick Links Column -->
+                            <div class="mega-menu-category featured">
+                                <h6>Quick Reports</h6>
+                                <ul class="menu-simple-list">
+                                    <li><a href="#">Daily Summary</a></li>
+                                    <li><a href="#">Monthly Report</a></li>
+                                    <li><a href="#">Export All</a></li>
+                                    <li><a href="#">Schedule Reports</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </li>
+                }
+
+                <!-- AuditLog Menu -->
+                @if (groupedMenus.ContainsKey("AuditLog") && groupedMenus["AuditLog"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="auditLogDropdown" role="button"
+                            aria-expanded="false">
+                            <i class="bi bi-clock-history"></i> Audit Log
+                        </a>
+                        <div class="dropdown-menu mega-menu" aria-labelledby="auditLogDropdown">
+                            @{
+                                var auditItems = groupedMenus["AuditLog"].ToList();
+                                var auditItemsPerColumn = 3;
+                                var auditColumnCount = (int)Math.Ceiling((double)auditItems.Count / auditItemsPerColumn);
+                            }
+
+                            @for (int col = 0; col < Math.Min(auditColumnCount, 3); col++)
+                            {
+                                <div class="mega-menu-category">
+                                    <h6>Audit - Category @(col + 1)</h6>
+                                    @for (int i = col * auditItemsPerColumn; i < Math.Min((col + 1) * auditItemsPerColumn, auditItems.Count); i++)
+                                    {
+                                        var item = auditItems[i];
+                                        string screenName = item.ScreenName;
+                                        string iconClass = "fa-history"; // Default icon
+
+                                        if (screenName.Contains("User"))
+                                        {
+                                            iconClass = "fa-user-clock";
+                                        }
+                                        else if (screenName.Contains("System"))
+                                        {
+                                            iconClass = "fa-server";
+                                        }
+
+                                        screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                        screenName = screenName.Trim();
+
+                                        bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                        <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                           class="dropdown-item menu-tile @(isActive ? "active" : "")">
+                                            <div class="menu-tile-icon">
+                                                <i class="fas @iconClass"></i>
+                                            </div>
+                                            <div class="menu-tile-content">
+                                                <span class="menu-tile-title">@screenName</span>
+                                                <span class="menu-tile-description">Track @screenName.ToLower() activities</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Quick Links Column -->
+                            <div class="mega-menu-category featured">
+                                <h6>Quick Access</h6>
+                                <ul class="menu-simple-list">
+                                    <li><a href="#">Recent Activities</a></li>
+                                    <li><a href="#">User Logs</a></li>
+                                    <li><a href="#">System Logs</a></li>
+                                    <li><a href="#">Export Audit Trail</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul> *@
+
+
+@* 
+            <!-- Updated navigation menu structure for _Layout.cshtml -->
+            <ul class="nav top-nav d-none d-md-flex">
+                <li class="nav-item"><a class="nav-link" asp-controller="Dashboard" asp-action="Doctor">Dashboard</a></li>
+
+                <!-- Masters Menu -->
+                @if (groupedMenus.ContainsKey("Masters") && groupedMenus["Masters"].Any())
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="mastersDropdown" role="button">
+                            <i class="bi bi-gear"></i> Masters
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @{
+                                var masterItems = groupedMenus["Masters"].ToList();
+                                var itemCount = masterItems.Count;
+
+                                // Group items by type for better organization
+                                var userItems = masterItems.Where(x => x.ScreenName.Contains("User") || x.ScreenName.Contains("Hr") || x.ScreenName.Contains("Role")).ToList();
+                                var medicalItems = masterItems.Where(x => x.ScreenName.Contains("Med") || x.ScreenName.Contains("Doctor")).ToList();
+                                var systemItems = masterItems.Where(x => x.ScreenName.Contains("Sys") || x.ScreenName.Contains("System")).ToList();
+                                var otherItems = masterItems.Except(userItems).Except(medicalItems).Except(systemItems).ToList();
+                            }
+
+                            @if (userItems.Any())
+                            {
+                                <div class="mega-menu-category">
+                                    <h6>User Management</h6>
+                                    @foreach (var item in userItems)
+                                    {
+                                        string screenName = item.ScreenName;
+                                        string iconClass = "fa-users";
+
+                                        // Apply your existing name processing logic
+                                        if (screenName.Contains("SysAttachScreenRole"))
+                                        {
+                                            screenName = "Role Mapping";
+                                            iconClass = "fa-user-shield";
+                                        }
+                                        if (screenName.Contains("Hr"))
+                                        {
+                                            screenName = screenName.Replace("Hr", "");
+                                        }
+                                        if (screenName.Contains("Sys"))
+                                        {
+                                            screenName = screenName.Replace("Sys", "");
+                                        }
+                                        if (!screenName.Contains("Master") && !screenName.Contains("Base") && screenName != "Role Mapping")
+                                        {
+                                            screenName = screenName + " Master";
+                                        }
+                                        screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName).Trim();
+
+                                        bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                        <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                           class="dropdown-item menu-tile @(isActive ? "active" : "")"
+                                           title="@screenName">
+                                            <div class="menu-tile-icon">
+                                                <i class="fas @iconClass"></i>
+                                            </div>
+                                            <div class="menu-tile-content">
+                                                <span class="menu-tile-title">@screenName</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+
+                            @if (medicalItems.Any())
+                            {
+                                <div class="mega-menu-category">
+                                    <h6>Medical Setup</h6>
+                                    @foreach (var item in medicalItems)
+                                    {
+                                        string screenName = item.ScreenName;
+                                        string iconClass = "fa-stethoscope";
+
+                                        if (screenName.Contains("Med"))
+                                        {
+                                            screenName = screenName.Replace("Med", "Medicine ");
+                                            iconClass = "fa-pills";
+                                        }
+                                        if (screenName.Contains("Doctor"))
+                                        {
+                                            iconClass = "fa-user-md";
+                                        }
+                                        if (!screenName.Contains("Master") && !screenName.Contains("Base"))
+                                        {
+                                            screenName = screenName + " Master";
+                                        }
+                                        screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName).Trim();
+
+                                        bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                        <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                           class="dropdown-item menu-tile @(isActive ? "active" : "")"
+                                           title="@screenName">
+                                            <div class="menu-tile-icon">
+                                                <i class="fas @iconClass"></i>
+                                            </div>
+                                            <div class="menu-tile-content">
+                                                <span class="menu-tile-title">@screenName</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+
+                            @if (systemItems.Any())
+                            {
+                                <div class="mega-menu-category">
+                                    <h6>System Config</h6>
+                                    @foreach (var item in systemItems.Where(x => !userItems.Contains(x)))
+                                    {
+                                        string screenName = item.ScreenName;
+                                        string iconClass = "fa-cogs";
+
+                                        if (screenName.Contains("System"))
+                                        {
+                                            screenName = screenName.Replace("System", "");
+                                        }
+                                        if (screenName.Contains("Sys"))
+                                        {
+                                            screenName = screenName.Replace("Sys", "");
+                                        }
+                                        if (!screenName.Contains("Master") && !screenName.Contains("Base"))
+                                        {
+                                            screenName = screenName + " Master";
+                                        }
+                                        screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName).Trim();
+
+                                        bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                        <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                           class="dropdown-item menu-tile @(isActive ? "active" : "")"
+                                           title="@screenName">
+                                            <div class="menu-tile-icon">
+                                                <i class="fas @iconClass"></i>
+                                            </div>
+                                            <div class="menu-tile-content">
+                                                <span class="menu-tile-title">@screenName</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+
+                            @if (otherItems.Any())
+                            {
+                                <div class="mega-menu-category">
+                                    <h6>Other Masters</h6>
+                                    @foreach (var item in otherItems)
+                                    {
+                                        string screenName = item.ScreenName;
+                                        if (!screenName.Contains("Master") && !screenName.Contains("Base"))
+                                        {
+                                            screenName = screenName + " Master";
+                                        }
+                                        screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName).Trim();
+
+                                        bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                        <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                           class="dropdown-item menu-tile @(isActive ? "active" : "")"
+                                           title="@screenName">
+                                            <div class="menu-tile-icon">
+                                                <i class="bi bi-gear"></i>
+                                            </div>
+                                            <div class="menu-tile-content">
+                                                <span class="menu-tile-title">@screenName</span>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </li>
+                }
+
+                <!-- Apply similar structure for Transactions, Reports, and AuditLog menus -->
+            </ul>
+
+ *@
+
+@* 
+            <ul class="nav top-nav d-none d-md-flex aligntnavcenter">
+                <li class="nav-item"><a class="nav-link" asp-controller="Dashboard" asp-action="Doctor">Dashboard</a> <i class="bi bi-bar-chart-line"></i></li>
+
+                <!-- Masters Menu -->
+                @if (groupedMenus.ContainsKey("Masters") && groupedMenus["Masters"].Any())
+                {
+                    
+                    bool hasActiveItem = false;
+                    if (groupedMenus.ContainsKey("Masters"))
+                    {
+                        hasActiveItem = groupedMenus["Masters"].Any(item =>
+                            ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName);
+                    }
+                    
+                    <li class="nav-item dropdown @(hasActiveItem ? "has-active-item" : "")" ">
+                        <a class="nav-link dropdown-toggle" href="#" id="mastersDropdown" role="button">
+                            <i class="bi bi-gear"></i> Masters
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @foreach (var item in groupedMenus["Masters"])
+                            {
+                                string screenName = item.ScreenName;
+                                string iconClass = "fa-cog"; // Default icon
+
+                                // Icon assignment based on keywords
+                                if (screenName.Contains("User") || screenName.Contains("Hr")) iconClass = "fa-users";
+                                else if (screenName.Contains("Doctor")) iconClass = "fa-user-md";
+                                else if (screenName.Contains("Med")) iconClass = "fa-pills";
+                                else if (screenName.Contains("Role")) iconClass = "fa-user-shield";
+                                else if (screenName.Contains("System") || screenName.Contains("Sys")) iconClass = "fa-cogs";
+
+                                // Process screen name as per your logic
+                                if (screenName.Contains("SysAttachScreenRole"))
+                                {
+                                    screenName = screenName.Replace("SysAttachScreenRole", "Role Mapping");
+                                }
+                                if (screenName.Contains("Hr"))
+                                {
+                                    screenName = screenName.Replace("Hr", "");
+                                }
+                                if (screenName.Contains("Med"))
+                                {
+                                    screenName = screenName.Replace("Med", "Medicine ");
+                                }
+                                if (screenName.Contains("System"))
+                                {
+                                    screenName = screenName.Replace("System", "");
+                                }
+                                if (screenName.Contains("Sys"))
+                                {
+                                    screenName = screenName.Replace("Sys", "");
+                                }
+                                if (!screenName.Contains("Master") && !screenName.Contains("Base") && screenName != "Role Mapping")
+                                {
+                                    screenName = screenName + " Master";
+                                }
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+
+                                bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                <a href="@Url.Action(item.ActionName, item.ControllerName)" 
+                                   class="menu-tile @(isActive ? "active" : "")"
+                                   title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
+                                    <div class="menu-tile-icon">
+                                        <i class="fas @iconClass"></i>
+                                    </div>
+                                    <span class="menu-tile-text">@screenName</span>
+                                </a>
+                            }
+                        </div>
+                    </li>
+                }
+
+                <!-- Transactions Menu -->
+                @if (groupedMenus.ContainsKey("Transactions") && groupedMenus["Transactions"].Any())
+                {
+                    
+                    bool hasActiveItem = false;
+                    if (groupedMenus.ContainsKey("Transactions"))
+                    {
+                        hasActiveItem = groupedMenus["Transactions"].Any(item =>
+                        ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName);
+                    }
+
+
+
+                    <li class="nav-item dropdown @(hasActiveItem ? "has-active-item" : "")" ">
+                        <a class="nav-link dropdown-toggle" href="#" id="transactionsDropdown" role="button">
+                            <i class="bi bi-arrow-left-right"></i> Transactions
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @foreach (var item in groupedMenus["Transactions"])
+                            {
+                                string screenName = item.ScreenName;
+                                string iconClass = "fa-exchange-alt"; // Default icon
+
+                                // Icon assignment
+                                if (screenName.Contains("Diagnosis")) iconClass = "fa-stethoscope";
+                                else if (screenName.Contains("Patient")) iconClass = "fa-user-injured";
+                                else if (screenName.Contains("Prescription")) iconClass = "fa-prescription";
+                                else if (screenName.Contains("Billing")) iconClass = "fa-file-invoice-dollar";
+
+                                // Process screen name
+                                if (screenName.Contains("OthersDiagnosis"))
+                                {
+                                    screenName = screenName.Replace("OthersDiagnosis", "Doctor Diagnosis - Others");
+                                }
+
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+
+                                bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                   class="menu-tile @(isActive ? "active" : "")"
+                                   title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
+                                    <div class="menu-tile-icon">
+                                        <i class="fas @iconClass"></i>
+                                    </div>
+                                    <span class="menu-tile-text">@screenName</span>
+                                </a>
+                            }
+                        </div>
+                    </li>
+                }
+
+                <!-- Reports Menu -->
+                @if (groupedMenus.ContainsKey("Reports") && groupedMenus["Reports"].Any())
+                {
+
+                    bool hasActiveItem = false;
+                    if (groupedMenus.ContainsKey("Reports"))
+                    {
+                        hasActiveItem = groupedMenus["Reports"].Any(item =>
+                        ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName);
+                    }
+
+
+
+                    <li class="nav-item dropdown @(hasActiveItem ? "has-active-item" : "")" ">
+                        <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button">
+                            <i class="bi bi-bar-chart"></i> Reports
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @foreach (var item in groupedMenus["Reports"])
+                            {
+                                string screenName = item.ScreenName;
+                                string iconClass = "fa-chart-line"; // Default icon
+
+                                // Icon assignment
+                                if (screenName.Contains("Login")) iconClass = "fa-sign-in-alt";
+                                else if (screenName.Contains("Medicine")) iconClass = "fa-pills";
+                                else if (screenName.Contains("Patient")) iconClass = "fa-user-injured";
+                                else if (screenName.Contains("Summary")) iconClass = "fa-chart-pie";
+
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+
+                                bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                   class="menu-tile @(isActive ? "active" : "")"
+                                   title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
+                                    <div class="menu-tile-icon">
+                                        <i class="fas @iconClass"></i>
+                                    </div>
+                                    <span class="menu-tile-text">@screenName</span>
+                                </a>
+                            }
+                        </div>
+                    </li>
+                }
+
+                <!-- AuditLog Menu -->
+                @if (groupedMenus.ContainsKey("AuditLog") && groupedMenus["AuditLog"].Any())
+                {
+                    bool hasActiveItem = false;
+                    if (groupedMenus.ContainsKey("AuditLog"))
+                    {
+                        hasActiveItem = groupedMenus["AuditLog"].Any(item =>
+                        ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName);
+                    }
+
+
+
+                    <li class="nav-item dropdown @(hasActiveItem ? "has-active-item" : "")" ">
+
+                        <a class="nav-link dropdown-toggle" href="#" id="auditLogDropdown" role="button">
+                            <i class="bi bi-clock-history"></i> Audit Log
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @foreach (var item in groupedMenus["AuditLog"])
+                            {
+                                string screenName = item.ScreenName;
+                                string iconClass = "fa-history"; // Default icon
+
+                                // Icon assignment
+                                if (screenName.Contains("User")) iconClass = "fa-user-clock";
+                                else if (screenName.Contains("System")) iconClass = "fa-server";
+                                else if (screenName.Contains("Activity")) iconClass = "fa-list-ul";
+
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+
+                                bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                   class="menu-tile @(isActive ? "active" : "")"
+                                   title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
+                                    <div class="menu-tile-icon">
+                                        <i class="fas @iconClass"></i>
+                                    </div>
+                                    <span class="menu-tile-text">@screenName</span>
+                                </a>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+ *@
+
+            <ul class="nav top-nav d-none d-md-flex aligntnavcenter">
+                <li class="nav-item"><a class="nav-link" asp-controller="Dashboard" asp-action="" role="button"><i class="bi bi-display"></i>Dashboard</a> </li>
+
+                <!-- Masters Menu -->
+                @if (groupedMenus.ContainsKey("Masters") && groupedMenus["Masters"].Any())
+                {
+
+                    bool hasActiveItem = false;
+                    if (groupedMenus.ContainsKey("Masters"))
+                    {
+                        hasActiveItem = groupedMenus["Masters"].Any(item =>
+                        ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName);
+                    }
+
+                    <li class="nav-item dropdown @(hasActiveItem ? "has-active-item" : "")" ">
+                        <a class="nav-link dropdown-toggle" href="#" id="mastersDropdown" role="button">
+                            <i class="bi bi-gear"></i> Masters
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @foreach (var item in groupedMenus["Masters"])
+                            {
+                                string screenName = item.ScreenName;
+                                string iconClass = "bi-gear"; // Default icon
+
+
+                                if (screenName.Contains("User") || screenName.Contains("Hr")) iconClass = "bi-people";
+                                else if (screenName.Contains("Doctor")) iconClass = "bi-person-badge";
+                                @* else if (screenName.Contains("Med")) iconClass = "bi-capsule"; *@
+                                @* else if (screenName.Contains("Role")) iconClass = "bi-shield-check"; *@
+                                @* else if (screenName.Contains("System") || screenName.Contains("Sys")) iconClass = "bi-gear-wide-connected"; *@
+                                
+                                else if (screenName.Contains("PlantMaster")) iconClass = "bi bi-building";
+                                else if (screenName.Contains("MedDisease")) iconClass = "bi bi-virus";
+                                else if (screenName.Contains("DepartmentMaster")) iconClass = "bi bi-diagram-3";
+                                else if (screenName.Contains("MedAmbulanceMaster")) iconClass = "bi bi-truck";
+                                else if (screenName.Contains("MedCategory")) iconClass = "bi bi-grid-3x3";
+                                else if (screenName.Contains("MedDiagnosis")) iconClass = "bi bi-clipboard-heart";
+
+                                else if (screenName.Contains("MedExamCategory")) iconClass = "bi bi-calendar2-check";
+                                else if (screenName.Contains("SysUser")) iconClass = "bi bi-person-lines-fill";
+                                else if (screenName.Contains("SystemScreenMaster")) iconClass = "bi bi-display";
+                                else if (screenName.Contains("SysRole")) iconClass = "bi bi-person-badge";
+
+
+                                else if (screenName.Contains("SysAttachScreenRole")) iconClass = "bi bi-diagram-3";
+                                else if (screenName.Contains("MedBase")) iconClass = "bi bi-capsule";
+                                else if (screenName.Contains("MedRefHospital")) iconClass = "bi bi-hospital";
+                                else if (screenName.Contains("MedMaster")) iconClass = "bi bi-capsule-pill";
+
+                                // Process screen name as per your logic
+                                if (screenName.Contains("SysAttachScreenRole"))
+                                {
+                                    screenName = screenName.Replace("SysAttachScreenRole", "Role Mapping");
+                                }
+                                if (screenName.Contains("Hr"))
+                                {
+                                    screenName = screenName.Replace("Hr", "");
+                                }
+                                if (screenName.Contains("Med"))
+                                {
+                                    screenName = screenName.Replace("Med", "Medicine ");
+                                }
+                                if (screenName.Contains("System"))
+                                {
+                                    screenName = screenName.Replace("System", "");
+                                }
+                                if (screenName.Contains("Sys"))
+                                {
+                                    screenName = screenName.Replace("Sys", "");
+                                }
+                                if (!screenName.Contains("Master") && !screenName.Contains("Base") && screenName != "Role Mapping")
+                                {
+                                    screenName = screenName + " Master";
+                                }
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+
+                                bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+                                
+                                <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                   class="menu-tile @(isActive ? "active" : "")"
+                                   title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
+                                    <div class="menu-tile-icon">
+                                        <i class="bi @iconClass"></i>
+                                    </div>
+                                    <span class="menu-tile-text">@screenName</span>
+                                </a>
+                            }
+                        </div>
+                    </li>
+                }
+
+                <!-- Transactions Menu -->
+                @if (groupedMenus.ContainsKey("Transactions") && groupedMenus["Transactions"].Any())
+                {
+
+                    bool hasActiveItem = false;
+                    if (groupedMenus.ContainsKey("Transactions"))
+                    {
+                        hasActiveItem = groupedMenus["Transactions"].Any(item =>
+                        ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName);
+                    }
+
+                    <li class="nav-item dropdown @(hasActiveItem ? "has-active-item" : "")" ">
+                        <a class="nav-link dropdown-toggle" href="#" id="transactionsDropdown" role="button">
+                            <i class="bi bi-arrow-left-right"></i> Transactions
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @foreach (var item in groupedMenus["Transactions"])
+                            {
+                                string screenName = item.ScreenName;
+                                string iconClass = "bi-arrow-left-right"; // Default icon
+
+                                // Icon assignment - BOOTSTRAP ICONS
+                                if (screenName.Contains("Diagnosis")) iconClass = "bi-heart-pulse";
+                                else if (screenName.Contains("Patient")) iconClass = "bi-person-plus";
+                                else if (screenName.Contains("Prescription")) iconClass = "bi-prescription2";
+                                else if (screenName.Contains("Billing")) iconClass = "bi-receipt";
+
+                                // Process screen name
+                                if (screenName.Contains("OthersDiagnosis"))
+                                {
+                                    screenName = screenName.Replace("OthersDiagnosis", "Doctor Diagnosis - Others");
+                                }
+                                if(@UserRole.Contains("Compounder") && screenName.Contains("Doctor"))
+                                {
+                                    screenName = screenName.Replace("Doctor", "Compounder");
+                                }
+                                
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                if (screenName.Contains("Compounder"))
+                                {
+                                    screenName = screenName.Replace("Compounder", "Compounder/Pharmacist");
+                                }
+                                screenName = screenName.Trim();
+
+                                bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                   class="menu-tile @(isActive ? "active" : "")"
+                                   title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
+                                    <div class="menu-tile-icon">
+                                        <i class="bi @iconClass"></i>
+                                    </div>
+                                    <span class="menu-tile-text">@screenName</span>
+                                </a>
+                            }
+                        </div>
+                    </li>
+                }
+
+                <!-- Reports Menu -->
+                @if (groupedMenus.ContainsKey("Reports") && groupedMenus["Reports"].Any())
+                {
+
+                    bool hasActiveItem = false;
+                    if (groupedMenus.ContainsKey("Reports"))
+                    {
+                        hasActiveItem = groupedMenus["Reports"].Any(item =>
+                        ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName);
+                    }
+
+                    <li class="nav-item dropdown @(hasActiveItem ? "has-active-item" : "")" ">
+                        <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button">
+                            <i class="bi bi-bar-chart"></i> Reports
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @foreach (var item in groupedMenus["Reports"])
+                            {
+                                string screenName = item.ScreenName;
+                                string iconClass = "bi-graph-up"; // Default icon
+
+                                // Icon assignment - BOOTSTRAP ICONS
+                                if (screenName.Contains("Login")) iconClass = "bi-box-arrow-in-right";
+                                else if (screenName.Contains("Medicine")) iconClass = "bi-capsule";
+                                else if (screenName.Contains("Patient")) iconClass = "bi-person-plus";
+                                else if (screenName.Contains("Summary")) iconClass = "bi-pie-chart";
+
+                                
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                if (screenName.Contains("Compounder"))
+                                {
+                                    screenName = screenName.Replace("Compounder", "Compounder/Pharmacist");
+                                }
+                                screenName = screenName.Trim();
+
+                                bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                   class="menu-tile @(isActive ? "active" : "")"
+                                   title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
+                                    <div class="menu-tile-icon">
+                                        <i class="bi @iconClass"></i>
+                                    </div>
+                                    <span class="menu-tile-text">@screenName</span>
+                                </a>
+                            }
+                        </div>
+                    </li>
+                }
+
+                <!-- AuditLog Menu -->
+                @if (groupedMenus.ContainsKey("AuditLog") && groupedMenus["AuditLog"].Any())
+                {
+                    bool hasActiveItem = false;
+                    if (groupedMenus.ContainsKey("AuditLog"))
+                    {
+                        hasActiveItem = groupedMenus["AuditLog"].Any(item =>
+                        ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName);
+                    }
+
+                    <li class="nav-item dropdown @(hasActiveItem ? "has-active-item" : "")" ">
+
+                        <a class="nav-link dropdown-toggle" href="#" id="auditLogDropdown" role="button">
+                            <i class="bi bi-clock-history"></i> Audit Log
+                        </a>
+                        <div class="dropdown-menu mega-menu">
+                            @foreach (var item in groupedMenus["AuditLog"])
+                            {
+                                string screenName = item.ScreenName;
+                                string iconClass = "bi-clock-history"; // Default icon
+
+                                // Icon assignment - BOOTSTRAP ICONS
+                                if (screenName.Contains("User")) iconClass = "bi-person-check";
+                                else if (screenName.Contains("System")) iconClass = "bi-server";
+                                else if (screenName.Contains("Activity")) iconClass = "bi-list-check";
+
+                                screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
+                                screenName = screenName.Trim();
+
+                                bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
+
+                                <a href="@Url.Action(item.ActionName, item.ControllerName)"
+                                   class="menu-tile @(isActive ? "active" : "")"
+                                   title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
+                                    <div class="menu-tile-icon">
+                                        <i class="bi @iconClass"></i>
+                                    </div>
+                                    <span class="menu-tile-text">@screenName</span>
+                                </a>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+
+
+
+        
+        
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            @* <button class="btn btn-sm btn-outline-primary d-md-none" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">V
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="dropdown">
+                <a class="dropdown-toggle" href="#" role="button" data-toggle="dropdown">
+                    <span class="user-icon" id="IdForUserInitial">
+                    </span>
+                    <span class="user-name ClsForCustomColor" id="IdForUserName"></span>
+                </a>
+                <div class="dropdown-menu dropdown-menu-right dropdown-menu-icon-list">
+                    <a class="dropdown-item" href="#" onclick="Logout();">
+                        <div class="row ClsForMenu">
+                            <div class="col-sm-3">
+                                <i class="dw dw-logout"></i>
+                            </div>
+                            <div class="col-sm-9">
+                                Log Out
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+
+
+
+                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" >
+                    <i class="bi bi-person-circle fs-5"></i>
+                    <span class="d-none d-sm-inline ms-1">@userName</span>
+                </a>
+
+                <ul class="dropdown-menu dropdown-menu-end glass border-0 shadow" style="background:#fff !important;">
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <li class="dropdown-item">
+                            <span class="nav-link text-info">Welcome, @User.Identity.Name</span>
+                        </li>
+                        <li class="dropdown-item">
+                            <form asp-controller="Account" asp-action="Logout" method="post" class="form-inline">
+                                <button type="submit" class="nav-link btn btn-link">Logout</button>
+                            </form>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="dropdown-item">
+                            <a class="nav-link" asp-controller="Account" asp-action="Login">Login</a>
+                        </li>
+                    }
+                </ul>
+            </div> *@
+
+            <div class="user-info-section">
+                <!-- User Avatar with Initial -->
+                
+
+                <!-- User Details -->
+                @* <div class="user-details">
+                    <div class="user-details-top">
+                        <span class="user-name" id="userName">@userName</span>
+                        <span class="user-emp-id" id="userEmpId">ADID</span>
+                    </div>
+                    <div class="user-details-bottom">
+                        <span class="user-designation" id="userDesignation">Senior Manager</span>
+                        <span class="user-divider">•</span>
+                        <span class="user-plant" id="userPlant"> Plant</span>
+                    </div>
+                </div> *@
+
+                <div class="user-details">
+                    <div class="user-details-top">
+                        <span class="user-name" id="userName">@userName</span>
+                        <span class="user-emp-id" id="userEmpId"></span>
+                    </div>
+                    <div class="user-details-bottom">
+                        <span class="user-designation" id="userDesignation"></span>
+                        <span class="user-divider">•</span>
+                        <span class="user-plant" id="userPlant"> </span>
+                    </div>
+                </div>
+
+                <!-- Dropdown Toggle for Menu -->
+                <div class="dropdown">
+                    <button class="user-dropdown-toggle" data-bs-toggle="dropdown">
+                        <div class="user-avatar" id="userAvatar">
+                            <span id="userInitial"></span>
+                        </div>
+                    </button>
+
+                    <ul class="dropdown-menu dropdown-menu-end user-dropdown-menu">
+                        @if (User.Identity != null && User.Identity.IsAuthenticated)
+                        {
+                            <li class="user-welcome">
+                                Welcome Back, @User.Identity.Name !
+                                
+                            </li>
+                            
+                            <li>
+                                <form asp-controller="Account" asp-action="Logout" method="post" class="form-inline">
+                                    <button type="submit" class="dropdown-item">
+                                        <i class="bi bi-box-arrow-right"></i>
+                                        Logout
+                                    </button>
+                                </form>
+                            </li>
+                        }
+                        else
+                        {
+                            <li>
+                                <a class="dropdown-item" asp-controller="Account" asp-action="Login">
+                                    <i class="bi bi-box-arrow-in-right"></i>
+                                    Login
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Remove or hide the old mobile sidebar button -->
+            <!-- <button class="btn btn-sm btn-outline-primary d-md-none" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
+                <i class="bi bi-list"></i>
+            </button> -->
+
+
+
+        </div>
+    </header>
+
+
+
+    <!-- ===== Sidebar (mobile only) ===== -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebarMenu">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title">Navigation</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body p-0 sidebar">
+            <nav class="px-2">
+                <ul class="nav flex-column small">
+                    <li class="nav-item"><a class="nav-link" asp-controller="Home" asp-action="Index"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#mMenu">
+                            <span><i class="bi bi-card-list me-2"></i>Masters</span><i class="bi bi-chevron-down small"></i>
+                        </a>
+                        <div class="collapse" id="mMenu">
+                            <ul class="nav flex-column ms-3 my-1">
+                                <li class="nav-item"><a class="nav-link" asp-controller="UserMaster" asp-action="Index">User Master</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="DoctorMaster" asp-action="Index">Doctor Master</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#rMenu">
+                            <span><i class="bi bi-bar-chart me-2"></i>Reports</span><i class="bi bi-chevron-down small"></i>
+                        </a>
+                        <div class="collapse" id="rMenu">
+                            <ul class="nav flex-column ms-3 my-1">
+                                <li class="nav-item"><a class="nav-link" asp-controller="LoginReports" asp-action="Index">Login Reports</a></li>
+                                <li class="nav-item"><a class="nav-link" asp-controller="MedicineIssueReports" asp-action="Index">Medicine Issue Reports</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- ===== Main Content ===== -->
+    <main class="container-fluid">
+        <div class="content-wrapper">
+            @* <div class="glass p-4 shadow-sm">
+                <h2 class="h4 mb-3">@ViewData["Title"]</h2>
+            </div> *@
+      
+            @* <div class="glass p-4 shadow-sm">                *@
+                @RenderBody()
+            @* </div> *@
+        </div>
+    </main>
+
+    @* <footer class="glass position-fixed bottom-0 start-50 translate-middle-x w-100">
+        &copy; 2025 ITC Limited • Powered by GetAI
+    </footer> *@
+
+    <!-- JS -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/datatables/js/datatables.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+   
+    <script>
+        window.app = window.app || {};
+        window.app.meUrl = '@Url.Action("Me", "UserInfo")';
+
+        window.app.logout = '@Url.Action("LogoutView", "Account")';
+        window.app.logoutUrl = '@Url.Action("LogoutView", "Account", new { reason = "UserLogout" })';
+        window.app.timeoutUrl = '@Url.Action("LogoutView", "Account", new { reason = "SessionTimeout" })';
+    </script>
+    <script src="~/js/site.js"></script>
+
+
+
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
+
+@* <script>
+    function showAlert(type, message) {
+        if (typeof toastr !== 'undefined') {
+            toastr[type](message);
+        } else {
+            alert(message);
+        }
+    }
+</script> *@
+<script>
+    setInterval(() => {
+        fetch('@Url.Action("check", "session")', {
+            method: 'GET',
+            credentials: 'same-origin'
+        }).then(res => {
+            if (res.status === 401 || res.redirected) {
+                console.log("Session invalidated. Redirecting...");
+
+                 window.location.href = '@Url.Action("LogoutView", "Account", new { reason = "SessionExpired" })';
+            }
+        }).catch(err => {
+            console.warn("Session check failed. Forcing logout.");
+
+            window.location.href = '@Url.Action("LogoutView", "Account", new { reason = "SessionExpired" })';
+
+        });
+    }, 15000); // check every 15 seconds
+</script>
+<script>
+    document.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+    });
+</script>
+
+<script>
+    if (localStorage.getItem("tabOpen")) {
+        window.location.href = "@Url.Action("LogoutView", "Account")";
+    } else {
+        localStorage.setItem("tabOpen", "true");
+        window.addEventListener("beforeunload", function () {
+            localStorage.removeItem("tabOpen");
+        });
+    }
+</script>

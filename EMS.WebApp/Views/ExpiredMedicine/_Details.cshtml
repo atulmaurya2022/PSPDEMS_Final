@@ -1,0 +1,388 @@
+﻿@model EMS.WebApp.Data.ExpiredMedicine
+
+<div class="row">
+    <div class="col-md-12">
+        <h6 class="text-primary">Medicine Information</h6>
+        <table class="table table-striped table-glass glass-table">
+            <thead>
+                <tr>
+                    <th class="fw-bold">Medicine Name</th>
+                    <th class="fw-bold">Company</th>
+                    <th class="fw-bold">Source</th> <!-- NEW: Source column -->
+                    <th class="fw-bold">Type</th>
+                    <th class="fw-bold">Batch Number</th>
+                    <th class="fw-bold">Vendor Code</th>
+                    <th class="fw-bold">Expiry Date</th>
+                    <th class="fw-bold">Quantity Expired</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>@Model.MedicineName</td>
+                    <td>@(Model.CompanyName ?? "Not Defined")</td>
+                    <td>
+                        <!-- NEW: Source type display with icon -->
+                        <span class="badge @Model.SourceBadgeClass">
+                            @Model.SourceDisplay
+                        </span>
+                    </td>
+                    <td>
+                        @{
+                            // Add visual indicator for type selection requirement
+                            string typeDisplayClass = Model.TypeOfMedicine == "Select Type of Medicine" ? "border border-danger" : "";
+                            string typeIcon = Model.TypeOfMedicine == "Select Type of Medicine" ? "<i class=\"fas fa-exclamation-triangle\"></i> " : "";
+                        }
+                        <span class="badge @Model.TypeBadgeClass @typeDisplayClass" id="detailsTypeBadge">
+                            @Html.Raw(typeIcon)
+                            @Model.TypeOfMedicine
+                        </span>
+                        @if (Model.TypeOfMedicine == "Select Type of Medicine")
+                        {
+                            <br><small class="text-danger"><strong>Required:</strong> Please select medicine type before disposal</small>
+                        }
+                    </td>
+                    <td>@Model.BatchNumber</td>
+                    <td>@Model.VendorCode</td>
+                    <td>@Model.ExpiryDate.ToString("dd/MM/yyyy")</td>
+                    <td>@Model.QuantityExpired</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Priority and Status Information -->
+<div class="row mt-3">
+    <div class="col-md-6">
+        <h6 class="text-primary">Priority & Status Information</h6>
+        <table class="table table-borderless">
+            <tr>
+                <td class="fw-bold">Days Overdue:</td>
+                <td>
+                    <span class="badge @(Model.DaysOverdue <= 30 ? "bg-warning text-dark" : Model.DaysOverdue <= 90 ? "bg-danger" : "bg-dark")">
+                        @Model.DaysOverdue days
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Priority Level:</td>
+                <td>
+                    <span class="badge @(Model.PriorityLevel == "Low" ? "bg-warning text-dark" : Model.PriorityLevel == "Medium" ? "bg-danger" : "bg-dark")">
+                        <i class="fas @(Model.PriorityLevel == "Low" ? "fa-exclamation" : Model.PriorityLevel == "Medium" ? "fa-exclamation-triangle" : "fa-exclamation-circle")"></i>
+                        @Model.PriorityLevel Priority
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Current Status:</td>
+                <td>
+                    @if (Model.Status == "Pending Disposal")
+                    {
+                        <span class="badge bg-warning text-dark">
+                            <i class="fas fa-clock"></i> Pending Disposal
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success">
+                            <i class="fas fa-check"></i> Disposed
+                        </span>
+                    }
+                </td>
+            </tr>
+        </table>
+    </div>
+    <div class="col-md-6">
+        <h6 class="text-primary">Financial Information</h6>
+        <table class="table table-borderless">
+            <tr>
+                <td class="fw-bold">Unit Price:</td>
+                <td>@(Model.UnitPrice?.ToString("C") ?? "N/A")</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Total Value:</td>
+                <td>
+                    @if (Model.TotalValue.HasValue)
+                    {
+                        <span class="badge bg-info">@Model.TotalValue.Value.ToString("C")</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">N/A</span>
+                    }
+                </td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Source Indent:</td>
+                <td>
+                    <span class="badge @Model.SourceBadgeClass">
+                        @Model.SourceType Indent #@(Model.IndentNumber ?? Model.IndentId.ToString())
+                    </span>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<!-- NEW: Source-Specific Information -->
+<div class="row mt-3">
+    <div class="col-md-12">
+        <h6 class="text-primary">Source Information</h6>
+        <table class="table table-borderless">
+            <tr>
+                <td class="fw-bold" style="width: 150px;">Source Type:</td>
+                <td>
+                    <span class="badge @Model.SourceBadgeClass">
+                        @Model.SourceDisplay
+                    </span>
+                </td>
+            </tr>
+            @if (Model.SourceType == "Compounder" && Model.CompounderIndentItem != null)
+            {
+                <tr>
+                    <td class="fw-bold">Indent Type:</td>
+                    <td>@(Model.CompounderIndentItem.CompounderIndent?.IndentType ?? "N/A")</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">Indent Date:</td>
+                    <td>@(Model.CompounderIndentItem.CompounderIndent?.IndentDate.ToString("dd/MM/yyyy") ?? "N/A")</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">Created By:</td>
+                    <td>@(Model.CompounderIndentItem.CompounderIndent?.CreatedBy ?? "N/A")</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">Medicine Details:</td>
+                    <td>@(Model.CompounderIndentItem.MedMaster?.MedItemName ?? Model.MedicineName)</td>
+                </tr>
+            }
+            else if (Model.SourceType == "Store" && Model.StoreIndentItem != null)
+            {
+                <tr>
+                    <td class="fw-bold">Indent Type:</td>
+                    <td>@(Model.StoreIndentItem.StoreIndent?.IndentType ?? "N/A")</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">Indent Date:</td>
+                    <td>@(Model.StoreIndentItem.StoreIndent?.IndentDate.ToString("dd/MM/yyyy") ?? "N/A")</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">Created By:</td>
+                    <td>@(Model.StoreIndentItem.StoreIndent?.CreatedBy ?? "N/A")</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">Medicine Details:</td>
+                    <td>@(Model.StoreIndentItem.MedMaster?.MedItemName ?? Model.MedicineName)</td>
+                </tr>
+            }
+            <tr>
+                <td class="fw-bold">Plant:</td>
+                <td>@(Model.OrgPlant?.plant_name ?? "Unknown Plant")</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<!-- Detection Information -->
+<div class="row mt-3">
+    <div class="col-md-12">
+        <h6 class="text-primary">Detection Information</h6>
+        <table class="table table-borderless">
+            <tr>
+                <td class="fw-bold" style="width: 150px;">Detected Date:</td>
+                <td>@Model.DetectedDate.ToString("dd/MM/yyyy HH:mm")</td>
+            </tr>
+            <tr>
+                <td class="fw-bold">Detected By:</td>
+                <td>@(Model.DetectedBy ?? "System")</td>
+            </tr>
+            @if (Model.Status == "Issued to Biomedical Waste")
+            {
+                <tr>
+                    <td class="fw-bold">Disposal Date:</td>
+                    <td>@Model.BiomedicalWasteIssuedDate?.ToString("dd/MM/yyyy HH:mm")</td>
+                </tr>
+                <tr>
+                    <td class="fw-bold">Disposed By:</td>
+                    <td>@Model.BiomedicalWasteIssuedBy</td>
+                </tr>
+            }
+        </table>
+    </div>
+</div>
+
+<!-- Disposal Eligibility Warning -->
+@if (Model.Status == "Pending Disposal" && Model.TypeOfMedicine == "Select Type of Medicine")
+{
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Action Required:</strong> Please select a medicine type (Solid, Liquid, or Gel) before disposing this @Model.SourceType medicine.
+                The disposal button will be disabled until a valid type is selected.
+            </div>
+        </div>
+    </div>
+}
+
+<div class="modal-footer border-0">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        <i class="fas fa-times"></i> Close
+    </button>
+    @if (Model.Status == "Pending Disposal")
+    {
+            // Disable disposal button if type not selected
+            bool canDispose = Model.TypeOfMedicine != "Select Type of Medicine" && !string.IsNullOrEmpty(Model.TypeOfMedicine);
+            string disabledClass = canDispose ? "" : "disabled";
+            string disabledAttr = canDispose ? "" : "disabled=\"disabled\"";
+            string buttonTitle = canDispose ? $"Issue {Model.SourceType} medicine to Biomedical Waste" : "Please select medicine type first";
+        
+        <button type="button" class="btn btn-danger @disabledClass" 
+                onclick="issueToWaste(@Model.ExpiredMedicineId, '@Model.MedicineName', '@Model.BatchNumber', '@Model.TypeOfMedicine', '@Model.SourceType')" 
+                title="@buttonTitle" @Html.Raw(disabledAttr)>
+            <i class="fas fa-biohazard"></i> Issue @Model.SourceType Medicine to Biomedical Waste
+        </button>
+    }
+</div>
+
+<script>
+    // Enhanced issueToWaste function with validation for details modal and source type support
+    function issueToWaste(id, medicineName, batchNumber, typeOfMedicine, sourceType) {
+        // Client-side validation
+        if (typeOfMedicine === 'Select Type of Medicine' || !typeOfMedicine) {
+            // Create a more user-friendly alert for the details modal
+            const alertHtml = `
+                <div class="alert alert-warning alert-dismissible fade show mt-3" role="alert">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Action Required:</strong> Please select a medicine type (Solid, Liquid, or Gel) for "${medicineName}" from ${sourceType} before disposal.
+                    <br><small>You can update the medicine type in the main list and then try disposal again.</small>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            $('#modalDetailsContent').append(alertHtml);
+            
+            // Highlight the type badge
+            $('#detailsTypeBadge').addClass('animate__animated animate__pulse');
+            setTimeout(() => $('#detailsTypeBadge').removeClass('animate__animated animate__pulse'), 2000);
+            
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to issue "${medicineName}" (Batch: ${batchNumber}) from ${sourceType} to biomedical waste?\n\nThis action cannot be undone.`)) {
+            return;
+        }
+
+        // Show loading state
+        const $button = $('button[onclick*="issueToWaste"]');
+        const originalText = $button.html();
+        $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+
+        $.post('@Url.Action("IssueToBiomedicalWaste")', { id: id })
+            .done(function(response) {
+                if (response.success) {
+                    $('#modalDetails').modal('hide');
+                    showAlert('success', response.message);
+                    if (typeof tbl !== 'undefined') tbl.ajax.reload();
+                    if (typeof loadStatistics !== 'undefined') loadStatistics();
+                } else {
+                    if (response.requiresTypeSelection) {
+                        // Show validation message in modal
+                        const alertHtml = `
+                            <div class="alert alert-warning alert-dismissible fade show mt-3" role="alert">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Validation Error:</strong> ${response.message}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        `;
+                        $('#modalDetailsContent').append(alertHtml);
+                        
+                        // Highlight the type badge
+                        $('#detailsTypeBadge').addClass('animate__animated animate__pulse');
+                        setTimeout(() => $('#detailsTypeBadge').removeClass('animate__animated animate__pulse'), 2000);
+                    } else {
+                        showAlert('error', response.message);
+                    }
+                }
+            })
+            .fail(function() {
+                showAlert('error', 'An error occurred while issuing to biomedical waste.');
+            })
+            .always(function() {
+                $button.prop('disabled', false).html(originalText);
+            });
+    }
+
+    // Helper function to show alerts (if not already defined)
+    if (typeof showAlert === 'undefined') {
+        function showAlert(type, message) {
+            const alertClass = type === 'success' ? 'alert-success' : 
+                             type === 'warning' ? 'alert-warning' : 'alert-danger';
+            const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+            
+            const alertHtml = `<div class="alert ${alertClass} alert-dismissible fade show position-fixed"
+                              style="top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 500px;">
+                              <i class="fas ${iconClass}"></i>
+                              <span style="white-space: pre-line;">${message}</span>
+                              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>`;
+
+            $('body').append(alertHtml);
+
+            // Auto-dismiss
+            setTimeout(function() {
+                $('.alert').alert('close');
+            }, 5000);
+        }
+    }
+</script>
+
+<style>
+    .glass-table {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .table-borderless td {
+        padding: 0.5rem 0.75rem;
+        border: none !important;
+    }
+
+    .fw-bold {
+        font-weight: 600;
+    }
+
+    .badge {
+        font-size: 0.8em;
+    }
+
+        .badge i {
+            margin-right: 4px;
+        }
+
+    /* Style for badges that need attention */
+    .badge.border-danger {
+        animation: subtle-pulse 2s infinite;
+    }
+
+    @@keyframes subtle-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+        70% { box-shadow: 0 0 0 4px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+
+    /* Disabled button styling */
+    .btn.disabled, .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn.disabled:hover, .btn:disabled:hover {
+        transform: none;
+    }
+
+    /* Source type specific styling */
+    .badge.bg-primary { background-color: #0d6efd !important; }
+    .badge.bg-info { background-color: #0dcaf0 !important; }
+</style>

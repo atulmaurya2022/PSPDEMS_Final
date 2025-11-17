@@ -1,0 +1,890 @@
+﻿@{
+    ViewData["Title"] = "Medical Examination Category";
+}
+
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+
+<div class="master-container">
+    <!-- Alert Container -->
+    <div id="alertContainer"></div>
+
+    <!-- Enhanced Master Header -->
+    <div class="master-header">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="flex-grow-1">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-master">
+                        <li class="breadcrumb-item">Home</li>
+                        <li class="breadcrumb-item active" aria-current="page">Medical Examination Category</li>
+                    </ol>
+                </nav>
+                <h1 class="master-title">
+                    <i class="bi bi-calendar2-check"></i>
+                    Medical Examination Category
+                </h1>
+                <p class="master-subtitle">Manage medical examination categories and scheduling rules</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative">
+                    <input type="text" class="form-control" placeholder="Search exam categories..." id="searchBox" style="min-width: 250px; padding-left: 40px !important;" />
+                    <i class="bi bi-search position-absolute" style="left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280;"></i>
+                </div>
+                <button id="btnCreate" class="btn btn-add-master">
+                    <i class="bi bi-plus-lg"></i>
+                    Add Exam Category
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced DataTable Container -->
+    <div class="master-form">
+        <div class="card-body p-0">
+            <table id="tblExamCat" class="table table-striped table-glass glass-table mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Category Name</th>
+                        <th>Years Freq</th>
+                        <th>Annually Rule</th>
+                        <th>Schedule</th>
+                        <th>Medical Criteria</th>
+                        <th>Created By</th>
+                        <th>Created On</th>
+                        <th style="width:200px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Medical Examination Category Modal -->
+<div class="modal fade" id="modalExamCat" tabindex="-1" aria-labelledby="modalExamCatLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="modalExamCatLabel">
+                    <i class="bi bi-calendar2-check"></i>
+                    Medical Examination Category
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master" id="modalBody">
+                <div class="loading-overlay">
+                    <div class="loading-spinner-master"></div>
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audit Details Modal -->
+<div class="modal fade" id="modalAuditDetails" tabindex="-1" aria-labelledby="modalAuditLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="modalAuditLabel">
+                    <i class="bi bi-clock-history"></i>
+                    Audit Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master" id="modalAuditBody">
+                <div class="loading-overlay">
+                    <div class="loading-spinner-master"></div>
+                    Loading audit information...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Enhanced Alert System
+            function showAlert(type, message, title = null) {
+                const alertContainer = document.getElementById('alertContainer');
+                const alertId = 'alert-' + Date.now();
+
+                const iconMap = {
+                    success: 'bi-check-circle',
+                    warning: 'bi-exclamation-triangle',
+                    danger: 'bi-x-circle',
+                    info: 'bi-info-circle'
+                };
+
+                const icon = iconMap[type] || 'bi-info-circle';
+                const alertTitle = title || type.charAt(0).toUpperCase() + type.slice(1);
+
+                const alertHtml = `
+                    <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert"
+                         style="border: none; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; font-weight: 500; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);">
+                        <div class="d-flex align-items-start">
+                            <i class="bi ${icon} me-3 flex-shrink-0" style="font-size: 18px;"></i>
+                            <div class="flex-grow-1">
+                                <strong class="d-block mb-1">${alertTitle}</strong>
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+
+                alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    const alertElement = document.getElementById(alertId);
+                    if (alertElement) {
+                        const alert = bootstrap.Alert.getOrCreateInstance(alertElement);
+                        alert.close();
+                    }
+                }, 5000);
+            }
+
+            // Modal setup
+            const modalEl = $('#modalExamCat');
+            const auditModalEl = $('#modalAuditDetails');
+
+            modalEl.appendTo('body');
+            auditModalEl.appendTo('body');
+
+            modalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+            auditModalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+
+            // Function to truncate text with tooltip
+            function truncateText(data, maxLength = 30) {
+                if (!data) return 'N/A';
+                if (data.length > maxLength) {
+                    return `<span title="${data}" data-bs-toggle="tooltip">${data.substring(0, maxLength)}...</span>`;
+                }
+                return data;
+            }
+
+            // Function to format date
+            function formatDate(dateString) {
+                if (!dateString) return 'N/A';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                } catch (e) {
+                    return 'N/A';
+                }
+            }
+
+            // Enhanced DataTable
+            const tbl = $('#tblExamCat').DataTable({
+                ajax: {
+                    url: '@Url.Action("LoadData")',
+                    dataSrc: 'data',
+                    error: function(xhr, error, code) {
+                        console.error('DataTable error:', error);
+                        showAlert('danger', 'Failed to load examination category data. Please refresh the page.', 'Loading Error');
+                    }
+                },
+                columns: [
+                    {
+                        data: 'catId',
+                        className: 'text-center',
+                        width: '80px'
+                    },
+                    {
+                        data: 'catName',
+                        render: function(data) {
+                            return `<strong class="text-primary">${truncateText(data, 25)}</strong>`;
+                        }
+                    },
+                    {
+                        data: 'yearsFreq',
+                        className: 'text-center',
+                        render: function(data) {
+                            if (!data) return '<span class="text-muted">N/A</span>';
+                            const badgeClass = data >= 5 ? 'bg-danger' : data >= 3 ? 'bg-warning' : 'bg-success';
+                            return `<span class="badge ${badgeClass}">${data} year${data > 1 ? 's' : ''}</span>`;
+                        }
+                    },
+                    {
+                        data: 'annuallyRule',
+                        className: 'text-center',
+                        render: function(data) {
+                            if (!data) return '<span class="text-muted">N/A</span>';
+                            const ruleDisplay = data.charAt(0).toUpperCase() + data.slice(1);
+                            const badgeClass = data === 'once' ? 'bg-info' : data === 'twice' ? 'bg-warning' : 'bg-primary';
+                            return `<span class="badge ${badgeClass}">${ruleDisplay}</span>`;
+                        }
+                    },
+                    {
+                        data: 'monthsSched',
+                        render: function(data) {
+                            if (!data) return '<span class="text-muted">No schedule</span>';
+                            const months = data.split(',');
+                            if (months.length <= 3) {
+                                return `<small class="text-primary">${months.join(', ')}</small>`;
+                            } else {
+                                return `<small class="text-primary" title="${months.join(', ')}" data-bs-toggle="tooltip">${months.slice(0, 3).join(', ')}... (+${months.length - 3})</small>`;
+                            }
+                        }
+                    },
+                    {
+                        data: 'criteria_name',
+                        render: function(data) {
+                            if (!data) return '<span class="text-muted">No criteria</span>';
+                            return `<span class="badge bg-secondary">${truncateText(data, 15)}</span>`;
+                        }
+                    },
+                    {
+                        data: 'createdBy',
+                        title: 'Created By',
+                        render: function(data) {
+                            return truncateText(data || 'N/A', 15);
+                        }
+                    },
+                    {
+                        data: 'createdOn',
+                        title: 'Created On',
+                        render: function(data) {
+                            return formatDate(data);
+                        }
+                    },
+                    {
+                        data: null,
+                        className: 'text-center',
+                        orderable: false,
+                        render: function(data, type, row) {
+                            const id = row.catId;
+                            const hasAuditData = row.createdOn || row.modifiedOn;
+
+                            let buttons = `
+                                <button class="btn btn-action-view view me-1" data-id="${id}" title="View Details">
+                                    <i class="bi bi-eye fs-6"></i>
+                                </button>
+                                <button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit">
+                                    <i class="bi bi-pencil fs-6"></i>
+                                </button>`;
+
+                            // if (hasAuditData) {
+                            //     buttons += `
+                            //         <button class="btn btn-action-audit audit me-1" data-id="${id}" title="Audit Details">
+                            //             <i class="bi bi-clock-history fs-6"></i>
+                            //         </button>`;
+                            // }
+
+                            buttons += `
+                                <button class="btn btn-action-delete delete" data-id="${id}" title="Delete">
+                                    <i class="bi bi-trash fs-6"></i>
+                                </button>`;
+
+                            return buttons;
+                        }
+                    }
+                ],
+                pageLength: 25,
+                responsive: true,
+                language: {
+                    emptyTable: '<div class="empty-state-master"><i class="bi bi-calendar2-check"></i><h6>No Examination Categories Found</h6><p>No examination category records are available. Click "Add Exam Category" to create your first category.</p></div>',
+                    processing: '<div class="loading-spinner-master"></div> Processing...',
+                    loadingRecords: '<div class="loading-spinner-master"></div> Loading...',
+                    zeroRecords: '<div class="empty-state-master"><i class="bi bi-search"></i><h6>No Results Found</h6><p>No examination categories match your search criteria.</p></div>'
+                },
+                drawCallback: function() {
+                    // Initialize tooltips
+                    $('[data-bs-toggle="tooltip"]').tooltip();
+                }
+            });
+
+            // Enhanced search functionality
+            $('#searchBox').on('keyup', function() {
+                tbl.search(this.value).draw();
+            });
+
+
+                    // === Init function for Create/Edit partial ===
+        window.initOrgPlantForm = function () {
+             'use strict';
+
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        function updateMonths() {
+            // Get all checked checkboxes
+            const selectedMonths = [];
+            MONTHS.forEach(function(month) {
+                const checkbox = document.getElementById('month' + month);
+                if (checkbox && checkbox.checked) {
+                    selectedMonths.push(month);
+                }
+            });
+
+            // Update the MonthsSched field directly (ASP.NET will bind this)
+            const monthsField = document.querySelector('input[name="MonthsSched"]');
+            if (monthsField) {
+                monthsField.value = selectedMonths.join(',');
+            }
+
+            // Update counter
+            const countElement = document.getElementById('selectedMonthsCount');
+            if (countElement) {
+                countElement.textContent = selectedMonths.length;
+            }
+
+            // Handle annually rule restrictions
+            handleAnnuallyRuleRestriction();
+        }
+
+        function handleAnnuallyRuleRestriction() {
+            const annuallyRuleSelect = document.getElementById('annuallyRuleSelect');
+            if (!annuallyRuleSelect) return;
+
+            const annuallyRule = annuallyRuleSelect.value;
+            const maxAllowed = annuallyRule === 'once' ? 1 : annuallyRule === 'twice' ? 2 : annuallyRule === 'thrice' ? 3 : 0;
+
+            if (maxAllowed === 0) {
+                // Disable all checkboxes if no rule selected
+                MONTHS.forEach(function(month) {
+                    const checkbox = document.getElementById('month' + month);
+                    if (checkbox) checkbox.disabled = true;
+                });
+                return;
+            }
+
+            // Count selected
+            let selectedCount = 0;
+            MONTHS.forEach(function(month) {
+                const checkbox = document.getElementById('month' + month);
+                if (checkbox && checkbox.checked) selectedCount++;
+            });
+
+            // Enable/disable based on count
+            MONTHS.forEach(function(month) {
+                const checkbox = document.getElementById('month' + month);
+                if (checkbox) {
+                    if (selectedCount >= maxAllowed && !checkbox.checked) {
+                        checkbox.disabled = true;
+                    } else {
+                        checkbox.disabled = false;
+                    }
+                }
+            });
+        }
+
+        function updateCharCount(fieldName, countElementId, maxLength) {
+            const field = document.querySelector('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]');
+            const countElement = document.getElementById(countElementId);
+            if (field && countElement) {
+                const updateCount = function() {
+                    const currentLength = field.value.length;
+                    countElement.textContent = `${currentLength}/${maxLength}`;
+
+                    // Remove previous classes
+                    countElement.classList.remove('text-warning', 'text-danger');
+
+                    // Calculate thresholds
+                    const warningThreshold = Math.floor(maxLength * 0.8);
+
+                    if (currentLength >= maxLength) {
+                        countElement.classList.add('text-danger');
+                    } else if (currentLength >= warningThreshold) {
+                        countElement.classList.add('text-warning');
+                    }
+                };
+
+                updateCount(); // Initial count
+                field.addEventListener('input', updateCount);
+            }
+        }
+
+        function initializeForm() {
+            // Initialize months from existing data (for edit mode)
+            const monthsField = document.querySelector('input[name="MonthsSched"]');
+            if (monthsField && monthsField.value) {
+                const savedMonths = monthsField.value.split(',');
+                savedMonths.forEach(function(month) {
+                    const checkbox = document.getElementById('month' + month.trim());
+                    if (checkbox) checkbox.checked = true;
+                });
+            }
+
+            // Initialize restrictions
+            handleAnnuallyRuleRestriction();
+            updateMonths();
+
+            // Character counts
+            updateCharCount('CatName', 'catNameCharCount', 100);
+            updateCharCount('Remarks', 'remarksCharCount', 200);
+        }
+
+        // Make updateMonths available globally for onclick handlers
+        window.updateMonths = updateMonths;
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initializeForm();
+
+                // Annually rule change handler
+                const annuallyRuleSelect = document.getElementById('annuallyRuleSelect');
+                if (annuallyRuleSelect) {
+                    annuallyRuleSelect.addEventListener('change', handleAnnuallyRuleRestriction);
+                }
+
+                // Form submission handler
+                const form = document.getElementById('medExamCategoryForm');
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        // Final update before submission
+                        updateMonths();
+
+                        // Basic validation
+                        const monthsField = document.querySelector('input[name="MonthsSched"]');
+                        if (monthsField && !monthsField.value) {
+                            alert('Please select at least one month.');
+                            e.preventDefault();
+                            return false;
+                        }
+
+                        return true;
+                    });
+                }
+            });
+        } else {
+            // DOM already loaded
+            initializeForm();
+
+            // Annually rule change handler
+            const annuallyRuleSelect = document.getElementById('annuallyRuleSelect');
+            if (annuallyRuleSelect) {
+                annuallyRuleSelect.addEventListener('change', handleAnnuallyRuleRestriction);
+            }
+
+            // Form submission handler
+            const form = document.getElementById('medExamCategoryForm');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    // Final update before submission
+                    updateMonths();
+
+                    // Basic validation
+                    const monthsField = document.querySelector('input[name="MonthsSched"]');
+                    if (monthsField && !monthsField.value) {
+                        alert('Please select at least one month.');
+                        e.preventDefault();
+                        return false;
+                    }
+
+                    return true;
+                });
+            }
+        }
+        };
+
+          'use strict';
+
+        // // One-time CSS to ensure legacy spans actually show
+        // function ensureValidationCssOnce() {
+        //   var id = 'medexamcat-validation-css';
+        //   if (document.getElementById(id)) return;
+        //   var s = document.createElement('style');
+        //   s.id = id;
+        //   s.textContent = `
+        //     .field-validation-error { display: inline !important; }
+        //     .field-validation-valid  { display: none !important; }
+        //     .input-validation-error  { border-color: #dc3545 !important; }
+        //     .char-counter-container  { display:flex; justify-content:space-between; align-items:baseline; min-height:1.25rem; }
+        //   `;
+        //   document.head.appendChild(s);
+        // }
+
+        // Helpers to write/clear only our own messages (won't fight unobtrusive)
+        function setAddonMsg($span, msg) {
+          $span.attr('data-addon-error', '1').text(msg).show();
+        }
+        function clearAddonMsg($span) {
+          if ($span.attr('data-addon-error') === '1') {
+            $span.text('').removeAttr('data-addon-error').hide();
+          }
+        }
+        function markInvalid($input) {
+          $input.addClass('is-invalid').removeClass('is-valid');
+        }
+        function markValid($input) {
+          $input.removeClass('is-invalid').addClass('is-valid');
+        }
+
+        // Security patterns to block dangerous input
+        var dangerousPatterns = [
+          /<script[^>]*>.*?<\/script>/gi, /javascript:/gi, /vbscript:/gi, /on\w+\s*=/gi,
+          /<iframe/gi, /<object/gi, /<embed/gi, /<form/gi, /eval\s*\(/gi, /expression\s*\(/gi
+        ];
+        function hasDanger(t) { return !!t && dangerousPatterns.some(p => p.test(t)); }
+
+
+
+        window.initMedExamCategoryValidationAddon = function () {
+
+             var $form = $('#medExamCategoryForm');
+          if (!$form.length) return;
+
+          //ensureValidationCssOnce();
+
+          // Re-parse only if needed
+          if (!$form.data('validator')) {
+            try { $.validator.unobtrusive.parse($form); } catch (e) { console.warn('Unobtrusive parse error:', e); }
+          }
+
+          // ⬇️ NEW: make the validator show errors on keyup/blur/click immediately
+          var v = $form.data('validator');
+          if (v) {
+                    // When invalid: red border + make sure its message span is visible
+              v.settings.highlight = function (element/*, errorClass, validClass*/) {
+                var $el = $(element);
+                $el.addClass('is-invalid').removeClass('is-valid');
+
+                var name = $el.attr('name');
+                var $msg = $form.find('[data-valmsg-for="' + name + '"]');
+                $msg.show(); // your CSS adds the icon to this span; show it when invalid
+              };
+
+              // When valid: green border + hide its message/icon if empty
+              v.settings.unhighlight = function (element/*, errorClass, validClass*/) {
+                var $el = $(element);
+                $el.removeClass('is-invalid').addClass('is-valid');
+
+                var name = $el.attr('name');
+                var $msg = $form.find('[data-valmsg-for="' + name + '"]');
+
+                // if unobtrusive left the text empty, hide the span (hides the icon too)
+                if (!$msg.text().trim()) { $msg.hide(); }
+              };
+
+              // Make messages update immediately as user interacts (keeps your earlier behavior)
+              v.settings.onfocusout = function (el) { $(el).valid(); refreshSummary(); };
+              v.settings.onkeyup    = function (el) { $(el).valid(); };
+              v.settings.onclick    = function (el) { $(el).valid(); refreshSummary(); };
+          }
+
+                 
+
+          // Cache elements via names to avoid markup changes/IDs
+          var $catName   = $form.find('[name="CatName"]');
+          var $yearsFreq = $form.find('[name="YearsFreq"]');
+          var $annRule   = $form.find('[name="AnnuallyRule"]');
+          var $criteria  = $form.find('[name="criteria_id"]');
+          var $months    = $form.find('[name="MonthsSched"]');
+          var $remarks   = $form.find('[name="Remarks"]');
+
+          var $mCatName   = $form.find('[data-valmsg-for="CatName"]');
+          var $mYearsFreq = $form.find('[data-valmsg-for="YearsFreq"]');
+          var $mAnnRule   = $form.find('[data-valmsg-for="AnnuallyRule"]');
+          var $mCriteria  = $form.find('[data-valmsg-for="criteria_id"]');
+          var $mMonths    = $form.find('[data-valmsg-for="MonthsSched"]');
+          var $mRemarks   = $form.find('[data-valmsg-for="Remarks"]');
+
+          // Model-aligned constraints
+          var nameMin = 2, nameMax = 100, remarksMax = 200;
+          var nameRegex   = /^[a-zA-Z0-9\s\-_\.\(\)\[\]]+$/;
+          var monthsRegex = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(,(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))*$/;
+
+          function vCatName() {
+            if (!$catName.length) return true;
+            var v = ($catName.val() || '').trim();
+            clearAddonMsg($mCatName);
+            if (!v) { setAddonMsg($mCatName, 'Category Name is required.'); markInvalid($catName); return false; }
+            if (v.length < nameMin) { setAddonMsg($mCatName, 'Category Name must be at least ' + nameMin + ' characters.'); markInvalid($catName); return false; }
+            if (v.length > nameMax) { setAddonMsg($mCatName, 'Category Name cannot exceed ' + nameMax + ' characters.'); markInvalid($catName); return false; }
+            if (hasDanger(v)) { setAddonMsg($mCatName, 'Invalid characters detected.'); markInvalid($catName); return false; }
+            if (!nameRegex.test(v)) { setAddonMsg($mCatName, 'Only letters, numbers, spaces, hyphens, underscores, dots, parentheses, and brackets are allowed.'); markInvalid($catName); return false; }
+            markValid($catName); return true;
+          }
+
+          function vYearsFreq() {
+            if (!$yearsFreq.length) return true;
+            var raw = $yearsFreq.val();
+            clearAddonMsg($mYearsFreq);
+            if (raw === null || raw === '' || isNaN(raw)) { setAddonMsg($mYearsFreq, 'Years Frequency is required.'); markInvalid($yearsFreq); return false; }
+            var n = Number(raw);
+            if (n < 1 || n > 10) { setAddonMsg($mYearsFreq, 'Years Frequency must be between 1 and 10.'); markInvalid($yearsFreq); return false; }
+            markValid($yearsFreq); return true;
+          }
+
+          function vAnnRule() {
+            if (!$annRule.length) return true;
+            var v = ($annRule.val() || '').trim();
+            clearAddonMsg($mAnnRule);
+            if (!v) { setAddonMsg($mAnnRule, 'Annually Rule is required.'); markInvalid($annRule); return false; }
+            if (!/^(once|twice|thrice)$/.test(v)) { setAddonMsg($mAnnRule, "Annually Rule must be 'once', 'twice', or 'thrice'."); markInvalid($annRule); return false; }
+            markValid($annRule); return true;
+          }
+
+          function vCriteria() {
+            if (!$criteria.length) return true;
+            var v = ($criteria.val() || '').trim();
+            clearAddonMsg($mCriteria);
+            if (!v) { setAddonMsg($mCriteria, 'Medical Criteria is required.'); markInvalid($criteria); return false; }
+            markValid($criteria); return true;
+          }
+
+          function vMonths() {
+            if (!$months.length) return true;
+            var v = ($months.val() || '').trim();
+            clearAddonMsg($mMonths);
+            if (!v) { setAddonMsg($mMonths, 'Months Schedule is required.'); markInvalid($months); return false; }
+            if (!monthsRegex.test(v)) { setAddonMsg($mMonths, 'Use comma-separated valid month short names (e.g., Jan,Feb,Mar).'); markInvalid($months); return false; }
+            markValid($months); return true;
+          }
+
+          function vRemarks() {
+            if (!$remarks.length) return true;
+            var v = ($remarks.val() || '');
+            clearAddonMsg($mRemarks);
+            if (v && v.length > remarksMax) { setAddonMsg($mRemarks, 'Remarks cannot exceed ' + remarksMax + ' characters.'); markInvalid($remarks); return false; }
+            if (v && hasDanger(v)) { setAddonMsg($mRemarks, 'Invalid characters detected.'); markInvalid($remarks); return false; }
+            if (v) { markValid($remarks); } else { $remarks.removeClass('is-invalid is-valid'); }
+            return true;
+          }
+
+          function allValidCustom() {
+            return vCatName() & vYearsFreq() & vAnnRule() & vCriteria() & vMonths() & vRemarks(); // bitwise to run all
+          }
+
+          // Validation summary toggle (uses your existing summary alert)
+          var $summary = $form.find('[data-valmsg-summary="true"]').closest('.alert');
+         
+
+          // ... your existing cached element lookups and field validators here ...
+
+          function refreshSummary() {
+            if (!$form.data('validator') || !$summary.length) return;
+            // combine unobtrusive + custom checks
+            var baseOk   = $form.valid();     // triggers built-in messages
+            var customOk = allValidCustom();  // triggers our add-on per-field messages
+            $summary.toggle(!(baseOk && customOk));
+            return baseOk && customOk;
+          }
+
+          // ⬇️ NEW: force an initial, full validation pass when the modal loads
+          function forceInitialValidation() {
+            if ($form.data('validator')) {
+              $form.validate().form();  // show built-in messages immediately
+            }
+            allValidCustom();           // show add-on messages immediately
+            refreshSummary();
+          }
+
+                  // Force one full pass so prefilled Edit forms start green and without icons
+        (function forceInitialValidation() {
+          if ($form.data('validator')) {
+            $form.validate().form();  // run built-in rules and trigger un/highlight
+          }
+          // If you also have custom per-field checks, call them here (optional):
+          allValidCustom();
+
+          refreshSummary();
+        })();
+
+          // Initial pass (immediate show without clicking into fields)
+          setTimeout(forceInitialValidation, 0);
+
+          // (keep the rest of your handlers + submit gate exactly as before)
+          $form
+            .off('.medcatx')
+            .on('blur.medcatx keyup.medcatx change.medcatx', '[name="CatName"],[name="YearsFreq"],[name="AnnuallyRule"],[name="criteria_id"],[name="MonthsSched"],[name="Remarks"]',
+              function () { if ($form.data('validator')) { $form.validate().element(this); } refreshSummary(); });
+
+        };
+
+
+        // --- Non-intrusive auto-init wiring ---
+        // If your init exists, chain our add-on AFTER it (without changing your code)
+        if (window.initOrgPlantForm && !window.__medCatAddonChained) {
+          var __origInit = window.initOrgPlantForm;
+          window.initOrgPlantForm = function () {
+            try { __origInit.apply(this, arguments); } finally {
+              if (window.initMedExamCategoryValidationAddon) window.initMedExamCategoryValidationAddon();
+            }
+          };
+          window.__medCatAddonChained = true;
+        }
+
+        // If form already present (preloaded), run once
+        if (document.getElementById('medExamCategoryForm')) {
+          window.initMedExamCategoryValidationAddon();
+        }
+
+        // Fallback: observe DOM for dynamically inserted form
+        var observer = new MutationObserver(function () {
+          if (document.getElementById('medExamCategoryForm')) {
+            window.initMedExamCategoryValidationAddon();
+            observer.disconnect();
+          }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+
+
+            // Open Create Modal
+            $('#btnCreate').click(function() {
+                showModalLoading('Add Medical Examination Category', '<i class="bi bi-plus-lg"></i>');
+
+                $.get('@Url.Action("Create")')
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        window.initOrgPlantForm();   // << init counters + validation here
+
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load create form. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // Open Edit Modal
+            $('#tblExamCat').on('click', '.edit', function () {
+                const id = $(this).data('id');
+                showModalLoading('Edit Medical Examination Category', '<i class="bi bi-pencil"></i>');
+
+                $.get(`@Url.Action("Edit")/${id}`)
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        window.initOrgPlantForm();   // << init counters + validation here
+
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load edit form. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // View Modal
+            $('#tblExamCat').on('click', '.view', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                showModalLoading('View Medical Examination Category', '<i class="bi bi-eye"></i>');
+
+                $.get(`@Url.Action("Details")/${id}`)
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load category details. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // Audit Details Modal
+            $('#tblExamCat').on('click', '.audit', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                showAuditModalLoading();
+
+                $.get(`@Url.Action("AuditDetails")/${id}`)
+                    .done(function(html) {
+                        $('#modalAuditBody').html(html);
+                        auditModalEl.modal('show');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load audit details. Please try again.', 'Loading Error');
+                        auditModalEl.modal('hide');
+                    });
+            });
+
+            // Submit Form (Create/Edit)
+            modalEl.on('submit', 'form', function (e) {
+                
+                e.preventDefault();
+                const form = $(this);
+                const submitBtn = form.find('[type="submit"]');
+                const originalText = submitBtn.html();
+
+                // Show loading state
+                submitBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div> Saving...');
+
+                $.post(form.attr('action'), form.serialize())
+                    .done(function(res) {
+                        if (res.success) {
+                            modalEl.modal('hide');
+                            tbl.ajax.reload(null, false);
+                            const isCreate = form.attr('action').includes('Create');
+                            showAlert('success',
+                                isCreate ? 'Medical Examination Category created successfully.' : 'Medical Examination Category updated successfully.',
+                                'Success'
+                            );
+                        } else {
+                            $('#modalBody').html(res);
+                        }
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to save examination category. Please try again.', 'Save Error');
+                    })
+                    .always(function() {
+                        submitBtn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            // Enhanced Delete with confirmation
+            $('#tblExamCat').on('click', '.delete', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                const row = tbl.row($(this).closest('tr')).data();
+                const categoryName = row ? row.catName : 'this category';
+
+                if (!confirm(`Are you sure you want to delete examination category "${categoryName}"?\n\nThis action cannot be undone.`)) {
+                    return;
+                }
+
+                const deleteBtn = $(this);
+                const originalText = deleteBtn.html();
+                deleteBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div>');
+
+                $.post('@Url.Action("Delete")', { id: id })
+                    .done(function() {
+                        tbl.ajax.reload(null, false);
+                        showAlert('warning', `Examination Category "${categoryName}" has been deleted.`, 'Deleted');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to delete category. Please try again.', 'Delete Error');
+                    })
+                    .always(function() {
+                        deleteBtn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            // Helper functions
+            function showModalLoading(title, icon) {
+                modalEl.find('.modal-title').html(icon + ' ' + title);
+                $('#modalBody').html(`
+                    <div class="loading-overlay">
+                        <div class="loading-spinner-master"></div>
+                        Loading...
+                    </div>
+                `);
+                modalEl.modal('show');
+            }
+
+            function showAuditModalLoading() {
+                $('#modalAuditBody').html(`
+                    <div class="loading-overlay">
+                        <div class="loading-spinner-master"></div>
+                        Loading audit information...
+                    </div>
+                `);
+                auditModalEl.modal('show');
+            }
+
+            // Clear search on page load
+            $('#searchBox').val('');
+        });
+    </script>
+}

@@ -1,0 +1,806 @@
+﻿@{
+    ViewData["Title"] = "Medical Ambulance Master";
+}
+
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+
+<div class="master-container">
+    <!-- Alert Container -->
+    <div id="alertContainer"></div>
+
+    <!-- Enhanced Master Header -->
+    <div class="master-header">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="flex-grow-1">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-master">
+                        <li class="breadcrumb-item">Home</li>
+                        <li class="breadcrumb-item active" aria-current="page">Medical Ambulance Master</li>
+                    </ol>
+                </nav>
+                <h1 class="master-title">
+                    <i class="bi bi-truck"></i>
+                    Medical Ambulance Master
+                </h1>
+                <p class="master-subtitle">Manage ambulance fleet and emergency medical vehicle information</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative">
+                    <input type="text" class="form-control" placeholder="Search ambulances..." id="searchBox" style="min-width: 250px; padding-left: 40px !important;" />
+                    <i class="bi bi-search position-absolute" style="left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280;"></i>
+                </div>
+                <button id="btnCreate" class="btn btn-add-master">
+                    <i class="bi bi-plus-lg"></i>
+                    Add Ambulance Master
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced DataTable Container -->
+    <div class="master-form">
+        <div class="card-body p-0">
+            <table id="tblmedambulancemaster" class="table table-striped table-glass glass-table mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Vehicle Number</th>
+                        <th>Provider</th>
+                        <th>Vehicle Type</th>
+                        <th>Max Capacity</th>
+                        <th>Status</th>
+                        <th>Created By</th>
+                        <th>Created On</th>
+                        <th style="width:200px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Medical Ambulance Modal -->
+<div class="modal fade" id="modalmedambulancemaster" tabindex="-1" aria-labelledby="modalAmbulanceLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="modalAmbulanceLabel">
+                    <i class="bi bi-truck"></i>
+                    Medical Ambulance Master
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master" id="modalBody">
+                <div class="loading-overlay">
+                    <div class="loading-spinner-master"></div>
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audit Details Modal -->
+<div class="modal fade" id="modalAuditDetails" tabindex="-1" aria-labelledby="modalAuditLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="modalAuditLabel">
+                    <i class="bi bi-clock-history"></i>
+                    Audit Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master" id="modalAuditBody">
+                <div class="loading-overlay">
+                    <div class="loading-spinner-master"></div>
+                    Loading audit information...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Enhanced Alert System
+            function showAlert(type, message, title = null) {
+                const alertContainer = document.getElementById('alertContainer');
+                const alertId = 'alert-' + Date.now();
+
+                const iconMap = {
+                    success: 'bi-check-circle',
+                    warning: 'bi-exclamation-triangle',
+                    danger: 'bi-x-circle',
+                    info: 'bi-info-circle'
+                };
+
+                const icon = iconMap[type] || 'bi-info-circle';
+                const alertTitle = title || type.charAt(0).toUpperCase() + type.slice(1);
+
+                const alertHtml = `
+                    <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert"
+                         style="border: none; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; font-weight: 500; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);">
+                        <div class="d-flex align-items-start">
+                            <i class="bi ${icon} me-3 flex-shrink-0" style="font-size: 18px;"></i>
+                            <div class="flex-grow-1">
+                                <strong class="d-block mb-1">${alertTitle}</strong>
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+
+                alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    const alertElement = document.getElementById(alertId);
+                    if (alertElement) {
+                        const alert = bootstrap.Alert.getOrCreateInstance(alertElement);
+                        alert.close();
+                    }
+                }, 5000);
+            }
+
+            // Modal setup
+            const modalEl = $('#modalmedambulancemaster');
+            const auditModalEl = $('#modalAuditDetails');
+
+            modalEl.appendTo('body');
+            auditModalEl.appendTo('body');
+
+            modalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+            auditModalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+
+            // Function to truncate text with tooltip
+            function truncateText(data, maxLength = 30) {
+                if (!data) return 'N/A';
+                if (data.length > maxLength) {
+                    return `<span title="${data}" data-bs-toggle="tooltip">${data.substring(0, maxLength)}...</span>`;
+                }
+                return data;
+            }
+
+            // Function to format date
+            function formatDate(dateString) {
+                if (!dateString) return 'N/A';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                } catch (e) {
+                    return 'N/A';
+                }
+            }
+
+            // Enhanced DataTable
+            const tbl = $('#tblmedambulancemaster').DataTable({
+                ajax: {
+                    url: '@Url.Action("LoadData")',
+                    dataSrc: 'data',
+                    error: function(xhr, error, code) {
+                        console.error('DataTable error:', error);
+                        showAlert('danger', 'Failed to load ambulance data. Please refresh the page.', 'Loading Error');
+                    }
+                },
+                columns: [
+                    {
+                        data: 'amb_id',
+                        className: 'text-center',
+                        width: '80px'
+                    },
+                    {
+                        data: 'vehicle_no',
+                        render: function(data) {
+                            return `<span class="badge bg-primary" style="font-size: 12px;">${data || 'N/A'}</span>`;
+                        }
+                    },
+                    {
+                        data: 'provider',
+                        render: function(data) {
+                            return `<strong>${truncateText(data, 25)}</strong>`;
+                        }
+                    },
+                    {
+                        data: 'vehicle_type',
+                        render: function(data) {
+                            if (!data) return '<span class="text-muted">N/A</span>';
+                            return `<span class="badge bg-info">${truncateText(data, 20)}</span>`;
+                        }
+                    },
+                    {
+                        data: 'max_capacity',
+                        className: 'text-center',
+                        render: function(data) {
+                            if (!data) return '<span class="text-muted">N/A</span>';
+                            const badgeClass = data >= 10 ? 'bg-success' : data >= 5 ? 'bg-warning' : 'bg-secondary';
+                            return `<span class="badge ${badgeClass}">
+                                        <i class="bi bi-people"></i> ${data}
+                                    </span>`;
+                        }
+                    },
+                    {
+                        data: 'is_active',
+                        className: 'text-center',
+                        render: function(data) {
+                            const isActive = data === true || data === 'true';
+                            const badgeClass = isActive ? 'bg-success' : 'bg-warning';
+                            const icon = isActive ? 'bi-check-circle' : 'bi-pause-circle';
+                            const text = isActive ? 'Active' : 'Inactive';
+                            return `<span class="badge ${badgeClass}"><i class="bi ${icon}"></i> ${text}</span>`;
+                        }
+                    },
+                    {
+                        data: 'createdBy',
+                        title: 'Created By',
+                        render: function(data) {
+                            return truncateText(data || 'N/A', 20);
+                        }
+                    },
+                    {
+                        data: 'createdOn',
+                        title: 'Created On',
+                        render: function(data) {
+                            return formatDate(data);
+                        }
+                    },
+                    {
+                        data: null,
+                        className: 'text-center',
+                        orderable: false,
+                        render: function(data, type, row) {
+                            const id = row.amb_id;
+                            const hasAuditData = row.createdOn || row.modifiedOn;
+
+                            let buttons = `
+                                <button class="btn btn-action-view view me-1" data-id="${id}" title="View Details">
+                                    <i class="bi bi-eye fs-6"></i>
+                                </button>
+                                <button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit">
+                                    <i class="bi bi-pencil fs-6"></i>
+                                </button>`;
+
+                            // if (hasAuditData) {
+                            //     buttons += `
+                            //         <button class="btn btn-action-audit audit me-1" data-id="${id}" title="Audit Details">
+                            //             <i class="bi bi-clock-history fs-6"></i>
+                            //         </button>`;
+                            // }
+
+                            buttons += `
+                                <button class="btn btn-action-delete delete" data-id="${id}" title="Delete">
+                                    <i class="bi bi-trash fs-6"></i>
+                                </button>`;
+
+                            return buttons;
+                        }
+                    }
+                ],
+                pageLength: 25,
+                responsive: true,
+                language: {
+                    emptyTable: '<div class="empty-state-master"><i class="bi bi-truck"></i><h6>No Ambulances Found</h6><p>No ambulance records are available. Click "Add Ambulance Master" to register your first ambulance.</p></div>',
+                    processing: '<div class="loading-spinner-master"></div> Processing...',
+                    loadingRecords: '<div class="loading-spinner-master"></div> Loading...',
+                    zeroRecords: '<div class="empty-state-master"><i class="bi bi-search"></i><h6>No Results Found</h6><p>No ambulances match your search criteria.</p></div>'
+                },
+                drawCallback: function() {
+                    // Initialize tooltips
+                    $('[data-bs-toggle="tooltip"]').tooltip();
+                }
+            });
+
+            // Enhanced search functionality
+            $('#searchBox').on('keyup', function() {
+                tbl.search(this.value).draw();
+            });
+
+
+                    // === Init function for Create/Edit partial ===
+        window.initOrgPlantForm = function () {
+            // Form elements
+            const form = $('#medAmbulanceMasterForm');
+            const submitBtn = $('#submitBtn');
+            const vehicleNoInput = $('#vehicleNoInput');
+            const providerInput = $('#providerInput');
+            const vehicleTypeInput = $('#vehicleTypeInput');
+            const maxCapacityInput = $('#maxCapacityInput');
+            const isActiveInputs = $('input[name="is_active"]');
+            const ambId = $('#amb_id').val();
+
+            // Character count elements
+            const vehicleNoCharCount = $('#vehicleNoCharCount');
+            const providerCharCount = $('#providerCharCount');
+            const vehicleTypeCharCount = $('#vehicleTypeCharCount');
+
+            // Validation flags
+            let isCheckingVehicleNo = false;
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Security patterns to check for
+            const dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            // Function to check for dangerous input
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Enhanced character count functions
+            function updateCharCount(input, countElement, maxLength) {
+                const currentLength = input.val().length;
+                countElement.text(`${currentLength}/${maxLength}`);
+
+                // Remove previous classes
+                countElement.removeClass('text-warning text-danger');
+
+                // Calculate thresholds
+                const warningThreshold = Math.floor(maxLength * 0.8);
+
+                if (currentLength >= maxLength) {
+                    countElement.addClass('text-danger');
+                } else if (currentLength >= warningThreshold) {
+                    countElement.addClass('text-warning');
+                }
+            }
+
+            // Enhanced validation functions
+            function validateVehicleNumber() {
+                const vehicleNo = vehicleNoInput.val().trim();
+                const validationSpan = $('#vehicleNoValidation');
+                let isValid = true;
+
+                // Clear non-uniqueness validation errors
+                if (!validationSpan.text().includes('already exists')) {
+                    validationSpan.text('').removeClass('field-validation-error').hide();
+                    vehicleNoInput.removeClass('is-invalid is-valid');
+                }
+
+                if (!vehicleNo) {
+                    showFieldError(validationSpan, vehicleNoInput, 'Vehicle Number is required.');
+                    isValid = false;
+                } else if (vehicleNo.length < 3) {
+                    showFieldError(validationSpan, vehicleNoInput, 'Vehicle Number must be at least 3 characters.');
+                    isValid = false;
+                } else if (vehicleNo.length > 20) {
+                    showFieldError(validationSpan, vehicleNoInput, 'Vehicle Number cannot exceed 20 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(vehicleNo)) {
+                    showFieldError(validationSpan, vehicleNoInput, 'Vehicle Number contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\-_]+$/.test(vehicleNo)) {
+                    showFieldError(validationSpan, vehicleNoInput, 'Vehicle Number can only contain letters, numbers, hyphens, and underscores.');
+                    isValid = false;
+                } else {
+                    vehicleNoInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateProvider() {
+                const provider = providerInput.val().trim();
+                const validationSpan = $('#providerValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                providerInput.removeClass('is-invalid is-valid');
+
+                if (!provider) {
+                    showFieldError(validationSpan, providerInput, 'Provider is required.');
+                    isValid = false;
+                } else if (provider.length < 2) {
+                    showFieldError(validationSpan, providerInput, 'Provider must be at least 2 characters.');
+                    isValid = false;
+                } else if (provider.length > 100) {
+                    showFieldError(validationSpan, providerInput, 'Provider cannot exceed 100 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(provider)) {
+                    showFieldError(validationSpan, providerInput, 'Provider contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\s\-_\.\(\)\[\]]+$/.test(provider)) {
+                    showFieldError(validationSpan, providerInput, 'Provider can only contain letters, numbers, spaces, hyphens, underscores, dots, parentheses, and brackets.');
+                    isValid = false;
+                } else {
+                    providerInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateVehicleType() {
+                const vehicleType = vehicleTypeInput.val().trim();
+                const validationSpan = $('#vehicleTypeValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                vehicleTypeInput.removeClass('is-invalid is-valid');
+
+                if (vehicleType && vehicleType.length > 50) {
+                    showFieldError(validationSpan, vehicleTypeInput, 'Vehicle Type cannot exceed 50 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(vehicleType)) {
+                    showFieldError(validationSpan, vehicleTypeInput, 'Vehicle Type contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (vehicleType && !/^[a-zA-Z0-9\s\-_\.\(\)\[\]]*$/.test(vehicleType)) {
+                    showFieldError(validationSpan, vehicleTypeInput, 'Vehicle Type can only contain letters, numbers, spaces, hyphens, underscores, dots, parentheses, and brackets.');
+                    isValid = false;
+                } else if (vehicleType) {
+                    vehicleTypeInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateMaxCapacity() {
+                const maxCapacity = maxCapacityInput.val();
+                const validationSpan = $('#maxCapacityValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                maxCapacityInput.removeClass('is-invalid is-valid');
+
+                if (!maxCapacity) {
+                    showFieldError(validationSpan, maxCapacityInput, 'Max Capacity is required.');
+                    isValid = false;
+                } else if (maxCapacity < 1 || maxCapacity > 50) {
+                    showFieldError(validationSpan, maxCapacityInput, 'Max Capacity must be between 1 and 50.');
+                    isValid = false;
+                } else {
+                    maxCapacityInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateActiveStatus() {
+                const isActiveSelected = isActiveInputs.filter(':checked').length > 0;
+                const validationSpan = $('#isActiveValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                isActiveInputs.removeClass('is-invalid');
+
+                if (!isActiveSelected) {
+                    showFieldError(validationSpan, isActiveInputs, 'Active Status is required.');
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            // Real-time validation for vehicle number uniqueness
+            function checkVehicleNumberUniqueness() {
+                const vehicleNo = vehicleNoInput.val().trim();
+                const validationSpan = $('#vehicleNoValidation');
+
+                if (!vehicleNo || !validateVehicleNumber()) {
+                    updateSubmitButton();
+                    return;
+                }
+
+                if (isCheckingVehicleNo) return;
+
+                isCheckingVehicleNo = true;
+                submitBtn.prop('disabled', true);
+
+                const checkUrl = $('#checkUrlHidden').val();
+                $.post(checkUrl, {
+                    vehicleNo: vehicleNo,
+                    ambId: ambId || null
+                })
+                .done(function(response) {
+                    if (response.exists) {
+                        showFieldError(validationSpan, vehicleNoInput, 'This vehicle number already exists.');
+                        submitBtn.prop('disabled', true);
+                    } else {
+                        if (validateVehicleNumber()) {
+                            validationSpan.text('').removeClass('field-validation-error').hide();
+                            vehicleNoInput.removeClass('is-invalid').addClass('is-valid');
+                        }
+                        updateSubmitButton();
+                    }
+                })
+                .fail(function() {
+                    console.log('Error checking vehicle number uniqueness');
+                    updateSubmitButton();
+                })
+                .always(function() {
+                    isCheckingVehicleNo = false;
+                });
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0 ||
+                                isCheckingVehicleNo;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Event handlers
+            vehicleNoInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), vehicleNoCharCount, 20);
+                    validateVehicleNumber();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            providerInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), providerCharCount, 100);
+                    validateProvider();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            vehicleTypeInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), vehicleTypeCharCount, 50);
+                    validateVehicleType();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            maxCapacityInput.on('input change', function() {
+                validateMaxCapacity();
+                updateSubmitButton();
+            });
+
+            isActiveInputs.on('change', function() {
+                validateActiveStatus();
+                updateSubmitButton();
+            });
+
+            // Debounced vehicle number uniqueness check
+            let vehicleNoCheckTimeout;
+            vehicleNoInput.on('input keyup', function() {
+                clearTimeout(vehicleNoCheckTimeout);
+                vehicleNoCheckTimeout = setTimeout(checkVehicleNumberUniqueness, 500);
+            });
+
+            // Initialize on page load
+            updateCharCount(vehicleNoInput, vehicleNoCharCount, 20);
+            updateCharCount(providerInput, providerCharCount, 100);
+            updateCharCount(vehicleTypeInput, vehicleTypeCharCount, 50);
+            validateVehicleNumber();
+            validateProvider();
+            validateVehicleType();
+            validateMaxCapacity();
+            validateActiveStatus();
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateVehicleNumber() || !validateProvider() || !validateVehicleType() ||
+                    !validateMaxCapacity() || !validateActiveStatus() || isCheckingVehicleNo) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Double-check for dangerous input before submission
+                const vehicleNo = vehicleNoInput.val().trim();
+                const provider = providerInput.val().trim();
+                const vehicleType = vehicleTypeInput.val().trim();
+
+                if (containsDangerousInput(vehicleNo) || containsDangerousInput(provider) || containsDangerousInput(vehicleType)) {
+                    e.preventDefault();
+                    alert('Invalid input detected. Please remove any script tags or unsafe characters.');
+                    return false;
+                }
+            });
+
+            // Prevent pasting of dangerous content
+            function handleDangerousPaste(input, inputName) {
+                input.on('paste', function(e) {
+                    setTimeout(function() {
+                        const pastedContent = input.val();
+                        if (containsDangerousInput(pastedContent)) {
+                            input.val('');
+                            alert('Pasted content in ' + inputName + ' contains unsafe characters and has been removed.');
+                        }
+                    }, 10);
+                });
+            }
+
+            handleDangerousPaste(vehicleNoInput, 'Vehicle Number');
+            handleDangerousPaste(providerInput, 'Provider');
+            handleDangerousPaste(vehicleTypeInput, 'Vehicle Type');
+        };
+
+
+            // Open Create Modal
+            $('#btnCreate').click(function() {
+                showModalLoading('Add Medical Ambulance Master', '<i class="bi bi-plus-lg"></i>');
+
+                $.get('@Url.Action("Create")')
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        window.initOrgPlantForm();   // << init counters + validation here
+
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load create form. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // Open Edit Modal
+            $('#tblmedambulancemaster').on('click', '.edit', function () {
+                const id = $(this).data('id');
+                showModalLoading('Edit Medical Ambulance Master', '<i class="bi bi-pencil"></i>');
+
+                $.get(`@Url.Action("Edit")/${id}`)
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        window.initOrgPlantForm();   // << init counters + validation here
+
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load edit form. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // View Modal
+            $('#tblmedambulancemaster').on('click', '.view', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                showModalLoading('View Medical Ambulance Master', '<i class="bi bi-eye"></i>');
+
+                $.get(`@Url.Action("Details")/${id}`)
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load ambulance details. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // Audit Details Modal
+            $('#tblmedambulancemaster').on('click', '.audit', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                showAuditModalLoading();
+
+                $.get(`@Url.Action("AuditDetails")/${id}`)
+                    .done(function(html) {
+                        $('#modalAuditBody').html(html);
+                        auditModalEl.modal('show');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load audit details. Please try again.', 'Loading Error');
+                        auditModalEl.modal('hide');
+                    });
+            });
+
+            // Submit Form (Create/Edit)
+            modalEl.on('submit', 'form', function (e) {
+                e.preventDefault();
+                const form = $(this);
+                const submitBtn = form.find('[type="submit"]');
+                const originalText = submitBtn.html();
+
+                // Show loading state
+                submitBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div> Saving...');
+
+                $.post(form.attr('action'), form.serialize())
+                    .done(function(res) {
+                        if (res.success) {
+                            modalEl.modal('hide');
+                            tbl.ajax.reload(null, false);
+                            const isCreate = form.attr('action').includes('Create');
+                            showAlert('success',
+                                isCreate ? 'Medical Ambulance Master created successfully.' : 'Medical Ambulance Master updated successfully.',
+                                'Success'
+                            );
+                        } else {
+                            $('#modalBody').html(res);
+                        }
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to save ambulance. Please try again.', 'Save Error');
+                    })
+                    .always(function() {
+                        submitBtn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            // Enhanced Delete with confirmation
+            $('#tblmedambulancemaster').on('click', '.delete', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                const row = tbl.row($(this).closest('tr')).data();
+                const vehicleNo = row ? row.vehicle_no : 'this ambulance';
+
+                if (!confirm(`Are you sure you want to delete ambulance "${vehicleNo}"?\n\nThis action cannot be undone.`)) {
+                    return;
+                }
+
+                const deleteBtn = $(this);
+                const originalText = deleteBtn.html();
+                deleteBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div>');
+
+                $.post('@Url.Action("Delete")', { id: id })
+                    .done(function() {
+                        tbl.ajax.reload(null, false);
+                        showAlert('warning', `Medical Ambulance "${vehicleNo}" has been deleted.`, 'Deleted');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to delete ambulance. Please try again.', 'Delete Error');
+                    })
+                    .always(function() {
+                        deleteBtn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            // Helper functions
+            function showModalLoading(title, icon) {
+                modalEl.find('.modal-title').html(icon + ' ' + title);
+                $('#modalBody').html(`
+                    <div class="loading-overlay">
+                        <div class="loading-spinner-master"></div>
+                        Loading...
+                    </div>
+                `);
+                modalEl.modal('show');
+            }
+
+            function showAuditModalLoading() {
+                $('#modalAuditBody').html(`
+                    <div class="loading-overlay">
+                        <div class="loading-spinner-master"></div>
+                        Loading audit information...
+                    </div>
+                `);
+                auditModalEl.modal('show');
+            }
+
+            // Clear search on page load
+            $('#searchBox').val('');
+        });
+    </script>
+}

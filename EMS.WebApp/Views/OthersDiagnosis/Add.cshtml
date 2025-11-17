@@ -1,0 +1,1439 @@
+﻿@model EMS.WebApp.Data.OthersDiagnosisViewModel
+@{
+    ViewData["Title"] = "Add Diagnosis - Others";
+    var shouldMaskData = ViewBag.ShouldMaskData ?? true;
+    var userRole = ViewBag.UserRole ?? "";
+}
+
+<!-- Store masking information -->
+<input type="hidden" id="shouldMaskData" value="@shouldMaskData.ToString().ToLower()" />
+<input type="hidden" id="userRole" value="@userRole" />
+
+<div id="alertContainer"></div>
+
+<!-- Diagnosis – Others -->
+<div class="glass p-4 shadow-sm">
+    @if (shouldMaskData)
+    {
+        <div class="alert alert-warning d-flex align-items-center mb-4">
+            <i class="bi bi-shield-lock me-2"></i>
+            <div>
+                <strong>Limited Access:</strong> You don't have sufficient permissions to create diagnoses.
+                Please contact a doctor or compounder for assistance.
+            </div>
+        </div>
+    }
+
+    <form id="frmDiagnosis" asp-action="Add" asp-controller="OthersDiagnosis" method="post">
+        @Html.AntiForgeryToken()
+
+        <!-- Header search row -->
+        <div id="frmDiagHdr" class="row g-3 align-items-end mb-4 small">
+            <!-- Visit Type Dropdown -->
+            <div class="col-6 col-md-3 col-lg-2">
+                <label class="form-label" asp-for="VisitType">Visit Type <span class="text-danger">*</span></label>
+                @if (shouldMaskData)
+                {
+                    <select asp-for="VisitType" class="form-select glass" id="visitType" required disabled>
+                        <option value="Regular Visitor" selected>Regular Visitor</option>
+                        <option value="First Aid or Emergency">First Aid or Emergency</option>
+                    </select>
+                }
+                else
+                {
+                    <select asp-for="VisitType" class="form-select glass" id="visitType" required>
+                        <option value="Regular Visitor" selected>Regular Visitor</option>
+                        <option value="First Aid or Emergency">First Aid or Emergency</option>
+                    </select>
+                }
+                <span asp-validation-for="VisitType" class="text-danger small"></span>
+            </div>
+
+            <!-- UPDATED: Treatment ID - Auto-generated and readonly -->
+            <div class="col-6 col-md-3 col-lg-2">
+                <label class="form-label" asp-for="TreatmentId">Treatment&nbsp;ID</label>
+                @if (shouldMaskData)
+                {
+                    <input asp-for="TreatmentId" class="form-control glass" readonly disabled
+                           title="Auto-generated Treatment ID" />
+                }
+                else
+                {
+                    <input asp-for="TreatmentId" class="form-control glass" readonly
+                           title="Auto-generated Treatment ID" />
+                }
+                <span asp-validation-for="TreatmentId" class="text-danger small"></span>
+            </div>
+
+            <!-- Patient Name - Required -->
+            <div class="col-6 col-md-3 col-lg-2">
+                <label class="form-label" asp-for="PatientName">Name <span class="text-danger">*</span></label>
+                @if (shouldMaskData)
+                {
+                    <input asp-for="PatientName" class="form-control glass" disabled />
+                }
+                else
+                {
+                    <input asp-for="PatientName" onkeyup="this.value = this.value.replace(/[^a-zA-Z\s-]/g, '');"
+                           class="form-control glass required-field" required />
+                }
+                <span asp-validation-for="PatientName" class="text-danger small"></span>
+            </div>
+
+            <!-- UPDATED: Age - Optional -->
+            <div class="col-4 col-md-2 col-lg-1">
+                <label class="form-label" asp-for="Age">Age (Years)</label>
+                @if (shouldMaskData)
+                {
+                    <input asp-for="Age" type="text" min="0" max="120" class="form-control glass" disabled />
+                }
+                else
+                {
+                    <input asp-for="Age" type="text" min="0" max="120"
+                           onkeyup="this.value = this.value.replace(/[^0-9.]/g, '');"
+                           class="form-control glass optional-field" placeholder="Optional" />
+                }
+                <span asp-validation-for="Age" class="text-danger small"></span>
+            </div>
+
+            <!-- UPDATED: P.Number - Optional -->
+            <div class="col-8 col-md-3 col-lg-2">
+                <label class="form-label" asp-for="PNumber">P. No</label>
+                @if (shouldMaskData)
+                {
+                    <input asp-for="PNumber" class="form-control glass" disabled />
+                }
+                else
+                {
+                    <input asp-for="PNumber" onkeyup="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');"
+                           class="form-control glass optional-field" placeholder="Optional" />
+                }
+                <span asp-validation-for="PNumber" class="text-danger small"></span>
+            </div>
+
+            <!-- UPDATED: Category - Optional -->
+            <div class="col-md-3 col-lg-2">
+                <label class="form-label" asp-for="Category">Category</label>
+                @if (shouldMaskData)
+                {
+                    <input asp-for="Category" class="form-control glass" disabled />
+                }
+                else
+                {
+                    <input asp-for="Category" onkeyup="this.value = this.value.replace(/[^a-zA-Z0-9\s-]/g, '');"
+                           class="form-control glass optional-field" placeholder="Optional" />
+                }
+                <span asp-validation-for="Category" class="text-danger small"></span>
+            </div>
+
+            <!-- Other Details - Optional -->
+            <div class="col-md-4 col-lg-2">
+                <label class="form-label" asp-for="OtherDetails">Other Details</label>
+                @if (shouldMaskData)
+                {
+                    <input asp-for="OtherDetails" class="form-control glass" disabled />
+                }
+                else
+                {
+                    <input asp-for="OtherDetails" onkeyup="this.value = this.value.replace(/[^a-zA-Z0-9\s-]/g, '');"
+                           class="form-control glass optional-field" placeholder="Optional" />
+                }
+                <span asp-validation-for="OtherDetails" class="text-danger small"></span>
+            </div>
+
+            <div class="col-auto">
+                @if (!shouldMaskData)
+                {
+                    <button class="btn btn-lg btn-primary" type="button" onclick="showDiagnosisSection()">Go</button>
+                }
+                else
+                {
+                    <button class="btn btn-lg btn-secondary" type="button" disabled title="Access denied">Go</button>
+                }
+            </div>
+        </div>
+
+        <!-- Hidden fields -->
+        <input asp-for="PatientId" type="hidden" />
+        <input asp-for="DiagnosisId" type="hidden" />
+
+        <!-- Diagnosis details block -->
+        <div id="diagBlock" style="display:none;">
+            <h6 class="mb-2">Diagnosis Details</h6>
+            <div class="row g-3 small">
+                <div class="col-md-6 col-lg-4">
+                    <label class="form-label">Patient Name</label>
+                    <input id="displayPatientName" class="form-control glass" readonly />
+                </div>
+
+                <div class="col-md-6 col-lg-3">
+                    <label class="form-label" asp-for="LastVisitDate">Last Visited Date</label>
+                    @if (shouldMaskData)
+                    {
+                        <input asp-for="LastVisitDate" type="date" class="form-control glass" disabled />
+                    }
+                    else
+                    {
+                        <input asp-for="LastVisitDate" type="date" class="form-control glass" />
+                    }
+                    <span asp-validation-for="LastVisitDate" class="text-danger small"></span>
+                </div>
+
+                <!-- Masked Vital Signs -->
+                <div class="col-md-4 col-lg-2">
+                    <label class="form-label" asp-for="BloodPressure">BP</label>
+                    @if (shouldMaskData)
+                    {
+                        <input asp-for="BloodPressure" class="form-control glass" placeholder="*****" disabled />
+                    }
+                    else
+                    {
+                        <input asp-for="BloodPressure" onkeyup="this.value = this.value.replace(/[^0-9\/]/g, '');"
+                               class="form-control glass" placeholder="e.g. 120/80" />
+                    }
+                    <span asp-validation-for="BloodPressure" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4 col-lg-2">
+                    <label class="form-label" asp-for="PulseRate">Pulse Rate</label>
+                    @if (shouldMaskData)
+                    {
+                        <input asp-for="PulseRate" class="form-control glass" placeholder="*****" disabled />
+                    }
+                    else
+                    {
+                        <input asp-for="PulseRate" class="form-control glass"
+                               onkeyup="this.value = this.value.replace(/[^a-zA-Z0-9.\s]/g, '');"
+                               placeholder="e.g. 72 bpm" />
+                    }
+                    <span asp-validation-for="PulseRate" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4 col-lg-2">
+                    <label class="form-label" asp-for="Sugar">Sugar</label>
+                    @if (shouldMaskData)
+                    {
+                        <input asp-for="Sugar" class="form-control glass" placeholder="*****" disabled />
+                    }
+                    else
+                    {
+                        <input asp-for="Sugar" class="form-control glass"
+                               onkeyup="this.value = this.value.replace(/[^a-zA-Z0-9\/]/g, '');"
+                               placeholder="e.g. 90 mg/dL" />
+                    }
+                    <span asp-validation-for="Sugar" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-12">
+                    <label class="form-label" asp-for="Remarks">Remark</label>
+                    @if (shouldMaskData)
+                    {
+                        <textarea asp-for="Remarks" rows="2" class="form-control glass" disabled></textarea>
+                    }
+                    else
+                    {
+                        <textarea asp-for="Remarks" onkeyup="this.value = this.value.replace(/[^a-zA-Z0-9-\s]/g, '');"
+                                  rows="2" class="form-control glass"></textarea>
+                    }
+                    <span asp-validation-for="Remarks" class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6 col-lg-4">
+                    <label class="form-label" asp-for="DiagnosedBy">Diagnosed By <span class="text-danger">*</span></label>
+                    @if (shouldMaskData)
+                    {
+                        <input asp-for="DiagnosedBy" class="form-control glass" value="@(User.Identity?.Name + " - " + User.GetFullName() ?? "SYSTEM ADMIN")" disabled />
+                    }
+                    else
+                    {
+                        <input asp-for="DiagnosedBy" class="form-control glass required-field"
+                               value="@(User.Identity?.Name + " - " + User.GetFullName() ?? "SYSTEM ADMIN")" required />
+                    }
+                    <span asp-validation-for="DiagnosedBy" class="text-danger small"></span>
+                </div>
+
+                <div class="col-12">
+                    @if (!shouldMaskData)
+                    {
+                        <button id="btnPresc" class="btn btn-sm btn-outline-primary" type="button">Prescription</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-sm btn-outline-secondary" type="button" disabled title="Access denied">Prescription</button>
+                    }
+                </div>
+            </div>
+
+            <!-- Prescription card with batch tracking and checkbox disease selection -->
+            <div class="mt-4" id="prescCard" style="display:none;">
+                <h6 class="mb-2">Prescription - Batch Tracked Medicine</h6>
+                <div class="row g-3 small align-items-start">
+                    <div class="col-sm-4 col-md-3 col-lg-3">
+                        <label class="form-label">Disease Name</label>
+                        <!-- NEW: Checkbox container for diseases instead of multi-select -->
+                        <div id="diseaseCheckboxContainer" class="border p-3 glass" style="max-height: 200px; overflow-y: auto; padding-left: 40px !important;">
+                            @if (shouldMaskData)
+                            {
+                                <div class="form-text mb-2">
+                                    <i class="bi bi-lock"></i> Disease selection disabled - Access denied
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-text mb-2">
+                                    <i class="bi bi-info-circle"></i> Check all applicable diseases (Format: ID - Name)
+                                </div>
+                                <!-- Disease checkboxes will be loaded here -->
+                                @if (Model?.AvailableDiseases?.Any() == true)
+                                {
+                                    @foreach (var disease in Model.AvailableDiseases)
+                                    {
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input disease-checkbox" type="checkbox" value="@disease.DiseaseId" id="disease_@disease.DiseaseId">
+                                            <label class="form-check-label small" for="disease_@disease.DiseaseId">
+                                                @disease.DiseaseId - @disease.DiseaseName
+                                            </label>
+                                        </div>
+                                    }
+                                }
+                            }
+                        </div>
+                        @if (!shouldMaskData)
+                        {
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllDiseases">
+                                    <i class="bi bi-check-all"></i> Select All
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAllDiseases">
+                                    <i class="bi bi-x-circle"></i> Clear All
+                                </button>
+                            </div>
+                        }
+                    </div>
+                    <div class="col-sm-8 col-md-9 col-lg-9">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            @if (!shouldMaskData)
+                            {
+                                <button class="btn btn-sm btn-outline-primary" id="addMedRow" type="button">Add medicine</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" id="addMedRow" type="button" disabled>Add medicine</button>
+                            }
+                        </div>
+                        <div class="form-text mb-3">
+                            <i class="bi bi-info-circle"></i> Medicines are sorted by expiry date (expiring soon first) and grouped by batch
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock validation alert container -->
+                <div id="stockValidationContainer" class="mt-2"></div>
+
+                <!-- Prescription items table with batch tracking and stock -->
+                <div class="table-responsive mt-3">
+                    <table id="tblPresc" class="table table-sm glass-table w-100 align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width:50px">Sl.</th>
+                                <th style="width:200px">ID - Base - Name - Batch</th>
+                                <th style="width:80px">Available Stock</th>
+                                <th style="width:80px">Quantity</th>
+                                <th style="width:100px">Dose</th>
+                                <th style="width:120px">Expiry</th>
+                                <th style="width:80px">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr id="noMedicineRow">
+                                <td colspan="7" class="text-center text-muted">
+                                    <i class="bi bi-info-circle"></i> No medicines added yet. Click "Add medicine" to start.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end">
+                    @if (!shouldMaskData)
+                    {
+                        <button class="btn btn-primary btn-sm" type="submit" id="saveDiagnosisBtn">Save</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-secondary btn-sm" type="button" disabled title="Access denied">Save</button>
+                    }
+                    <a href="@Url.Action("Index", "OthersDiagnosis")" class="btn btn-outline-primary btn-sm">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+    <link href="~/css/select2.min.css" rel="stylesheet" />
+    <link href="~/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <script src="~/js/select2.min.js"></script>
+
+    <script>
+
+                // Enhanced Alert System (from Plant Master reference)
+                function showAlert1(type, message, title = null) {
+                    console.log("func called")
+            const alertContainer = document.getElementById('alertContainer');
+            const alertId = 'alert-' + Date.now();
+
+            const iconMap = {
+                success: 'bi-check-circle',
+                warning: 'bi-exclamation-triangle',
+                danger: 'bi-x-circle',
+                info: 'bi-info-circle'
+            };
+
+            const icon = iconMap[type] || 'bi-info-circle';
+            const alertTitle = title || type.charAt(0).toUpperCase() + type.slice(1);
+
+            const alertHtml = `
+                <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert"
+                     style="border: none; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; font-weight: 500; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);">
+                    <div class="d-flex align-items-start">
+                        <i class="bi ${icon} me-3 flex-shrink-0" style="font-size: 18px;"></i>
+                        <div class="flex-grow-1">
+                            <strong class="d-block mb-1">${alertTitle}</strong>
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+
+            alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alertElement = document.getElementById(alertId);
+                if (alertElement) {
+                    const alert = bootstrap.Alert.getOrCreateInstance(alertElement);
+                    alert.close();
+                }
+            }, 5000);
+        }
+
+
+        let prescriptionData = { diseases: [], medicines: [] };
+        let medicineRowCount = 0;
+        let currentVisitType = 'Regular Visitor';
+
+        // Get masking info
+        const shouldMaskData = $('#shouldMaskData').val() === 'true';
+        const userRole = $('#userRole').val();
+
+        console.log('🔒 Masking Status:', shouldMaskData, 'User Role:', userRole);
+
+        $(document).ready(function () {
+
+            // Check permissions before initializing
+            if (shouldMaskData) {
+                showAlert('warning', '🔒 You have limited access. Some features are disabled.');
+                return; // Don't initialize form functionality
+            }
+            $('#PNumber').removeAttr('data-val-required').rules('remove', 'required');
+            $('#Category').removeAttr('data-val-required').rules('remove', 'required');
+            loadPrescriptionData();
+
+            // Track visit type changes
+            $('#visitType').on('change', function() {
+                currentVisitType = $(this).val();
+                console.log('🏥 Visit type changed to:', currentVisitType);
+
+                // Show appropriate alerts based on visit type
+                // if (currentVisitType === 'First Aid or Emergency') {
+                //     showAlert('warning', '🚨 Emergency visit selected - This will require doctor approval.');
+                // } else {
+                //     showAlert('info', '✅ Regular visit selected - Approval depends on your plant.');
+                // }
+            });
+
+            // NEW: Disease selection buttons
+            $('#selectAllDiseases').on('click', function() {
+                $('#diseaseCheckboxContainer .disease-checkbox').prop('checked', true);
+            });
+
+            $('#clearAllDiseases').on('click', function() {
+                $('#diseaseCheckboxContainer .disease-checkbox').prop('checked', false);
+            });
+
+            // UPDATED: Set up form validation with new rules
+            $('#frmDiagnosis').validate({
+                rules: {
+                    VisitType: { required: true },
+                    PatientName: { required: true },
+                    Age: {
+                        min: 0,
+                        max: 120
+                    }, // Age is no longer required
+                    DiagnosedBy: { required: true }
+                },
+                messages: {
+                    VisitType: "Please select a visit type",
+                    PatientName: "Please enter patient name",
+                    Age: "Age must be between 0 and 120 years",
+                    DiagnosedBy: "Diagnosed By is required"
+                }
+            });
+
+            // Update display patient name when input changes
+            $('#PatientName').on('input', function() {
+                $('#displayPatientName').val($(this).val());
+            });
+
+            // Ensure DiagnosedBy is populated
+            ensureDiagnosedByIsSet();
+
+            // Show diagnosis section if we have patient data
+            @if (Model?.PatientId.HasValue == true)
+            {
+                                                <text>showDiagnosisSection();</text>
+            }
+
+            // Add medicine row with batch tracking
+            $('#addMedRow').on('click', function() {
+                if (shouldMaskData) {
+                    showAlert('error', 'Access denied. You cannot add medicines.');
+                    return;
+                }
+                addMedicineRowWithBatch();
+            });
+
+            // Show prescription card
+            $('#btnPresc').on('click', function() {
+                if (shouldMaskData) {
+                    showAlert('error', 'Access denied. You cannot create prescriptions.');
+                    return;
+                }
+                $('#prescCard').show();
+            });
+        });
+
+        function ensureDiagnosedByIsSet() {
+            if (!$('#DiagnosedBy').val() || $('#DiagnosedBy').val().trim() === '') {
+                $('#DiagnosedBy').val('@(User.Identity?.Name ?? "SYSTEM ADMIN")');
+            }
+        }
+
+        //  Load prescription data with batch information - UPDATED for plant-wise diseases
+        function loadPrescriptionData() {
+            if (shouldMaskData) {
+                return;
+            }
+
+            $.ajax({
+                url: '@Url.Action("GetPrescriptionData", "OthersDiagnosis")',
+                type: 'GET',
+                success: function (data) {
+                    if (data.diseases && data.medicines) {
+                        prescriptionData = data;
+                        // UPDATED: Populate plant-specific diseases
+                        populateDiseaseCheckboxes();
+                    }
+                },
+                error: function () {
+                    showAlert('error', 'Error loading prescription data.');
+                }
+            });
+        }
+
+        // UPDATED: Populate disease checkboxes with plant-specific diseases
+        function populateDiseaseCheckboxes() {
+            var diseaseContainer = $('#diseaseCheckboxContainer');
+
+            // Clear existing content except form-text
+            diseaseContainer.find('.form-check').remove();
+
+            if (prescriptionData.diseases && prescriptionData.diseases.length > 0) {
+                prescriptionData.diseases.forEach(function (disease) {
+                    var checkboxHtml = `
+                        <div class="form-check mb-2">
+                            <input class="form-check-input disease-checkbox" type="checkbox" value="${disease.value}" id="disease_${disease.value}">
+                            <label class="form-check-label small" for="disease_${disease.value}">
+                                ${disease.text}
+                            </label>
+                        </div>
+                    `;
+                    diseaseContainer.append(checkboxHtml);
+                });
+                console.log('Populated', prescriptionData.diseases.length, 'plant-specific disease checkboxes');
+            } else {
+                diseaseContainer.append('<div class="text-muted small">No diseases available for your plant</div>');
+            }
+        }
+
+        // Show diagnosis section with new validation
+        function showDiagnosisSection() {
+            if (shouldMaskData) {
+                showAlert('error', '🔒 Access denied. You cannot create diagnoses.');
+                return;
+            }
+
+            // Validate required fields (Age, P.No, Category no longer required)
+            var visitType = $('#visitType').val();
+            var treatmentId = $('#TreatmentId').val().trim();
+            var patientName = $('#PatientName').val().trim();
+            var age = $('#Age').val();
+
+            if (!visitType) {
+                showAlert('error', 'Please select a visit type.');
+                return;
+            }
+
+            if (!treatmentId) {
+                showAlert('error', 'Treatment ID is required.');
+                return;
+            }
+
+            if (!patientName) {
+                showAlert('error', 'Please enter patient name.');
+                return;
+            }
+
+            // Age validation - now optional but if provided must be valid
+            if (age && (isNaN(age) || parseFloat(age) < 0 || parseFloat(age) > 120)) {
+                showAlert('error', 'Please enter a valid age between 0 and 120 years.');
+                return;
+            }
+
+            // Update display patient name
+            $('#displayPatientName').val(patientName);
+
+            // Ensure DiagnosedBy is set
+            ensureDiagnosedByIsSet();
+
+            // Show visit type specific message with Treatment ID
+            if (visitType === 'First Aid or Emergency') {
+                showAlert('warning', '🚨 Emergency visit for ' + patientName + ' (ID: ' + treatmentId + ') - Doctor approval will be required.');
+            } else {
+                showAlert('success', '✅ Regular visit for ' + patientName + ' (ID: ' + treatmentId + ') - Approval depends on your plant.');
+            }
+
+            $('#diagBlock').show();
+        }
+
+        // UPDATED: Add medicine row with batch tracking and grouping - DOSE IS NOW OPTIONAL
+        function addMedicineRowWithBatch() {
+            const tbody = $('#tblPresc tbody');
+            medicineRowCount++;
+
+            // Remove "no medicine" row if it exists
+            $('#noMedicineRow').remove();
+
+            var medicineOptions = '<option value="">-- Select Medicine (Base - Name - Batch) --</option>';
+
+            if (prescriptionData.medicines && prescriptionData.medicines.length > 0) {
+                prescriptionData.medicines.forEach(function (medicine) {
+                    // Safely extract the part after the first " - " (fallbacks included)
+                    var txt = (medicine.text || '').toString();
+                    var parts = txt.split(' - ');
+                    var medName = (parts.length > 1 ? parts[1] : txt);
+
+                    medicineOptions += `<option value="${medicine.medItemId}"
+                                               data-indent-item-id="${medicine.indentItemId}"
+                                               data-available-stock="${medicine.availableStock}"
+                                               data-batch-no="${medicine.batchNo || ''}"
+                                               data-expiry-date="${medicine.expiryDate || ''}"
+                                               data-expiry-days="${medicine.daysToExpiry ?? ''}"
+                                               data-company-name="${medicine.companyName || ''}"
+                                               data-medicine-name="${medName}"
+                                               class="${medicine.expiryClass || ''}">
+                                            ${txt}
+                                        </option>`;
+                });
+            } else {
+                medicineOptions += '<option value="" disabled>No medicines with available stock</option>';
+            }
+
+
+            const tr = $(`
+                <tr class="medicine-row" data-row-index="${medicineRowCount}">
+                    <td class="text-center fw-bold">${medicineRowCount}</td>
+                    <td>
+                        <select class="form-control form-control-sm glass medicine-select" name="medicineId" onchange="handleMedicineSelection(this)" required>
+                            ${medicineOptions}
+                        </select>
+
+                    </td>
+                    <td class="text-center">
+                        <span class="available-stock fw-bold text-success">-</span>
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm text-center quantity-input"
+                               name="quantity" type="number" min="1" max="999"
+                               onkeyup="onlyDigits(this)" placeholder="0" onchange="validateQuantity(this)" required />
+                        <div class="invalid-feedback small"></div>
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm" name="dose"
+                               onkeyup="onlyDigitsAndHyphen(this)" placeholder="e.g. 1-0-1 (optional)" />
+                    </td>
+                    <td class="text-center">
+                        <span class="expiry-status small">-</span>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-danger" type="button"
+                                onclick="removeMedicineRowEnhanced(this)" title="Remove this medicine">
+                            <i class="bi bi-trash"></i>Del
+                        </button>
+                    </td>
+                </tr>
+            `);
+
+            tbody.append(tr);
+
+            // Initialize Select2 on the medicine dropdown
+            tr.find('.medicine-select').select2({
+                theme: 'bootstrap-5',
+                placeholder: '-- Select Medicine (Base - Name - Batch) --',
+                allowClear: true,
+                width: '100%',
+                templateResult: formatMedicineOption,
+                templateSelection: formatMedicineSelection
+            });
+
+            // Focus on the medicine select
+            tr.find('.medicine-select').focus();
+
+            console.log('✅ Medicine row added with batch tracking. Total:', tbody.children().length);
+        }
+
+        // Custom formatting for Select2 medicine options
+        function formatMedicineOption(option) {
+            if (!option.id) {
+                return option.text;
+            }
+
+            var $option = $(option.element);
+            var expiryClass = $option.attr('class') || '';
+            var $formatted = $('<span></span>');
+            $formatted.text(option.text);
+
+            // Apply the expiry class for color coding
+            if (expiryClass.includes('text-danger')) {
+                $formatted.addClass('text-danger fw-bold');
+            } else if (expiryClass.includes('text-warning')) {
+                $formatted.addClass('text-warning fw-semibold');
+            } else if (expiryClass.includes('text-info')) {
+                $formatted.addClass('text-info');
+            } else if (expiryClass.includes('text-success')) {
+                $formatted.addClass('text-success');
+            }
+
+            return $formatted;
+        }
+
+        // Custom formatting for selected medicine
+        function formatMedicineSelection(option) {
+            return option.text;
+        }
+
+        function onlyDigitsAndHyphen(inputText) {
+            inputText.value = inputText.value.replace(/[^0-9-]/g, '');
+        }
+
+        function onlyDigits(inputNumber) {
+            inputNumber.value = inputNumber.value.replace(/[^0-9]/g, '');
+        }
+
+        // NEW: Handle medicine selection with batch information
+        function handleMedicineSelection(selectElement) {
+            const $select = $(selectElement);
+            const $row = $select.closest('tr');
+            const selectedOption = $select.find('option:selected');
+
+            if (selectedOption.val()) {
+                // Extract data from the selected option
+                const indentItemId = selectedOption.data('indent-item-id');
+                const availableStock = selectedOption.data('available-stock');
+                const batchNo = selectedOption.data('batch-no');
+                const expiryDate = selectedOption.data('expiry-date');
+                const expiryDays = selectedOption.data('expiry-days');
+                const companyName = selectedOption.data('company-name');
+
+                // Update the row with medicine information
+                $row.find('.available-stock').text(availableStock);
+                $row.find('.quantity-input').attr('max', availableStock);
+
+                // Set expiry status with color coding
+                const $expiryStatus = $row.find('.expiry-status');
+                if (expiryDays < 0) {
+                    $expiryStatus.html('<span class="text-danger">EXPIRED</span>');
+                } else if (expiryDays <= 7) {
+                    $expiryStatus.html(`<span class="text-warning">${expiryDate} - (${expiryDays}d)</span>`);
+                } else if (expiryDays <= 30) {
+                    $expiryStatus.html(`<span class="text-info">${expiryDate} - (${expiryDays}d)</span>`);
+                } else {
+                    $expiryStatus.html(`<span class="text-success">${expiryDate} - (${expiryDays}d)</span>`);
+                }
+
+                // Store batch data in hidden inputs for form submission
+                if ($row.find('input[name="indentItemId"]').length === 0) {
+                    $row.append(`
+                        <input type="hidden" name="indentItemId" value="${indentItemId}" />
+                        <input type="hidden" name="batchNo" value="${batchNo}" />
+                        <input type="hidden" name="expiryDate" value="${expiryDate}" />
+                        <input type="hidden" name="availableStock" value="${availableStock}" />
+                    `);
+                } else {
+                    // Update existing hidden inputs
+                    $row.find('input[name="indentItemId"]').val(indentItemId);
+                    $row.find('input[name="batchNo"]').val(batchNo);
+                    $row.find('input[name="expiryDate"]').val(expiryDate);
+                    $row.find('input[name="availableStock"]').val(availableStock);
+                }
+
+            } else {
+                // Reset row if no medicine selected
+                $row.find('.available-stock').text('-');
+                $row.find('.expiry-status').text('-');
+                $row.find('.quantity-input').attr('max', 999);
+                $row.find('input[type="hidden"]').remove();
+            }
+        }
+
+        // NEW: Validate quantity against available stock
+        function validateQuantity(quantityInput) {
+            const $input = $(quantityInput);
+            const $row = $input.closest('tr');
+            const quantity = parseInt($input.val()) || 0;
+            const availableStock = parseInt($row.find('input[name="availableStock"]').val()) || 0;
+            const medicineName = $row.find('.medicine-select option:selected').text();
+
+            const $feedback = $input.siblings('.invalid-feedback');
+
+            // Clear previous validation state
+            $input.removeClass('is-invalid is-valid');
+            $feedback.text('');
+
+            if (quantity > 0) {
+                if (quantity > availableStock) {
+                    // Insufficient stock
+                    $input.addClass('is-invalid');
+                    $feedback.text(`Insufficient stock! Available: ${availableStock}`);
+
+                } else {
+                    // Valid quantity
+                    $input.addClass('is-valid');
+
+                }
+            }
+        }
+
+        function removeMedicineRowEnhanced(button) {
+            const tbody = $('#tblPresc tbody');
+            const $row = $(button).closest('tr');
+
+            // Destroy Select2 instance before removing the row
+            const $select = $row.find('.medicine-select');
+            if ($select.length > 0 && $select.hasClass('select2-hidden-accessible')) {
+                $select.select2('destroy');
+            }
+
+            $row.remove();
+
+            // Update row numbers
+            tbody.find('tr.medicine-row').each(function(index) {
+                $(this).find('td:first').text(index + 1);
+                $(this).attr('data-row-index', index + 1);
+            });
+
+            // Add "no medicine" row if empty
+            if (tbody.children().length === 0) {
+                tbody.append(`
+                    <tr id="noMedicineRow">
+                        <td colspan="7" class="text-center text-muted">
+                            <i class="bi bi-info-circle"></i> No medicines added yet. Click "Add medicine" to start.
+                        </td>
+                    </tr>
+                `);
+            }
+
+            console.log('🗑️ Medicine row removed');
+        }
+
+        function updateRowNumbers() {
+            $('#tblPresc tbody tr.medicine-row').each(function (index) {
+                $(this).find('td:first').text(index + 1);
+                $(this).attr('data-row-index', index + 1);
+            });
+            medicineRowCount = $('#tblPresc tbody tr.medicine-row').length;
+        }
+
+        // NEW: Function to get selected diseases from checkboxes
+        function getSelectedDiseases() {
+            var selectedDiseases = [];
+            $('#diseaseCheckboxContainer .disease-checkbox:checked').each(function() {
+                selectedDiseases.push(parseInt($(this).val()));
+            });
+            return selectedDiseases;
+        }
+
+        // ENHANCED: Collect medicines function with batch tracking - DOSE IS NOW OPTIONAL
+        function collectMedicines() {
+            var medicines = [];
+
+            $('#tblPresc tbody tr.medicine-row').each(function(index) {
+                var row = $(this);
+                var medSelect = row.find('.medicine-select');
+                var quantityInput = row.find('.quantity-input');
+                var doseInput = row.find('[name="dose"]');
+
+                var medItemId = medSelect.val();
+                var quantity = quantityInput.val();
+                var dose = doseInput.val(); // Can be empty now - OPTIONAL
+                var medicineName = medSelect.find('option:selected').text().split(' (Stock:')[0]; // Remove stock info from name
+
+                // Get batch tracking data from hidden inputs
+                var indentItemId = parseInt(row.find('input[name="indentItemId"]').val()) || null;
+                var batchNo = row.find('input[name="batchNo"]').val() || '';
+                var expiryDate = row.find('input[name="expiryDate"]').val() || '';
+                var availableStock = parseInt(row.find('input[name="availableStock"]').val()) || 0;
+
+                console.log(`Row ${index}:`, {
+                    medItemId: medItemId,
+                    quantity: quantity,
+                    dose: dose,
+                    medicineName: medicineName,
+                    indentItemId: indentItemId,
+                    batchNo: batchNo,
+                    expiryDate: expiryDate,
+                    availableStock: availableStock
+                });
+
+                // Validate the data - Only require medicineId and quantity, dose is optional
+                if (medItemId && medItemId !== '' && quantity) {
+                    var medicine = {
+                        MedItemId: parseInt(medItemId),
+                        Quantity: parseInt(quantity),
+                        Dose: dose ? dose.trim() : '', // Use empty string if dose is not provided
+                        MedicineName: medicineName,
+                        Instructions: dose ? dose.trim() : '', // Use empty string if dose is not provided
+                        // NEW: Batch tracking properties
+                        IndentItemId: indentItemId,
+                        BatchNo: batchNo,
+                        ExpiryDate: expiryDate,
+                        AvailableStock: availableStock
+                    };
+                    medicines.push(medicine);
+                }
+            });
+
+            return medicines;
+        }
+
+        // Handle form submission with comprehensive stock validation - DOSE IS NOW OPTIONAL
+        $('#frmDiagnosis').on('submit', function(e) {
+            e.preventDefault();
+
+            // Check permissions
+            if (shouldMaskData) {
+                showAlert('error', '🔒 Access denied. You cannot save diagnoses.');
+                return;
+            }
+
+            // Ensure DiagnosedBy is set before validation
+            ensureDiagnosedByIsSet();
+
+            if (!$(this).valid()) {
+                showAlert('error', 'Please correct the validation errors.');
+                return;
+            }
+
+            // Double-check DiagnosedBy before submission
+            if (!$('#DiagnosedBy').val() || $('#DiagnosedBy').val().trim() === '') {
+                showAlert('error', 'Diagnosed By field is required.');
+                return;
+            }
+
+            // Get current visit type
+            var visitType = $('#visitType').val();
+            currentVisitType = visitType;
+
+            // NEW: Collect data using checkbox selection
+            var selectedDiseases = getSelectedDiseases();
+            var medicines = collectMedicines();
+
+            // NEW: Validate stock before submission
+            var hasValidationErrors = false;
+            medicines.forEach(function(medicine) {
+                if (medicine.IndentItemId && medicine.AvailableStock !== undefined) {
+                    if (medicine.Quantity > medicine.AvailableStock) {
+                        hasValidationErrors = true;
+                        showAlert('error', `Insufficient stock for ${medicine.MedicineName} (Batch: ${medicine.BatchNo}). Available: ${medicine.AvailableStock}, Requested: ${medicine.Quantity}`);
+                        return false; // Break the loop
+                    }
+                }
+            });
+
+            if (hasValidationErrors) {
+                return;
+            }
+
+            // Prepare form data with proper data types
+            var formData = {
+                PatientId: $('#PatientId').val() ? parseInt($('#PatientId').val()) : null,
+                TreatmentId: $('#TreatmentId').val().trim(),
+                PatientName: $('#PatientName').val().trim(),
+                Age: ($('#Age').val() && $('#Age').val().trim() !== '') ? parseFloat($('#Age').val()) : null,
+                PNumber: $('#PNumber').val().trim() || '',
+                Category: $('#Category').val().trim() || '',
+                OtherDetails: $('#OtherDetails').val().trim() || '',
+                LastVisitDate: $('#LastVisitDate').val() || null,
+                BloodPressure: $('#BloodPressure').val().trim() || '',
+                PulseRate: $('#PulseRate').val().trim() || '',
+                Sugar: $('#Sugar').val().trim() || '',
+                Remarks: $('#Remarks').val().trim() || '',
+                DiagnosedBy: $('#DiagnosedBy').val().trim(),
+                VisitType: visitType,
+                SelectedDiseaseIds: selectedDiseases,
+                PrescriptionMedicines: medicines
+            };
+
+            // Show loading state
+            $('#saveDiagnosisBtn').prop('disabled', true).text('Validating stock & saving...');
+
+            $.ajax({
+                url: '@Url.Action("SaveDiagnosisAjax", "OthersDiagnosis")',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function(response) {
+                    console.log('=== Server Response ===');
+                    console.log(response);
+                    if (response.success) {
+                        // Different messages based on approval status
+                        var alertType = response.message.includes('approval') ? 'warning' : 'success';
+                        showAlert(alertType, response.message || 'Diagnosis saved successfully with stock updates.');
+
+                        // Clear the form
+                        $('#diseaseCheckboxContainer .disease-checkbox').prop('checked', false);
+                        $('#tblPresc tbody').html(`
+                            <tr id="noMedicineRow">
+                                <td colspan="7" class="text-center text-muted">
+                                    <i class="bi bi-info-circle"></i> No medicines added yet.
+                                </td>
+                            </tr>
+                        `);
+                        $('#BloodPressure, #PulseRate, #Sugar').val('');
+
+                        setTimeout(function() {
+                            window.location.href = '@Url.Action("Index", "OthersDiagnosis")';
+                        }, 1500);
+                    } else {
+                        showAlert('error', response.message || 'Failed to save diagnosis.');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    var errorMessage = 'Error saving diagnosis.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    } else if (xhr.responseText) {
+                        try {
+                            var response = JSON.parse(xhr.responseText);
+                            errorMessage = response.message || errorMessage;
+                        } catch (e) {
+                            errorMessage = xhr.responseText.length > 100 ?
+                                xhr.responseText.substring(0, 100) + '...' :
+                                xhr.responseText;
+                        }
+                    }
+                    showAlert('error', errorMessage);
+                },
+                complete: function() {
+                    $('#saveDiagnosisBtn').prop('disabled', false).text('Save');
+                }
+            });
+        });
+
+        function showAlert(type, message) {
+            //console.log("aswer");
+            const alertClass = type === 'success' ? 'alert-success' :
+                              type === 'info' ? 'alert-info' :
+                              type === 'warning' ? 'alert-warning' : 'alert-danger';
+            const alertId = 'alert-' + Date.now();
+            const alertHtml = '<div id="' + alertId + '" class="alert ' + alertClass + ' alert-dismissible fade show" role="alert">' +
+                message +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+            '</div>';
+
+            $('#alertContainer').html(alertHtml);
+
+            setTimeout(function() {
+                const alertEl = document.getElementById(alertId);
+                if (alertEl) {
+                    bootstrap.Alert.getOrCreateInstance(alertEl).close();
+                }
+            }, 4000);
+        }
+
+    </script>
+}
+
+<style>
+    .glass {
+        --glass-bg: rgba(255, 255, 255, 0.30) !important;
+    }
+
+    .glass-table {
+        background: var(--glass-bg);
+        backdrop-filter: blur(6px);
+    }
+
+        .glass-table th {
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-table td {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+    .form-control.glass, .form-select.glass {
+        background: var(--glass-bg);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: inherit;
+    }
+
+        .form-control.glass:focus, .form-select.glass:focus {
+            background: var(--glass-bg);
+            border-color: rgba(13, 110, 253, 0.5);
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+    /* Disease checkbox container styling */
+    #diseaseCheckboxContainer {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 0.5rem;
+    }
+
+        #diseaseCheckboxContainer .form-check {
+            padding: 0.375rem 0.5rem;
+            margin: 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+            #diseaseCheckboxContainer .form-check:last-child {
+                border-bottom: none;
+            }
+
+            #diseaseCheckboxContainer .form-check:hover {
+                background-color: rgba(13, 110, 253, 0.05);
+            }
+
+        #diseaseCheckboxContainer .form-check-input:checked + .form-check-label {
+            color: #0d6efd;
+            font-weight: 500;
+        }
+
+    .input-group-text.glass {
+        background: var(--glass-bg);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+    }
+
+        .input-group-text.glass:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+    /* Visit Type specific styling */
+    #visitType {
+        font-weight: 500;
+    }
+
+        #visitType option[value="First Aid or Emergency"] {
+            background-color: #fff3cd;
+            color: #856404;
+            font-weight: 600;
+        }
+
+        #visitType option[value="Regular Visitor"] {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+    /* Enhanced dropdown option styling based on expiry - UPDATED for batch grouping */
+    /* Select2 custom styling */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+        padding-left: 0;
+        line-height: calc(1.5em + 0.5rem);
+        color: inherit;
+    }
+
+    .select2-container--bootstrap-5 .select2-dropdown {
+        font-size: 0.875rem;
+        background-color: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+    }
+
+    .select2-container--bootstrap-5 .select2-results__option {
+        padding: 0.375rem 0.75rem;
+    }
+
+    .select2-container {
+        width: 100% !important;
+    }
+
+    /* Maintain color coding in Select2 dropdown */
+    .select2-container--bootstrap-5 .select2-results__option.text-danger {
+        background: linear-gradient(90deg, #f8d7da 0%, white 100%) !important;
+        color: #721c24 !important;
+        font-weight: 600;
+    }
+
+    .select2-container--bootstrap-5 .select2-results__option.text-warning {
+        background: linear-gradient(90deg, #fff3cd 0%, white 100%) !important;
+        color: #856404 !important;
+        font-weight: 500;
+    }
+
+    .select2-container--bootstrap-5 .select2-results__option.text-info {
+        background: linear-gradient(90deg, #d1ecf1 0%, white 100%) !important;
+        color: #0c5460 !important;
+    }
+
+    .select2-container--bootstrap-5 .select2-results__option.text-success {
+        background: linear-gradient(90deg, #d4edda 0%, white 100%) !important;
+        color: #155724 !important;
+    }
+
+    .medicine-select optgroup {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+        padding: 4px 8px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+        .medicine-select optgroup option {
+            background-color: white;
+            font-weight: normal;
+            padding-left: 16px;
+            margin: 1px 0;
+        }
+
+    .medicine-select option.text-danger {
+        background: linear-gradient(90deg, #f8d7da 0%, white 100%) !important;
+        color: #721c24 !important;
+        font-weight: 600;
+    }
+
+    .medicine-select option.text-warning {
+        background: linear-gradient(90deg, #fff3cd 0%, white 100%) !important;
+        color: #856404 !important;
+        font-weight: 500;
+    }
+
+    .medicine-select option.text-info {
+        background: linear-gradient(90deg, #d1ecf1 0%, white 100%) !important;
+        color: #0c5460 !important;
+    }
+
+    .medicine-select option.text-success {
+        background: linear-gradient(90deg, #d4edda 0%, white 100%) !important;
+        color: #155724 !important;
+    }
+
+    /* Alert animations for visit type changes */
+    .alert {
+        animation: slideInDown 0.3s ease-out;
+    }
+
+    @@keyframes slideInDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    /* Masking styles */
+    input[disabled].form-control,
+    select[disabled].form-select,
+    textarea[disabled].form-control {
+        background-color: #f8f9fa !important;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .btn[disabled] {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+
+    /* Masking indicator */
+    .alert-warning {
+        border-left: 5px solid #ffc107;
+    }
+
+    /* Required field styling */
+    .required-field {
+        border-left: 4px solid #dc3545;
+    }
+
+        .required-field:focus {
+            border-left-color: #dc3545;
+        }
+
+    /* Optional field styling */
+    .optional-field {
+        border-left: 4px solid #28a745;
+    }
+
+        .optional-field:focus {
+            border-left-color: #28a745;
+        }
+
+    /* Required field indicators */
+    .text-danger {
+        font-weight: bold;
+    }
+
+    /* Field label improvements */
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 0.3rem;
+    }
+
+    /* Enhanced styles for batch tracking */
+    .expiry-status {
+        font-weight: 600;
+    }
+
+    .available-stock {
+        font-size: 1.1rem;
+    }
+
+    .quantity-input.is-invalid {
+        border-color: #dc3545;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23dc3545' viewBox='0 0 12 12'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6.4.6m0 0 .4-.6m-.4.6v2.4m0 0 .4.6m-.4-.6-.4.6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+
+    .quantity-input.is-valid {
+        border-color: #198754;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.94-.94 1.93 1.93 3.94-3.94.94.94-4.88 4.87z'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right calc(0.375em + 0.1875rem) center;
+        background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+    }
+
+    /* Enhanced validation feedback */
+    .invalid-feedback {
+        display: block;
+        width: 100%;
+        margin-top: 0.25rem;
+        font-size: 0.8rem;
+        color: #dc3545;
+    }
+
+    /* Enhanced table styling for batch tracking */
+    #tblPresc thead th {
+        background-color: rgba(13, 110, 253, 0.1);
+        border: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    #tblPresc tbody tr.medicine-row:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Loading state styling */
+    .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* Animation for successful validation */
+    .is-valid {
+        animation: validPulse 0.5s ease-in-out;
+    }
+
+    @@keyframes validPulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7);
+        }
+
+        70% {
+            box-shadow: 0 0 0 5px rgba(25, 135, 84, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+        }
+    }
+
+    /* Animation for failed validation */
+    .is-invalid {
+        animation: invalidShake 0.5s ease-in-out;
+    }
+
+    @@keyframes invalidShake {
+        0%, 100% {
+            transform: translateX(0);
+        }
+
+        10%, 30%, 50%, 70%, 90% {
+            transform: translateX(-2px);
+        }
+
+        20%, 40%, 60%, 80% {
+            transform: translateX(2px);
+        }
+    }
+
+    /* Success message enhancements */
+    .alert-success {
+        border-left: 5px solid #28a745;
+    }
+
+    .alert-info {
+        border-left: 5px solid #17a2b8;
+    }
+
+    /* Responsive improvements */
+    @@media (max-width: 768px) {
+        #tblPresc {
+            font-size: 0.8rem;
+        }
+
+        #diseaseCheckboxContainer {
+            max-height: 200px;
+        }
+
+            #diseaseCheckboxContainer .form-check {
+                padding: 6px 8px;
+            }
+        /* Stack form fields better on mobile */
+        .row.g-3 > [class*="col-"] {
+            margin-bottom: 0.75rem;
+        }
+        /* Adjust field indicators for mobile */
+        .required-field, .optional-field {
+            border-left-width: 3px;
+        }
+    }
+</style>

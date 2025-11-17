@@ -1,0 +1,3167 @@
+﻿@model EMS.WebApp.Data.StoreIndent
+@{
+    bool isEdit = Model.IndentId > 0;
+    string filterType = ViewBag.FilterType as string;
+    bool isStoreInventory = filterType == "Store Inventory";
+}
+
+<link href="~/css/select2.min.css" rel="stylesheet" />
+<link href="~/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<script src="~/js/select2.min.js"></script>
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning">
+        @ViewBag.Error
+    </div>
+}
+
+@if (ViewBag.Success != null)
+{
+    <div class="alert alert-success">
+        @ViewBag.Success
+    </div>
+}
+
+<form asp-action="@(Model.IndentId == 0 ? "Create" : "Edit")" method="post" id="storeIndentForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="IndentId" type="hidden" />
+    @if (isEdit)
+    {
+        <input asp-for="CreatedDate" type="hidden" />
+        <input asp-for="CreatedBy" type="hidden" />
+    }
+    @Html.HiddenFor(model => model.PlantId)
+
+    <input type="hidden" id="medicinesData" name="medicinesJson" />
+    <input type="hidden" id="actionType" name="actionType" value="submit" />
+
+    <div id="autoSaveStatus" class="alert alert-info" style="display:none;">
+        <i class="bi bi-info-circle me-1"></i>
+        <span id="autoSaveMessage">Saving as draft...</span>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4 col-lg-3">
+            <label asp-for="IndentType" class="form-label">Indent Type <span class="text-danger">*</span></label>
+            @if (isStoreInventory)
+            {
+                <select asp-for="IndentType" class="form-select glass-input" id="indentTypeSelect" required disabled>
+                    <option value="">Select Indent Type</option>
+                    @if (ViewBag.IndentTypeList != null)
+                    {
+                        @foreach (var option in (List<SelectListItem>)ViewBag.IndentTypeList)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    }
+                </select>
+            }
+            else
+            {
+                <select asp-for="IndentType" class="form-select glass-input" id="indentTypeSelect" required>
+                    <option value="">Select Indent Type</option>
+                    @if (ViewBag.IndentTypeList != null)
+                    {
+                        @foreach (var option in (List<SelectListItem>)ViewBag.IndentTypeList)
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    }
+                </select>
+            }
+            <div class="d-flex justify-content-between mt-1">
+                <span asp-validation-for="IndentType" class="text-danger" id="indentTypeValidation"></span>
+                <small class="text-muted">
+                    <span id="indentTypeCharCount">0</span>/50 characters
+                </small>
+            </div>
+        </div>
+
+        <div class="col-md-4 col-lg-3">
+            <label asp-for="IndentDate" class="form-label">Indent Raised Date <span class="text-danger">*</span></label>
+            @if (isStoreInventory)
+            {
+                <input asp-for="IndentDate" type="date" class="form-control glass-input" required readonly />
+            }
+            else
+            {
+                <input asp-for="IndentDate" type="date" class="form-control glass-input" id="indentDateInput" max=@DateTime.Today.ToString("yyyy-MM-dd") required />
+            }
+            <span asp-validation-for="IndentDate" class="text-danger" id="indentDateValidation"></span>
+        </div>
+
+        <div class="col-md-4 col-lg-2">
+            <label class="form-label">Indent ID</label>
+            <input type="text" class="form-control glass-input" readonly value="@(isEdit? Model.IndentId.ToString() : "AUTO")" />
+        </div>
+
+        @if (isEdit)
+        {
+            <div class="col-md-4 col-lg-2">
+                <label asp-for="Status" class="form-label">Status</label>
+                @if (isStoreInventory)
+                {
+                    <select asp-for="Status" class="form-select glass-input" id="statusSelect" disabled>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                }
+                else
+                {
+                    <select asp-for="Status" class="form-select glass-input" id="statusSelect">
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                }
+            </div>
+        }
+    </div>
+
+    @if (isEdit)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-12">
+                <label asp-for="Comments" class="form-label">Comments</label>
+                <textarea asp-for="Comments" class="form-control glass-input" id="commentsTextarea" rows="3" maxlength="500" placeholder="Enter comments (optional)"></textarea>
+                <div class="d-flex justify-content-between mt-1">
+                    <span asp-validation-for="Comments" class="text-danger" id="commentsValidation"></span>
+                    <small class="text-muted">
+                        <span id="commentsCharCount">0</span>/500 characters
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <small class="text-muted d-block mt-1">
+            <i class="bi bi-info-circle me-1"></i>
+            Editing is permitted only for medicines that have not been received.
+        </small>
+    }
+
+    <div id="medicineValidationMessage" class="alert alert-warning" style="display:none;"></div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Medicines</h6>
+        @if (!isStoreInventory)
+        {
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddMed">
+                <i class="bi bi-plus-lg"></i> Add Medicine
+            </button>
+        }
+    </div>
+
+    <div class="table-responsive mb-3">
+        <table id="tblMedIndent" class="table table-striped table-glass glass-table w-100 align-middle">
+            <thead>
+                <tr>
+                    <th style="width:40px">Sl.</th>
+                    <th style="width:200px">Medicine Name <span class="text-danger">*</span></th>
+                    <th>Company Name</th>
+                    <th style="width:110px">Vendor Code</th>
+                    <th style="width:100px">Raised Qty<span class="text-danger">*</span></th>
+                    <th style="width:120px">Pending Qty</th>
+                    @if (isStoreInventory)
+                    {
+                        <th style="width:100px">Unit Price</th>
+                        <th style="width:120px">Total Amount</th>
+                        <th style="width:150px">Remark</th>
+                    }
+                    <th style="width:120px">Action</th>
+                </tr>
+            </thead>
+            <tbody id="medicineTableBody">
+                @if (Model.StoreIndentItems?.Any() == true)
+                {
+                    @for (int i = 0; i < Model.StoreIndentItems.Count; i++)
+                    {
+                        var item = Model.StoreIndentItems.ElementAt(i);
+                        <tr data-temp-id="@item.IndentItemId">
+                            <td>@(i + 1)</td>
+                            <td>@item.MedMaster?.MedItemName</td>
+                            <td>@(item.MedMaster?.CompanyName ?? "Not Defined")</td>
+                            <td>@(item.VendorCode ?? "-")</td>
+                            <td>@item.RaisedQuantity</td>
+                            <td>@item.PendingQuantity</td>
+                            @if (isStoreInventory)
+                            {
+                                <td>
+                                    <span class="unit-price-display" data-value="@(item.UnitPrice ?? null)" data-indent-item-id="@item.IndentItemId" title="Click to edit">
+                                        @(item.UnitPrice.HasValue && item.UnitPrice.Value != 0
+                                                                    ? $"₹{item.UnitPrice.Value:F2}"
+                                                                    : "-")
+                        </span>
+                        <input type="number" class="form-control form-control-sm unit-price-input"
+                               value="@(item.UnitPrice ?? 0)" min="0" step="0.01" max="999999.99"
+                               style="display: none;" data-indent-item-id="@item.IndentItemId" />
+                    </td>
+                    <td>
+                        <span class="total-amount-display">
+                            @(item.TotalAmount.HasValue ? $"₹{item.TotalAmount.Value:F2}" : "Not Available")
+                        </span>
+                    </td>
+                    <td>
+                        <span class="remark-display" data-value="@(item.Remark ?? "-")" data-indent-item-id="@item.IndentItemId" title="Click to edit">
+                            @(string.IsNullOrWhiteSpace(item.Remark) ? "-" : item.Remark)
+                        </span>
+                        <input type="text" class="form-control form-control-sm remark-input"
+                               value="@(item.Remark ?? "-")" maxlength="500"
+                               style="display: none;" data-indent-item-id="@item.IndentItemId" />
+                    </td>
+                                        }
+                            <td>
+                                @if (isStoreInventory)
+                                {
+                                    @if (item.PendingQuantity > 0)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm btn-primary"
+                                                onclick="openBatchModal(@item.IndentItemId, '@item.MedMaster?.MedItemName', @item.RaisedQuantity)">
+                                            Edit Batches
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-success">
+                                            <i class="bi bi-check-circle me-1"></i>Completed
+                                        </span>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-info btn-sm ms-1"
+                                                onclick="openBatchModal(@item.IndentItemId, '@item.MedMaster?.MedItemName', @item.RaisedQuantity)"
+                                                title="View Batches">
+                                            <i class="bi bi-eye"></i>View Batches
+                                        </button>
+                                    }
+                                }
+                                else
+                                {
+                                <td>
+                                    @if (item.ReceivedQuantity == 0)
+                                    {
+                                        <button class="btn btn-action-edit edit edit-medicine me-1"
+                                                data-temp-id="@item.IndentItemId"
+                                                data-received-qty="@item.ReceivedQuantity"
+                                                type="button" title="Edit">
+                                            <i class="bi bi-pencil fs-6"></i>
+                                        </button>
+                                        <button class="btn btn-action-delete delete delete-medicine"
+                                                data-temp-id="@item.IndentItemId"
+                                                data-received-qty="@item.ReceivedQuantity"
+                                                type="button" title="Delete">
+                                            <i class="bi bi-trash fs-6"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-info">
+                                            <i class="bi bi-lock me-1"></i>Received (Cannot Edit)
+                                        </span>
+                                    }
+                                </td>
+
+                            }
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr id="noMedicinesRow">
+                        <td colspan="@(isStoreInventory ? "10" : "7")" class="text-center text-muted">No medicines added yet.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        @if (!isStoreInventory)
+        {
+            @if (Model.IndentId == 0 || Model.IndentType == "Draft Indent")
+            {
+                <button type="submit" class="btn btn-outline-primary" id="saveBtn">
+                    <i class="bi bi-floppy me-1"></i>Save as Draft
+                </button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="bi bi-check-circle me-1"></i>@(Model.IndentId == 0 ? "Submit" : "Submit Final")
+                </button>
+            }
+            else
+            {
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="bi bi-check-circle me-1"></i>Update
+                </button>
+            }
+        }
+    </div>
+</form>
+
+<!-- Enhanced Batch Edit Modal with Validation -->
+<div id="batchEditModal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-boxes me-2"></i>Edit Batches for <span id="modalMedName" class="text-primary"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Medicine Name:</strong></label>
+                            <span id="modalMedicineDisplay" class="form-control-plaintext"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Requested Quantity:</strong></label>
+                            <span id="modalReqQty" class="form-control-plaintext text-info fw-bold"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Batch Information:</strong></label>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped" id="batchTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 18%">Batch No <span class="text-danger">*</span></th>
+                                <th style="width: 15%">Expiry Date <span class="text-danger">*</span></th>
+                                <th style="width: 15%">Received Qty <span class="text-danger">*</span></th>
+                                <th style="width: 15%">Available Stock <span class="text-danger">*</span></th>
+                                <th style="width: 15%">Vendor Code</th>
+                                <th style="width: 10%">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Enhanced Summary Information -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <div class="row text-center">
+                                    <div class="col-md-2">
+                                        <small class="text-muted">Requested</small>
+                                        <div class="fw-bold text-info" id="requestedQuantitySummary">
+                                            <span id="modalReqQtyDisplay">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <small class="text-muted">Total Received</small>
+                                        <div class="fw-bold text-primary" id="totalReceivedSummary">0</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <small class="text-muted">Total Available</small>
+                                        <div class="fw-bold text-success" id="totalAvailableSummary">0</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <small class="text-muted">Total Consumed</small>
+                                        <div class="fw-bold text-warning" id="totalConsumedSummary">0</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <small class="text-muted">Remaining</small>
+                                        <div class="fw-bold text-secondary" id="remainingQuantitySummary">0</div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <small class="text-muted">Stock Status</small>
+                                        <div class="fw-bold" id="overallStockStatus">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-success mt-3" onclick="addBatchRow()">
+                    <i class="bi bi-plus-circle me-1"></i>Add Batch
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="saveBatches()">
+                    <i class="bi bi-check-circle me-1"></i>Save Batches
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeBatchModal()">
+                    <i class="bi bi-x-circle me-1"></i>Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Unit Price Inline Editing Styles */
+    .unit-price-display {
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        display: inline-block;
+        min-width: 80px;
+        text-align: center;
+        font-weight: 500;
+        color: #0d6efd;
+        border: 1px solid #6c757d;
+    }
+
+        .unit-price-display:hover {
+            background-color: #f8f9fa;
+            border: 1px dashed #6c757d;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+    .unit-price-input {
+        width: 100px;
+        text-align: center;
+        border: 2px solid #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+
+        .unit-price-input.is-invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+
+    /* Remark Inline Editing Styles */
+    .remark-display {
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        display: inline-block;
+        min-width: 100px;
+        max-width: 200px;
+        text-align: left;
+        font-weight: 400;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+        .remark-display:hover {
+            background-color: #f8f9fa;
+            border: 1px dashed #6c757d;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+    .remark-input {
+        width: 200px;
+        border: 2px solid #6c757d;
+        box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+    }
+
+        .remark-input.is-invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+
+    .total-amount-display {
+        font-weight: 600;
+        color: #198754;
+        text-align: center;
+        display: inline-block;
+        min-width: 100px;
+        padding: 6px 10px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+    }
+
+    /* Success animation for saved rows */
+    .table-success {
+        background-color: rgba(25, 135, 84, 0.15) !important;
+        transition: background-color 0.3s ease;
+    }
+
+    /* Tooltip for clickable unit price */
+    .unit-price-display:hover::before,
+    .remark-display:hover::before {
+        content: 'Click to edit';
+        position: absolute;
+        background: #333;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        white-space: nowrap;
+        z-index: 1000;
+        top: -35px;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0.9;
+        animation: fadeIn 0.2s ease;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 0.9;
+        }
+    }
+
+    /* Loading spinner in total amount */
+    .total-amount-display .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* Responsive adjustments */
+    @@media (max-width: 768px) {
+        .unit-price-input, .remark-input {
+            width: 80px;
+            font-size: 12px;
+        }
+
+        .unit-price-display,
+        .total-amount-display,
+        .remark-display {
+            font-size: 12px;
+            min-width: 60px;
+            padding: 4px 6px;
+        }
+    }
+
+    /* Enhanced table styling for store inventory */
+    .glass-table th {
+        background-color: #f8f9fa !important;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+    }
+
+    .glass-table tbody tr:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
+
+    /* ========================================
+           SELECT2 CUSTOM STYLING
+           ======================================== */
+    .select2-container--default .select2-selection--single {
+        background-color: rgba(255, 255, 255, 0.9);
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        height: calc(1.5em + 0.5rem + 2px);
+        min-height: 31px;
+    }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: calc(1.5em + 0.5rem);
+            padding-left: 0.5rem;
+            padding-top: 2px;
+            color: #212529;
+            font-size: 0.875rem;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: calc(1.5em + 0.5rem + 2px);
+            right: 3px;
+        }
+
+    .select2-container {
+        width: 100% !important;
+    }
+
+    /* Dropdown styling */
+    .select2-dropdown {
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        z-index: 9999;
+    }
+
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+    .select2-container--default .select2-results__option[aria-selected=true] {
+        background-color: #e9ecef;
+    }
+
+    /* Search box styling */
+    .select2-search--dropdown .select2-search__field {
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    /* Validation styling for Select2 */
+    .select2-container--default .select2-selection--single.is-invalid {
+        border-color: #dc3545;
+    }
+
+    /* Focus styling */
+    .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    /* Placeholder styling */
+    .select2-container--default .select2-selection--single .select2-selection__placeholder {
+        color: #6c757d;
+    }
+
+    /* Clear button styling */
+    .select2-container--default .select2-selection--single .select2-selection__clear {
+        margin-right: 10px;
+    }
+
+    /* ✨ FIX: Ensure search input is clickable and typeable */
+    .select2-search--dropdown {
+        padding: 4px;
+    }
+
+        .select2-search--dropdown .select2-search__field {
+            padding: 0.375rem 0.75rem;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            outline: none;
+            font-size: 0.875rem;
+            /* ✨ Ensure input is above other elements */
+            position: relative;
+            z-index: 10;
+        }
+
+            .select2-search--dropdown .select2-search__field:focus {
+                border-color: #86b7fe;
+                box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+            }
+
+    /* ✨ Prevent any overlay issues */
+    .select2-container--open .select2-dropdown {
+        z-index: 9999;
+    }
+
+    .select2-dropdown {
+        z-index: 9999 !important;
+    }
+    /* ======== END SELECT2 STYLING ======== */
+</style>
+
+<script>
+    (function($) {
+        'use strict';
+
+        $(document).ready(function() {
+            // Initialize namespace for CreateEdit
+            window.CreateEditModule = window.CreateEditModule || {};
+            var module = window.CreateEditModule;
+
+            // Module variables
+            module.isEdit = @(isEdit ? "true" : "false");
+            module.isStoreInventory = @(isStoreInventory ? "true" : "false");
+            module.indentId = @Model.IndentId;
+            module.rowCounter = 1;
+            module.allMedicines = [];
+            module.hasUnsavedChanges = false;
+            module.isAutoSaving = false;
+            module.formDataChangeTimeout = null;
+            module.hasBeenSavedOnce = @(isEdit ? "true" : "false"); // Track if indent has been saved at least once
+
+            // Security patterns
+            var dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Function to validate expiry date - prevents past dates
+            function validateExpiryDate(expiryDateValue, fieldElement) {
+                var isValid = true;
+                var errorMessage = '';
+
+                if (expiryDateValue) {
+                    var expiryDate = new Date(expiryDateValue);
+                    var today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    expiryDate.setHours(0, 0, 0, 0);
+
+                    if (expiryDate < today) {
+                        isValid = false;
+                        errorMessage = 'Expiry date cannot be in the past.';
+                    }
+                }
+
+                if (!isValid) {
+                    fieldElement.addClass('is-invalid');
+                    fieldElement.siblings('.invalid-feedback').text(errorMessage);
+                } else {
+                    fieldElement.removeClass('is-invalid');
+                    fieldElement.siblings('.invalid-feedback').text('');
+                }
+
+                return isValid;
+            }
+
+            // Character count functions
+            function updateIndentTypeCharCount() {
+                var currentLength = $('#indentTypeSelect option:selected').text().length;
+                $('#indentTypeCharCount').text(currentLength);
+            }
+
+            function updateCommentsCharCount() {
+                var currentLength = $('#commentsTextarea').val().length;
+                var charCountElement = $('#commentsCharCount');
+                charCountElement.text(currentLength);
+                charCountElement.removeClass('text-warning text-danger');
+                if (currentLength > 400 && currentLength < 500) {
+                    charCountElement.addClass('text-warning');
+                } else if (currentLength >= 500) {
+                    charCountElement.addClass('text-danger');
+                }
+            }
+
+            // Validation functions
+            function validateIndentType() {
+                var indentType = $('#indentTypeSelect').val();
+                var validationSpan = $('#indentTypeValidation');
+                var isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                $('#indentTypeSelect').removeClass('is-invalid');
+
+                if (!indentType) {
+                    validationSpan.text('Indent Type is required.')
+                                 .addClass('field-validation-error text-danger')
+                                 .show();
+                    $('#indentTypeSelect').addClass('is-invalid');
+                    isValid = false;
+                } else if (containsDangerousInput(indentType)) {
+                    validationSpan.text('Indent Type contains invalid characters.')
+                                 .addClass('field-validation-error text-danger')
+                                 .show();
+                    $('#indentTypeSelect').addClass('is-invalid');
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            function validateIndentDate() {
+                var indentDateInput = $('#indentDateInput');
+                var indentDate = '';
+
+                if (indentDateInput.length > 0) {
+                    indentDate = indentDateInput.val();
+                } else {
+                    indentDate = $('input[name="IndentDate"]').val();
+                }
+
+                var validationSpan = $('#indentDateValidation');
+                var isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+
+                if (indentDateInput.length > 0 && !indentDateInput.prop('disabled') && !indentDateInput.prop('readonly')) {
+                    indentDateInput.removeClass('is-invalid');
+
+                    if (!indentDate) {
+                        validationSpan.text('Indent Date is required.')
+                                     .addClass('field-validation-error text-danger')
+                                     .show();
+                        indentDateInput.addClass('is-invalid');
+                        isValid = false;
+                    } else {
+                        var selectedDate = new Date(indentDate);
+                        var today = new Date();
+                        var maxDate = new Date();
+                        maxDate.setFullYear(today.getFullYear() + 1);
+
+                        if (selectedDate > maxDate) {
+                            validationSpan.text('Indent Date cannot be more than 1 year in the future.')
+                                         .addClass('field-validation-error text-danger')
+                                         .show();
+                            indentDateInput.addClass('is-invalid');
+                            isValid = false;
+                        }
+                    }
+                }
+
+                return isValid;
+            }
+
+            function validateComments() {
+                var comments = $('#commentsTextarea').val();
+                var validationSpan = $('#commentsValidation');
+                var isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                $('#commentsTextarea').removeClass('is-invalid');
+
+                if (comments && comments.length > 500) {
+                    validationSpan.text('Comments cannot exceed 500 characters.')
+                                 .addClass('field-validation-error text-danger')
+                                 .show();
+                    $('#commentsTextarea').addClass('is-invalid');
+                    isValid = false;
+                } else if (containsDangerousInput(comments)) {
+                    validationSpan.text('Comments contain invalid characters.')
+                                 .addClass('field-validation-error text-danger')
+                                 .show();
+                    $('#commentsTextarea').addClass('is-invalid');
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            // Updated vendor code validation - now optional
+            function validateVendorCode(vendorCode) {
+                // If empty, null, or just whitespace, it's valid (optional field)
+                if (!vendorCode || vendorCode.trim() === '') {
+                    return true;
+                }
+
+                // If provided, validate format and minimum length
+                var trimmedCode = vendorCode.trim();
+                return trimmedCode.length >= 2 && /^[a-zA-Z0-9\-_]+$/.test(trimmedCode);
+            }
+
+            // **ENHANCED: Updated updateSubmitButtons function to check for validation errors**
+            function updateSubmitButtons() {
+                var hasErrors = false;
+
+                // Check for form validation errors
+                if ($('.field-validation-error:visible').length > 0 || $('.is-invalid').length > 0 || module.isAutoSaving) {
+                    hasErrors = true;
+                }
+
+                // Check for any validation errors in editing rows
+                if ($('.editing-row .is-invalid').length > 0) {
+                    hasErrors = true;
+                }
+
+                // Check for incomplete editing rows
+                $('.editing-row').each(function() {
+                    var row = $(this);
+                    var medicineSelect = row.find('.medicine-dropdown');
+                    var raisedQtyInput = row.find('.raised-qty-input');
+
+                    var medItemId = medicineSelect.val();
+                    var raisedQuantity = parseInt(raisedQtyInput.val());
+
+                    if (medItemId || raisedQuantity) {
+                        if (!medItemId || !raisedQuantity || raisedQuantity <= 0) {
+                            hasErrors = true;
+                            return false;
+                        }
+                    }
+                });
+
+                $('#saveBtn, #submitBtn').prop('disabled', hasErrors);
+            }
+
+            // Event handlers for validation
+            $('#indentTypeSelect').on('change', function() {
+                updateIndentTypeCharCount();
+                validateIndentType();
+                updateSubmitButtons();
+            });
+
+            $(document).on('change', '#indentDateInput, input[name="IndentDate"]', function() {
+                validateIndentDate();
+                updateSubmitButtons();
+            });
+
+            $('#commentsTextarea').on('input keyup paste', function() {
+                updateCommentsCharCount();
+                validateComments();
+                updateSubmitButtons();
+            });
+
+            // **ENHANCED: Auto-update submit buttons when validation changes**
+            $(document).on('input change', '.editing-row input, .editing-row select', function() {
+                updateSubmitButtons();
+            });
+
+            // Medicine options - UPDATED to include ID and Name
+            var medicineOptionsHtml = '<option value="">Select Medicine</option>';
+            @if (ViewBag.MedicineList != null)
+            {
+                        @foreach (var medicine in (List<SelectListItem>)ViewBag.MedicineList)
+                        {
+                                    if (!string.IsNullOrEmpty(medicine.Value))
+                                    {
+                                                <text>medicineOptionsHtml += '<option value="@medicine.Value">@medicine.Text</option>';</text>
+                                    }
+                        }
+            }
+
+            // ========================================
+            // SELECT2 INTEGRATION FUNCTIONS
+            // ========================================
+
+           
+            function initializeSelect2OnMedicineDropdown(element) {
+                var $element = $(element);
+
+                // Check if already initialized
+                if ($element.hasClass('select2-hidden-accessible')) {
+                    // Already initialized, destroy first to reinitialize
+                    $element.select2('destroy');
+                }
+
+                // Initialize Select2 with custom options
+                $element.select2({
+                    placeholder: 'Select Medicine',
+                    allowClear: true,
+                    width: '100%',
+                    dropdownAutoWidth: false,
+                    minimumResultsForSearch: 0, // Always show search box
+                    dropdownParent: $element.parent(), // ✨ FIX: Ensures proper positioning and prevents modal issues
+                    language: {
+                        noResults: function() {
+                            return "No medicines found";
+                        },
+                        searching: function() {
+                            return "Searching...";
+                        }
+                    },
+                    // Custom matcher for better search
+                    matcher: function(params, data) {
+                        // If there are no search terms, return all data
+                        if ($.trim(params.term) === '') {
+                            return data;
+                        }
+
+                        // Do not display the item if there is no 'text' property
+                        if (typeof data.text === 'undefined') {
+                            return null;
+                        }
+
+                        // Custom search - case insensitive search in medicine name
+                        var searchTerm = params.term.toLowerCase();
+                        var text = data.text.toLowerCase();
+
+                        if (text.indexOf(searchTerm) > -1) {
+                            return data;
+                        }
+
+                        // Return null if the term should not be displayed
+                        return null;
+                    },
+                    templateResult: function(data) {
+                        if (!data.id) {
+                            return data.text;
+                        }
+                        // Custom template for dropdown items (optional - can add icons, badges, etc.)
+                        var $result = $('<span>' + data.text + '</span>');
+                        return $result;
+                    }
+                });
+
+                // ✨ FIX: Prevent dropdown from closing when clicking search input
+                $element.on('select2:opening', function(e) {
+                    var $dropdown = $(this).data('select2').$dropdown;
+                    if ($dropdown) {
+                        // Allow clicks on search input
+                        $dropdown.find('.select2-search__field').on('mousedown', function(e) {
+                            e.stopPropagation();
+                        });
+                    }
+                });
+
+                // ✨ FIX: Ensure search input gets focus when dropdown opens and allow typing
+                $element.on('select2:open', function(e) {
+                    // Small delay to ensure dropdown is rendered
+                    setTimeout(function() {
+                        var $search = $('.select2-search__field');
+                        if ($search.length) {
+                            $search.focus();
+                            // Prevent any parent handlers from interfering with typing
+                            $search.on('keydown keyup keypress', function(e) {
+                                e.stopPropagation();
+                            });
+                        }
+                    }, 50);
+                });
+
+                // Preserve the original change event handler by triggering change on select
+                $element.on('select2:select', function(e) {
+                    // Trigger the native change event so existing handlers work
+                    $(this).trigger('change');
+                });
+
+                // Handle clearing (when allowClear is enabled)
+                $element.on('select2:clear', function(e) {
+                    $(this).trigger('change');
+                });
+
+                // Handle closing to remove validation if value is selected
+                $element.on('select2:close', function(e) {
+                    var value = $(this).val();
+                    if (value) {
+                        var $select2Container = $(this).next('.select2-container');
+                        $select2Container.find('.select2-selection').removeClass('is-invalid');
+                        $(this).siblings('.invalid-feedback').text('');
+                    }
+                });
+
+                console.log('Select2 initialized on medicine dropdown with search fix');
+            }
+
+           
+            function showSelect2Validation(selectElement, message) {
+                var $select2Container = selectElement.next('.select2-container');
+                var $invalidFeedback = selectElement.siblings('.invalid-feedback');
+
+                // Add error styling to Select2 container
+                if ($select2Container.length) {
+                    $select2Container.find('.select2-selection').addClass('is-invalid');
+                } else {
+                    selectElement.addClass('is-invalid');
+                }
+
+                // Show error message
+                $invalidFeedback.text(message);
+
+                // Remove error on next selection
+                selectElement.one('select2:select', function() {
+                    $select2Container.find('.select2-selection').removeClass('is-invalid');
+                    selectElement.removeClass('is-invalid');
+                    $invalidFeedback.text('');
+                });
+            }
+
+            function clearSelect2Validation(selectElement) {
+                var $select2Container = selectElement.next('.select2-container');
+                if ($select2Container.length) {
+                    $select2Container.find('.select2-selection').removeClass('is-invalid');
+                }
+                selectElement.removeClass('is-invalid');
+                selectElement.siblings('.invalid-feedback').text('');
+            }
+
+            // ======== END SELECT2 FUNCTIONS ========
+
+            if (module.isStoreInventory) {
+
+                // Function to calculate and update total amount
+                function calculateTotalAmount(row, unitPrice, receivedQuantity) {
+                    var totalAmount = unitPrice * receivedQuantity;
+                    row.find('.total-amount-display').text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00');
+                    return totalAmount;
+                }
+
+                // Function to start editing unit price
+                function startUnitPriceEdit(row) {
+                    var displaySpan = row.find('.unit-price-display');
+                    var input = row.find('.unit-price-input');
+                    var currentValue = parseFloat(displaySpan.data('value')) || 0;
+
+                    displaySpan.hide();
+                    input.show().focus().val(currentValue).select();
+
+                    // Store original value for cancellation
+                    input.data('original-value', currentValue);
+                }
+
+                // Function to save unit price
+                function saveUnitPrice(input) {
+                    var row = input.closest('tr');
+                    var displaySpan = row.find('.unit-price-display');
+                    var indentItemId = input.data('indent-item-id');
+                    var newUnitPrice = parseFloat(input.val()) || 0;
+                    var originalValue = parseFloat(input.data('original-value')) || 0;
+
+                    // Check if value actually changed
+                    if (Math.abs(newUnitPrice - originalValue) < 0.01) {
+                        cancelUnitPriceEdit(input);
+                        return;
+                    }
+
+                    // Validate unit price
+                    if (newUnitPrice < 0) {
+                        alert('Unit price cannot be negative.');
+                        return;
+                    }
+
+                    if (newUnitPrice > 999999.99) {
+                        alert('Unit price cannot exceed ₹999,999.99.');
+                        return;
+                    }
+
+                    // Get received quantity for total amount calculation
+                    var pendingQtyCell = row.find('td:eq(5)');
+                    var pendingQty = parseInt(pendingQtyCell.text()) || 0;
+                    var raisedQtyCell = row.find('td:eq(4)');
+                    var raisedQty = parseInt(raisedQtyCell.text()) || 0;
+                    var receivedQty = raisedQty - pendingQty;
+                    var totalAmount = calculateTotalAmount(row, newUnitPrice, receivedQty);
+
+                    // Disable input and show saving indicator
+                    input.prop('disabled', true);
+                    row.find('.total-amount-display').html('<i class="spinner-border spinner-border-sm text-primary"></i>');
+
+                    // Auto-save via AJAX
+                    $.post('@Url.Action("UpdateMedicineItem", "StoreIndent")', {
+                        indentItemId: indentItemId,
+                        unitPrice: newUnitPrice
+                    })
+                    .done(function(response) {
+                        if (response.success) {
+                            // Update display values
+                            displaySpan.data('value', newUnitPrice);
+                            displaySpan.text(newUnitPrice > 0 ? `₹${newUnitPrice.toFixed(2)}` : '-');
+                            row.find('.total-amount-display').text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00');
+
+                            // Show success indicator briefly
+                            input.removeClass('is-invalid');
+                            displaySpan.show();
+                            input.hide().prop('disabled', false);
+
+                            // Show brief success animation
+                            row.addClass('table-success');
+                            setTimeout(() => {
+                                row.removeClass('table-success');
+                            }, 1500);
+
+                            // Optional: Show toast notification
+                            if (typeof showMessage === 'function') {
+                                showMessage('Unit price updated successfully!', 'success');
+                            }
+                        } else {
+                            alert(response.message || 'Failed to update unit price.');
+                            input.val(originalValue).focus().prop('disabled', false);
+                            calculateTotalAmount(row, originalValue, receivedQty);
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Update unit price request failed:', status, error);
+                        alert('Network error occurred. Please try again.');
+                        input.val(originalValue).focus().prop('disabled', false);
+                        calculateTotalAmount(row, originalValue, receivedQty);
+                    });
+                }
+
+                // Function to cancel unit price editing
+                function cancelUnitPriceEdit(input) {
+                    var row = input.closest('tr');
+                    var displaySpan = row.find('.unit-price-display');
+                    var originalValue = parseFloat(input.data('original-value')) || 0;
+                    var receivedQtyCell = row.find('td:eq(5)');
+                    var receivedQty = parseInt(receivedQtyCell.text()) || 0;
+
+                    input.removeClass('is-invalid');
+                    input.val(originalValue).hide().prop('disabled', false);
+                    displaySpan.show();
+
+                    // Restore original total amount
+                    calculateTotalAmount(row, originalValue, receivedQty);
+                }
+
+                // Remark Inline Editing for Store Inventory
+                // Function to start editing remark
+                function startRemarkEdit(row) {
+                    var displaySpan = row.find('.remark-display');
+                    var input = row.find('.remark-input');
+                    var currentValue = displaySpan.data('value') || '-';
+
+                    displaySpan.hide();
+                    input.show().focus().val(currentValue).select();
+
+                    // Store original value for cancellation
+                    input.data('original-value', currentValue);
+                }
+
+                // Function to save remark
+                function saveRemark(input) {
+                    var row = input.closest('tr');
+                    var displaySpan = row.find('.remark-display');
+                    var indentItemId = input.data('indent-item-id');
+                    var newRemark = input.val().trim();
+                    var originalValue = input.data('original-value') || '-';
+
+                    // Check if value actually changed
+                    if (newRemark === originalValue) {
+                        cancelRemarkEdit(input);
+                        return;
+                    }
+
+                    // Validate remark length
+                    if (newRemark.length > 500) {
+                        alert('Remark cannot exceed 500 characters.');
+                        input.focus();
+                        return;
+                    }
+
+                    // Disable input and show saving indicator
+                    input.prop('disabled', true);
+                    displaySpan.html('<i class="spinner-border spinner-border-sm text-secondary"></i>');
+
+                    // Auto-save via AJAX
+                    $.post('@Url.Action("UpdateMedicineItem", "StoreIndent")', {
+                        indentItemId: indentItemId,
+                        remark: newRemark
+                    })
+                    .done(function(response) {
+                        if (response.success) {
+                            // Update display values
+                            displaySpan.data('value', newRemark);
+                            displaySpan.text(newRemark || '-');
+
+                            // Show success indicator briefly
+                            input.removeClass('is-invalid');
+                            displaySpan.show();
+                            input.hide().prop('disabled', false);
+
+                            // Show brief success animation
+                            row.addClass('table-success');
+                            setTimeout(() => {
+                                row.removeClass('table-success');
+                            }, 1500);
+
+                            // Optional: Show toast notification
+                            if (typeof showMessage === 'function') {
+                                showMessage('Remark updated successfully!', 'success');
+                            }
+                        } else {
+                            alert(response.message || 'Failed to update remark.');
+                            input.val(originalValue).focus().prop('disabled', false);
+                            displaySpan.show();
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Update remark request failed:', status, error);
+                        alert('Network error occurred. Please try again.');
+                        input.val(originalValue).focus().prop('disabled', false);
+                        displaySpan.show();
+                    });
+                }
+
+                // Function to cancel remark editing
+                function cancelRemarkEdit(input) {
+                    var row = input.closest('tr');
+                    var displaySpan = row.find('.remark-display');
+                    var originalValue = input.data('original-value') || '-';
+
+                    input.removeClass('is-invalid');
+                    input.val(originalValue).hide().prop('disabled', false);
+                    displaySpan.show();
+                }
+
+                // Event handlers for unit price editing
+                $(document).on('click', '.unit-price-display', function() {
+                    var row = $(this).closest('tr');
+                    startUnitPriceEdit(row);
+                });
+
+                // Event handlers for remark editing
+                $(document).on('click', '.remark-display', function() {
+                    var row = $(this).closest('tr');
+                    startRemarkEdit(row);
+                });
+
+                // Handle Enter key to save
+                $(document).on('keydown', '.unit-price-input', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveUnitPrice($(this));
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelUnitPriceEdit($(this));
+                    }
+                });
+
+                $(document).on('keydown', '.remark-input', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveRemark($(this));
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelRemarkEdit($(this));
+                    }
+                });
+
+                // Handle blur event to save
+                $(document).on('blur', '.unit-price-input', function() {
+                    if (!$(this).prop('disabled')) {
+                        saveUnitPrice($(this));
+                    }
+                });
+
+                $(document).on('blur', '.remark-input', function() {
+                    if (!$(this).prop('disabled')) {
+                        saveRemark($(this));
+                    }
+                });
+
+                // Handle input changes to show live total amount calculation
+                $(document).on('input', '.unit-price-input', function() {
+                    var row = $(this).closest('tr');
+                    var unitPrice = parseFloat($(this).val()) || 0;
+
+                    var raisedQtyCell = row.find('td:eq(4)');
+                    var raisedQty = parseInt(raisedQtyCell.text()) || 0;
+                    var pendingQtyCell = row.find('td:eq(5)');
+                    var pendingQty = parseInt(pendingQtyCell.text()) || 0;
+
+                    // Live calculation preview (without saving)
+                    var totalAmount = unitPrice * (raisedQty - pendingQty);
+                    row.find('.total-amount-display').text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00');
+
+                    // Validate input
+                    if (unitPrice < 0) {
+                        $(this).addClass('is-invalid');
+                    } else if (unitPrice > 999999.99) {
+                        $(this).addClass('is-invalid');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                });
+
+                // Handle input validation for remark
+                $(document).on('input', '.remark-input', function() {
+                    var remark = $(this).val();
+
+                    // Validate input length
+                    if (remark.length > 500) {
+                        $(this).addClass('is-invalid');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                    }
+                });
+
+                // Update existing updateMedicineTableRow function to handle unit price and remark updates
+                var originalUpdateMedicineTableRow = window.updateMedicineTableRow;
+                window.updateMedicineTableRow = function(indentItemId, totalReceived, batchData) {
+                    if (originalUpdateMedicineTableRow) {
+                        originalUpdateMedicineTableRow(indentItemId, totalReceived, batchData);
+                    }
+
+                    // Recalculate total amount after batch updates
+                    var targetRow = $(`#medicineTableBody tr[data-temp-id="${indentItemId}"]`);
+                    if (targetRow.length > 0) {
+                        var unitPrice = parseFloat(targetRow.find('.unit-price-display').data('value')) || 0;
+                        if (unitPrice > 0) {
+                            calculateTotalAmount(targetRow, unitPrice, totalReceived);
+                        }
+                    }
+                };
+
+            }
+
+            // Track form changes for auto-save (only main form fields, not medicine table)
+            function trackFormChanges() {
+                $('#storeIndentForm input:not([readonly]), #storeIndentForm select, #storeIndentForm textarea').not('#medicinesData').on('change input', function() {
+                    // Exclude changes to hidden medicine data field
+                    if ($(this).attr('name') === 'medicinesJson') return;
+
+                    if (!module.isAutoSaving) {
+                        module.hasUnsavedChanges = true;
+                        clearTimeout(module.formDataChangeTimeout);
+                        module.formDataChangeTimeout = setTimeout(function() {
+                            if (module.hasUnsavedChanges && !module.isAutoSaving) {
+                                autoSaveAsDraft();
+                            }
+                        }, 2000);
+                    }
+                });
+            }
+
+            // Auto-save function
+            function autoSaveAsDraft() {
+                if (module.isAutoSaving || module.isStoreInventory) return;
+
+                var indentType = $('#indentTypeSelect').val();
+                var indentDate = $('input[name="IndentDate"]').val();
+
+                if (!indentType || !indentDate) {
+                    return;
+                }
+
+                var shouldValidateIndentType = validateIndentType();
+                var shouldValidateDate = true;
+
+                if ($('#indentDateInput').length > 0 && !$('#indentDateInput').prop('disabled') && !$('#indentDateInput').prop('readonly')) {
+                    shouldValidateDate = validateIndentDate();
+                }
+
+                var shouldValidateComments = validateComments();
+
+                if (!shouldValidateIndentType || !shouldValidateDate || !shouldValidateComments) {
+                    return;
+                }
+
+                module.isAutoSaving = true;
+                showAutoSaveStatus('Saving as draft...', 'info');
+
+                var formData = {
+                    indentId: module.indentId,
+                    indentType: 'Draft Indent',
+                    indentDate: indentDate,
+                    comments: $('#commentsTextarea').val(),
+                    medicinesJson: JSON.stringify(module.allMedicines),
+                    actionType: 'save'
+                };
+
+                var saveUrl = module.indentId === 0 ? '@Url.Action("Create", "StoreIndent")' : '@Url.Action("Edit", "StoreIndent")';
+
+                $.post(saveUrl, formData)
+                .done(function(response) {
+                    if (response.success) {
+                        module.hasUnsavedChanges = false;
+                        module.hasBeenSavedOnce = true;
+
+                        if (module.indentId === 0 && response.indentId) {
+                            module.indentId = response.indentId;
+                            $('input[name="IndentId"]').val(module.indentId);
+                            $('#storeIndentForm').attr('action', '@Url.Action("Edit", "StoreIndent")/' + module.indentId);
+                            $('input[readonly][value="AUTO"]').val(module.indentId);
+                        }
+
+                        showAutoSaveStatus('Saved as draft automatically', 'success');
+                    } else {
+                        showAutoSaveStatus('Auto-save failed', 'warning');
+                    }
+                })
+                .fail(function() {
+                    showAutoSaveStatus('Auto-save failed - network error', 'warning');
+                })
+                .always(function() {
+                    module.isAutoSaving = false;
+                    setTimeout(function() {
+                        $('#autoSaveStatus').fadeOut();
+                    }, 3000);
+                });
+            }
+
+            function showAutoSaveStatus(message, type) {
+                var alertClass = type === 'success' ? 'alert-success' : type === 'warning' ? 'alert-warning' : 'alert-info';
+                $('#autoSaveStatus')
+                    .removeClass('alert-info alert-success alert-warning')
+                    .addClass(alertClass)
+                    .show();
+                $('#autoSaveMessage').text(message);
+            }
+
+            // FIXED Add Medicine Button Click
+            $('#btnAddMed').click(function() {
+                if (!module.isStoreInventory) {
+                    var isValidForm = true;
+
+                    if (!validateIndentType()) {
+                        isValidForm = false;
+                    }
+
+                    if ($('#indentDateInput').length > 0 && !$('#indentDateInput').prop('disabled') && !$('#indentDateInput').prop('readonly')) {
+                        if (!validateIndentDate()) {
+                            isValidForm = false;
+                        }
+                    }
+
+                    if (!validateComments()) {
+                        isValidForm = false;
+                    }
+
+                    if (!isValidForm) {
+                        showValidationMessage('Please fix form validation errors before adding medicines.', 'warning');
+                        return;
+                    }
+
+                    // Check if this is a new indent that needs initial save
+                    var needsInitialSave = (module.indentId === 0 && $('#indentTypeSelect').val() && $('input[name="IndentDate"]').val());
+
+                    // Only auto-save if it's a completely new indent that hasn't been saved yet
+                    if (needsInitialSave && !module.hasBeenSavedOnce) {
+                        showAutoSaveStatus('Saving before adding medicine...', 'info');
+
+                        var formData = {
+                            indentId: module.indentId,
+                            indentType: 'Draft Indent',
+                            indentDate: $('input[name="IndentDate"]').val(),
+                            comments: $('#commentsTextarea').val(),
+                            medicinesJson: JSON.stringify([]), // Don't include medicines in initial save
+                            actionType: 'save'
+                        };
+
+                        var saveUrl = '@Url.Action("Create", "StoreIndent")';
+
+                        $.post(saveUrl, formData)
+                        .done(function(response) {
+                            if (response.success) {
+                                module.hasUnsavedChanges = false;
+                                module.hasBeenSavedOnce = true; // Track that we've saved at least once
+
+                                if (response.indentId) {
+                                    module.indentId = response.indentId;
+                                    $('input[name="IndentId"]').val(module.indentId);
+                                    $('#storeIndentForm').attr('action', '@Url.Action("Edit", "StoreIndent")/' + module.indentId);
+                                    $('input[readonly][value="AUTO"]').val(module.indentId);
+                                }
+
+                                showAutoSaveStatus('Saved! Now you can add medicines.', 'success');
+
+                                setTimeout(function() {
+                                    addNewMedicineRow();
+                                    $('#autoSaveStatus').fadeOut();
+                                }, 1000);
+                            } else {
+                                showAutoSaveStatus(response.message || 'Save failed. Please try again.', 'warning');
+                            }
+                        })
+                        .fail(function() {
+                            showAutoSaveStatus('Save failed - network error', 'warning');
+                        });
+                    } else {
+                        // If already saved once or no initial save needed, directly add medicine row
+                        addNewMedicineRow();
+                    }
+                }
+            });
+
+            // Auto-update Status based on Indent Type
+            $('#indentTypeSelect').change(function() {
+                if (module.isStoreInventory) return;
+
+                var indentType = $(this).val();
+                var statusSelect = $('#statusSelect');
+
+                if (statusSelect.length > 0) {
+                    var status = 'Pending';
+
+                    switch(indentType) {
+                        case 'Pending Indents':
+                            status = 'Pending';
+                            break;
+                        case 'Approved Indents':
+                            status = 'Approved';
+                            break;
+                        case 'Rejected Indents':
+                            status = 'Rejected';
+                            break;
+                        case 'Draft Indent':
+                            status = 'Draft';
+                            break;
+                    }
+
+                    statusSelect.val(status);
+                    showValidationMessage(`Status automatically set to "${status}" based on Indent Type`, 'success');
+                }
+            });
+
+            // Handle Save vs Submit button clicks
+            $('#saveBtn').click(function(e) {
+                $('#actionType').val('save');
+                module.hasUnsavedChanges = false;
+            });
+
+            $('#submitBtn').click(function(e) {
+                $('#actionType').val('submit');
+                module.hasUnsavedChanges = false;
+            });
+
+            // Updated addNewMedicineRow function - vendor code is now optional
+            function addNewMedicineRow() {
+                console.log('addNewMedicineRow called');
+
+                $('#medicineTableBody tr').each(function() {
+                    if ($(this).find('td').text().includes('No medicines added yet')) {
+                        $(this).remove();
+                    }
+                });
+
+                var nextSlNo = $('#medicineTableBody tr').length + 1;
+                var columnCount = module.isStoreInventory ? 10 : 7;
+
+                var newRow = `
+                    <tr id="newRow${module.rowCounter}" class="editing-row">
+                        <td>${nextSlNo}</td>
+                        <td>
+                            <select class="form-select form-select-sm glass-input medicine-dropdown" required>
+                                ${medicineOptionsHtml}
+                            </select>
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input company-input" readonly />
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input vendor-input" placeholder="Vendor code (optional)" maxlength="50" />
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input raised-qty-input" type="number" min="1" placeholder="Raised Qty" required />
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input pending-qty-display" readonly placeholder="Pending Qty" />
+                        </td>`;
+
+                if (module.isStoreInventory) {
+                    newRow += `
+                        <td>
+                            <input class="form-control form-control-sm glass-input unit-price-input" type="number" min="0" step="0.01" placeholder="Unit Price" />
+                        </td>
+                        <td>
+                            <span class="total-amount-display">₹0.00</span>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input remark-input" type="text" placeholder="Remark (optional)" maxlength="500" />
+                        </td>`;
+                }
+
+                newRow += `
+                        <td>
+                            <button class="btn btn-action-delete delete cancel-medicine" type="button" title="Delete">
+                                <i class="bi bi-trash fs-6"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+
+                $('#medicineTableBody').append(newRow);
+                module.rowCounter++;
+
+                var newRowElement = $(`#newRow${module.rowCounter - 1}`);
+
+                // ✨ SELECT2: Initialize Select2 on the medicine dropdown
+                initializeSelect2OnMedicineDropdown(newRowElement.find('.medicine-dropdown'));
+
+                // Vendor code validation - now optional
+                newRowElement.find('.vendor-input').on('input', function() {
+                    var vendorCode = $(this).val();
+
+                    // Only validate if vendor code is provided (optional field)
+                    if (vendorCode && vendorCode.trim() !== '' && !validateVendorCode(vendorCode)) {
+                        $(this).addClass('is-invalid');
+                        $(this).siblings('.invalid-feedback').text('Vendor code can only contain letters, numbers, hyphens, and underscores.');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                        $(this).siblings('.invalid-feedback').text('');
+                    }
+                    updateSubmitButtons();
+                });
+
+                newRowElement.find('.raised-qty-input').on('change keyup', function() {
+                    var raisedQty = parseInt($(this).val()) || 0;
+                    newRowElement.find('.pending-qty-display').val(raisedQty);
+
+                    // Update total amount if unit price exists
+                    if (module.isStoreInventory) {
+                        var unitPrice = parseFloat(newRowElement.find('.unit-price-input').val()) || 0;
+                        var totalAmount = unitPrice * raisedQty;
+                        newRowElement.find('.total-amount-display').text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00');
+                    }
+                    updateSubmitButtons();
+                });
+
+                // Unit price calculation for new rows
+                if (module.isStoreInventory) {
+                    newRowElement.find('.unit-price-input').on('input', function() {
+                        var unitPrice = parseFloat($(this).val()) || 0;
+                        var raisedQty = parseInt(newRowElement.find('.raised-qty-input').val()) || 0;
+                        var totalAmount = unitPrice * raisedQty;
+                        newRowElement.find('.total-amount-display').text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00');
+                        updateSubmitButtons();
+                    });
+
+                    // Remark validation for new rows
+                    newRowElement.find('.remark-input').on('input', function() {
+                        var remark = $(this).val();
+                        if (remark.length > 500) {
+                            $(this).addClass('is-invalid');
+                        } else {
+                            $(this).removeClass('is-invalid');
+                        }
+                        updateSubmitButtons();
+                    });
+                }
+
+                console.log('New row added successfully with serial number:', nextSlNo);
+            }
+
+            // **NEW: Function to validate final medicine list for duplicates**
+            function validateFinalMedicineList() {
+                if (!module.allMedicines || module.allMedicines.length === 0) {
+                    return { isValid: true, message: '' };
+                }
+
+                var medIds = [];
+                var duplicateMedicines = [];
+                var duplicateIds = new Set();
+
+                // Check for duplicate medicine IDs
+                module.allMedicines.forEach(function(medicine) {
+                    if (medIds.includes(medicine.medItemId)) {
+                        if (!duplicateIds.has(medicine.medItemId)) {
+                            duplicateIds.add(medicine.medItemId);
+                            duplicateMedicines.push(medicine.medItemName || `Medicine ID: ${medicine.medItemId}`);
+                        }
+                    } else {
+                        medIds.push(medicine.medItemId);
+                    }
+                });
+
+                if (duplicateMedicines.length > 0) {
+                    var message = duplicateMedicines.length === 1
+                        ? `Duplicate medicine found: "${duplicateMedicines[0]}". Please remove the duplicate before submitting.`
+                        : `Multiple duplicate medicines found: ${duplicateMedicines.join(', ')}. Please remove all duplicates before submitting.`;
+
+                    return {
+                        isValid: false,
+                        message: message
+                    };
+                }
+
+                return { isValid: true, message: '' };
+            }
+
+            // Enhanced Medicine dropdown change with immediate duplicate validation
+            $(document).on('change', '.medicine-dropdown', function() {
+                var row = $(this).closest('tr');
+                var medItemId = $(this).val();
+                var companyInput = row.find('.company-input');
+
+                // Clear previous validation
+                clearRowValidation(row);
+
+                if (medItemId) {
+                    // Check for duplicates immediately
+                    var editingMedId = row.attr('data-editing-med-id');
+                    var isDuplicateAllowed = editingMedId && parseInt(editingMedId) === parseInt(medItemId);
+
+                    if (!isDuplicateAllowed) {
+                        var duplicateCount = module.allMedicines.filter(m => m.medItemId == medItemId).length;
+                        if (duplicateCount > 0) {
+                            var medicineName = $(this).find('option:selected').text();
+                            showFieldError($(this), `"${medicineName}" is already added to this indent`);
+                            companyInput.val('');
+                            return;
+                        }
+                    }
+
+                    // Load company details
+                    companyInput.val('Loading...');
+
+                    var medicineDetailsUrl = '@Url.Action("GetMedicineDetails", "StoreIndent")';
+                    $.get(medicineDetailsUrl, { medItemId: medItemId })
+                        .done(function(result) {
+                            if (result.success) {
+                                companyInput.val(result.data.companyName);
+                            } else {
+                                companyInput.val('Not Defined');
+                            }
+                        })
+                        .fail(function() {
+                            companyInput.val('Not Defined');
+                        });
+                } else {
+                    companyInput.val('');
+                    // Clear editing medicine ID when no medicine selected
+                    row.removeAttr('data-editing-med-id');
+                }
+            });
+
+            // Enhanced auto-add medicine - vendor code now optional
+            $(document).on('change blur', '.editing-row .medicine-dropdown, .editing-row .vendor-input, .editing-row .raised-qty-input', function() {
+                if (module.isStoreInventory) return;
+
+                var row = $(this).closest('tr');
+                var medicineSelect = row.find('.medicine-dropdown');
+                var vendorInput = row.find('.vendor-input');
+                var raisedQtyInput = row.find('.raised-qty-input');
+
+                var medItemId = medicineSelect.val();
+                var vendorCode = vendorInput.val();
+                var raisedQuantity = parseInt(raisedQtyInput.val());
+
+                // Clear previous validation messages
+                clearRowValidation(row);
+
+                // Validate vendor code only if provided and not empty
+                if (vendorCode && vendorCode.trim() !== '' && !validateVendorCode(vendorCode)) {
+                    showFieldError(vendorInput, 'Invalid vendor code format');
+                    return;
+                }
+
+                // Check for duplicates immediately when medicine is selected
+                if (medItemId) {
+                    var editingMedId = row.attr('data-editing-med-id');
+                    var isDuplicateAllowed = editingMedId && parseInt(editingMedId) === parseInt(medItemId);
+
+                    if (!isDuplicateAllowed) {
+                        var duplicateCount = module.allMedicines.filter(m => m.medItemId == medItemId).length;
+                        if (duplicateCount > 0) {
+                            var medicineName = medicineSelect.find('option:selected').text();
+                            showFieldError(medicineSelect, `"${medicineName}" is already added`);
+                            return;
+                        }
+                    }
+                }
+
+                // Auto-add when medicine and raised quantity are provided (vendor code is optional)
+                if (medItemId && raisedQuantity > 0) {
+                    addMedicineToList(row);
+                }
+            });
+
+            // ENHANCED addMedicineToList function with additional duplicate prevention
+            function addMedicineToList(row) {
+                // Pre-validate before adding
+                if (!validateMedicineRow(row)) {
+                    return;
+                }
+
+                var medicineData = extractMedicineData(row);
+
+                // Double-check for duplicates before adding to array
+                var existingMedicine = module.allMedicines.find(m => m.medItemId === medicineData.medItemId);
+                if (existingMedicine) {
+                    showFieldError(row.find('.medicine-dropdown'), `"${medicineData.medItemName}" is already added to this indent`);
+                    return;
+                }
+
+                // Add to medicines array
+                module.allMedicines.push(medicineData);
+                convertToDisplayRow(row, medicineData);
+                updateRowNumbers();
+
+                showValidationMessage('Medicine added successfully!', 'success');
+            }
+
+            // ENHANCED validateMedicineRow function with better duplicate checking
+            function validateMedicineRow(row) {
+                var isValid = true;
+                clearRowValidation(row);
+
+                var medicineSelect = row.find('.medicine-dropdown');
+                var vendorInput = row.find('.vendor-input');
+                var raisedQtyInput = row.find('.raised-qty-input');
+
+                var medItemId = medicineSelect.val();
+                var vendorCode = vendorInput.val();
+                var raisedQuantity = parseInt(raisedQtyInput.val());
+
+                // Validate medicine selection
+                if (!medItemId || medItemId === '') {
+                    showFieldError(medicineSelect, 'Please select a medicine');
+                    isValid = false;
+                } else {
+                    // Check for duplicates in allMedicines array
+                    var duplicateCount = module.allMedicines.filter(m => m.medItemId == medItemId).length;
+                    if (duplicateCount > 0) {
+                        var medicineName = medicineSelect.find('option:selected').text();
+                        showFieldError(medicineSelect, `"${medicineName}" is already added to this indent`);
+                        isValid = false;
+                    }
+                }
+
+                // Vendor code validation - OPTIONAL, only validate format if provided
+                if (vendorCode && vendorCode.trim() !== '' && !validateVendorCode(vendorCode)) {
+                    showFieldError(vendorInput, 'Vendor code can only contain letters, numbers, hyphens, and underscores');
+                    isValid = false;
+                }
+
+                // Validate raised quantity
+                if (!raisedQuantity || raisedQuantity <= 0) {
+                    showFieldError(raisedQtyInput, 'Please enter valid raised quantity');
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            // **ENHANCED: Also update buttons when validation errors are shown/hidden**
+            function showFieldError(field, message) {
+                // ✨ SELECT2: Check if field is a Select2 dropdown
+                if (field.hasClass('medicine-dropdown') && field.hasClass('select2-hidden-accessible')) {
+                    // Use Select2-specific validation
+                    showSelect2Validation(field, message);
+                } else {
+                    // Regular field validation
+                    field.addClass('is-invalid');
+                    field.siblings('.invalid-feedback').text(message);
+                }
+                updateSubmitButtons(); // Update buttons when error is shown
+            }
+
+            function clearRowValidation(row) {
+                // ✨ SELECT2: Clear Select2 validation
+                row.find('.medicine-dropdown').each(function() {
+                    if ($(this).hasClass('select2-hidden-accessible')) {
+                        clearSelect2Validation($(this));
+                    }
+                });
+
+                // Clear regular field validation
+                row.find('.is-invalid').removeClass('is-invalid');
+                row.find('.invalid-feedback').text('');
+                updateSubmitButtons(); // Update buttons when errors are cleared
+            }
+
+            // Updated extractMedicineData function
+            function extractMedicineData(row) {
+                var medicineSelect = row.find('.medicine-dropdown');
+                var vendorInput = row.find('.vendor-input');
+                var raisedQtyInput = row.find('.raised-qty-input');
+                var unitPriceInput = row.find('.unit-price-input');
+                var remarkInput = row.find('.remark-input');
+
+                var medItemId = medicineSelect.val();
+                var medItemName = medicineSelect.find('option:selected').text();
+                var vendorCode = vendorInput.val().trim();
+                var raisedQuantity = parseInt(raisedQtyInput.val());
+                var unitPrice = module.isStoreInventory ? (parseFloat(unitPriceInput.val()) || 0) : null;
+                var totalAmount = unitPrice ? (unitPrice * raisedQuantity) : null;
+                var remark = module.isStoreInventory ? (remarkInput.val().trim() || null) : null;
+                var companyName = row.find('.company-input').val();
+
+                return {
+                    tempId: (Date.now() + Math.random()).toString(),
+                    medItemId: parseInt(medItemId),
+                    medItemName: medItemName,
+                    companyName: companyName,
+                    vendorCode: vendorCode || null, // Set to null if empty
+                    raisedQuantity: raisedQuantity,
+                    receivedQuantity: 0,
+                    unitPrice: unitPrice,
+                    totalAmount: totalAmount,
+                    remark: remark,
+                    isNew: true
+                };
+            }
+
+            // Updated convertToDisplayRow function
+            function convertToDisplayRow(row, medicineData) {
+                var pendingQty = medicineData.raisedQuantity;
+                var actionButtons = '';
+                var displayVendorCode = medicineData.vendorCode || '-';
+
+                if (module.isStoreInventory) {
+                    actionButtons = `<button class="btn btn-action-view view view-medicine-item me-1" data-id="${medicineData.tempId}" title="View Details"><i class="bi bi-eye fs-6"></i></button>`;
+                    if (pendingQty > 0) {
+                        actionButtons += `<button class="btn btn-action-edit edit edit-medicine-item" data-id="${medicineData.tempId}" title="Update Item"><i class="bi bi-pencil fs-6"></i></button>`;
+                    }
+                } else {
+                    actionButtons = `
+                        <button class="btn btn-action-edit edit edit-medicine me-1" data-temp-id="${medicineData.tempId}" type="button" title="Edit">
+                            <i class="bi bi-pencil fs-6"></i>
+                        </button>
+                        <button class="btn btn-action-delete delete delete-medicine" data-temp-id="${medicineData.tempId}" type="button" title="Delete">
+                            <i class="bi bi-trash fs-6"></i>
+                        </button>`;
+                }
+
+                var unitPriceColumn = '';
+                var totalAmountColumn = '';
+                var remarkColumn = '';
+
+                if (module.isStoreInventory) {
+                    var unitPrice = medicineData.unitPrice || 0;
+                    var totalAmount = unitPrice * medicineData.receivedQuantity;
+                    var remark = medicineData.remark || '';
+
+                    unitPriceColumn = `
+                        <td>
+                            <span class="unit-price-display" data-value="${unitPrice}" data-indent-item-id="${medicineData.tempId}" title="Click to edit">
+                                ${unitPrice > 0 ? `₹${unitPrice.toFixed(2)}` : 'Not Available'}
+                            </span>
+                            <input type="number" class="form-control form-control-sm unit-price-input"
+                                   value="${unitPrice}" min="0" step="0.01" max="999999.99"
+                                   style="display: none;" data-indent-item-id="${medicineData.tempId}" />
+                        </td>`;
+
+                    totalAmountColumn = `
+                        <td>
+                            <span class="total-amount-display">
+                                ${totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00'}
+                            </span>
+                        </td>`;
+
+                    remarkColumn = `
+                        <td>
+                            <span class="remark-display" data-value="${remark}" data-indent-item-id="${medicineData.tempId}" title="Click to edit">
+                                ${remark || '-'}
+                            </span>
+                            <input type="text" class="form-control form-control-sm remark-input"
+                                   value="${remark}" maxlength="500"
+                                   style="display: none;" data-indent-item-id="${medicineData.tempId}" />
+                        </td>`;
+                }
+
+                var tableRow = `
+                    <tr data-temp-id="${medicineData.tempId}">
+                        <td>${row.find('td:first').text()}</td>
+                        <td>${medicineData.medItemName}</td>
+                        <td>${medicineData.companyName}</td>
+                        <td>${displayVendorCode}</td>
+                        <td>${medicineData.raisedQuantity}</td>
+                        <td>${pendingQty}</td>
+                        ${unitPriceColumn}
+                        ${totalAmountColumn}
+                        ${remarkColumn}
+                        <td>${actionButtons}</td>
+                    </tr>`;
+
+                row.replaceWith(tableRow);
+            }
+
+            // Cancel medicine
+            $(document).on('click', '.cancel-medicine', function() {
+                $(this).closest('tr').remove();
+                updateRowNumbers();
+                updateSubmitButtons();
+
+                var columnCount = module.isStoreInventory ? 10 : 7;
+                if ($('#medicineTableBody tr').length === 0) {
+                    $('#medicineTableBody').append(`<tr><td colspan="${columnCount}" class="text-center text-muted">No medicines added yet.</td></tr>`);
+                }
+            });
+
+            // Edit medicine - Enhanced with editing state tracking
+            $(document).on('click', '.edit-medicine', function() {
+                if (module.isStoreInventory) return;
+
+                var tempId = $(this).data('temp-id');
+
+                var receivedQty = parseInt($(this).data('received-qty')) || 0;
+
+                if (receivedQty > 0) {
+                    alert('Cannot edit medicine item that has already been received.');
+                    return;
+                }
+
+                var medicineData = module.allMedicines.find(m => m.tempId == tempId);
+
+                if (medicineData) {
+                    // Remove from array temporarily for editing
+                    module.allMedicines = module.allMedicines.filter(m => m.tempId != tempId);
+                    convertToEditingRow($(this).closest('tr'), medicineData);
+
+                    // Store the original medicine ID for duplicate checking during editing
+                    var newEditingRow = $(`tr:has(.medicine-dropdown[value="${medicineData.medItemId}"])`).last();
+                    newEditingRow.attr('data-editing-med-id', medicineData.medItemId);
+                }
+            });
+
+            // Updated convertToEditingRow function - vendor code is optional
+            function convertToEditingRow(row, medicineData) {
+                var pendingQty = medicineData.raisedQuantity;
+                var columnCount = module.isStoreInventory ? 10 : 7;
+
+                var editingRow = `
+                    <tr class="editing-row">
+                        <td>${row.find('td:first').text()}</td>
+                        <td>
+                            <select class="form-select form-select-sm glass-input medicine-dropdown" required>
+                                ${medicineOptionsHtml}
+                            </select>
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input company-input" readonly value="${medicineData.companyName}" />
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input vendor-input" placeholder="Vendor code (optional)" value="${medicineData.vendorCode || ''}" maxlength="50" />
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input raised-qty-input" type="number" min="1" placeholder="Raised Qty" value="${medicineData.raisedQuantity}" required />
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input pending-qty-display" readonly value="${pendingQty}" />
+                        </td>`;
+
+                if (module.isStoreInventory) {
+                    editingRow += `
+                        <td>
+                            <input class="form-control form-control-sm glass-input unit-price-input" type="number" min="0" step="0.01" value="${medicineData.unitPrice || 0}" />
+                        </td>
+                        <td>
+                            <span class="total-amount-display">₹0.00</span>
+                        </td>
+                        <td>
+                            <input class="form-control form-control-sm glass-input remark-input" type="text" value="${medicineData.remark || '-'}" maxlength="500" />
+                        </td>`;
+                }
+
+                editingRow += `
+                        <td>
+                            <button class="btn btn-action-delete delete cancel-medicine" type="button" title="Delete">
+                                <i class="bi bi-trash fs-6"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+
+                var newRow = $(editingRow);
+                row.replaceWith(newRow);
+
+                newRow.find('.medicine-dropdown').val(medicineData.medItemId);
+
+                // ✨ SELECT2: Initialize Select2 on the medicine dropdown
+                initializeSelect2OnMedicineDropdown(newRow.find('.medicine-dropdown'));
+
+                // Updated vendor code validation - now optional
+                newRow.find('.vendor-input').on('input', function() {
+                    var vendorCode = $(this).val();
+
+                    // Only validate if vendor code is provided and not empty (optional field)
+                    if (vendorCode && vendorCode.trim() !== '' && !validateVendorCode(vendorCode)) {
+                        $(this).addClass('is-invalid');
+                        $(this).siblings('.invalid-feedback').text('Vendor code can only contain letters, numbers, hyphens, and underscores.');
+                    } else {
+                        $(this).removeClass('is-invalid');
+                        $(this).siblings('.invalid-feedback').text('');
+                    }
+                    updateSubmitButtons();
+                });
+
+                newRow.find('.raised-qty-input').on('change keyup', function() {
+                    var raisedQty = parseInt($(this).val()) || 0;
+                    newRow.find('.pending-qty-display').val(raisedQty);
+
+                    // Update total amount if unit price exists
+                    if (module.isStoreInventory) {
+                        var unitPrice = parseFloat(newRow.find('.unit-price-input').val()) || 0;
+                        var totalAmount = unitPrice * raisedQty;
+                        newRow.find('.total-amount-display').text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00');
+                    }
+                    updateSubmitButtons();
+                });
+
+                // Unit price calculation for editing rows
+                if (module.isStoreInventory) {
+                    newRow.find('.unit-price-input').on('input', function() {
+                        var unitPrice = parseFloat($(this).val()) || 0;
+                        var raisedQty = parseInt(newRow.find('.raised-qty-input').val()) || 0;
+                        var totalAmount = unitPrice * raisedQty;
+                        newRow.find('.total-amount-display').text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00');
+                        updateSubmitButtons();
+                    });
+
+                    // Remark validation for editing rows
+                    newRow.find('.remark-input').on('input', function() {
+                        var remark = $(this).val();
+                        if (remark.length > 500) {
+                            $(this).addClass('is-invalid');
+                        } else {
+                            $(this).removeClass('is-invalid');
+                        }
+                        updateSubmitButtons();
+                    });
+                }
+            }
+
+            // Delete medicine
+            $(document)
+                .off('click.medicineDelete') // <-- namespace for the handler
+                .on('click.medicineDelete', '.delete-medicine', function (e) {
+
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this);
+                  // re-entry guard
+                if ($btn.data('busy')) return;
+                $btn.data('busy', true);
+                var receivedQty = parseInt($btn.data('received-qty')) || 0;
+
+                if (receivedQty > 0) {
+                    alert('Cannot delete medicine item that has already been received.');
+                    $btn.data('busy', false);
+                    return;
+                }
+                if (module.isStoreInventory) return;
+
+                // Disable the button to prevent multiple clicks
+                $btn.prop('disabled', true);
+
+                if (window.confirm('Are you sure you want to remove this medicine?')) {
+                    var tempId = $btn.data('temp-id');
+                    module.allMedicines = module.allMedicines.filter(m => m.tempId != tempId);
+                    $btn.closest('tr').remove();
+                    updateRowNumbers();
+
+                    // Don't set hasUnsavedChanges here to prevent unnecessary auto-saves
+
+                    var columnCount = module.isStoreInventory ? 10 : 7;
+                    if ($('#medicineTableBody tr').length === 0) {
+                        $('#medicineTableBody').append(`<tr><td colspan="${columnCount}" class="text-center text-muted">No medicines added yet.</td></tr>`);
+                    }
+
+                    showValidationMessage('Medicine removed successfully!', 'success');
+                    updateSubmitButtons();
+                }
+
+                // Re-enable the button after the confirmation
+                 $btn.prop('disabled', false).data('busy', false);
+            });
+
+            function updateRowNumbers() {
+                $('#medicineTableBody tr:not(.editing-row)').each(function(index) {
+                    if (!$(this).find('td:first').hasClass('text-center')) {
+                        $(this).find('td:first').text(index + 1);
+                    }
+                });
+            }
+
+            // **ENHANCED: Updated showValidationMessage to handle HTML content and scroll to error**
+            function showValidationMessage(message, type) {
+                type = type || 'warning';
+                var alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-warning';
+                var icon = type === 'success' ? 'bi-check-circle' : type === 'error' ? 'bi-exclamation-triangle' : 'bi-info-circle';
+
+                $('#medicineValidationMessage')
+                    .removeClass('alert-warning alert-success alert-danger')
+                    .addClass(alertClass)
+                    .html(`<i class="bi ${icon} me-2"></i>${message}`)
+                    .show();
+
+                // Auto-hide success messages after 5 seconds
+                if (type === 'success') {
+                    setTimeout(function() {
+                        $('#medicineValidationMessage').fadeOut();
+                    }, 5000);
+                }
+
+                // Scroll to error message if it's an error
+                if (type === 'error' || type === 'warning') {
+                    $('#medicineValidationMessage')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            // Updated loadExistingMedicines function to handle optional vendor code, unit price, and remark
+            function loadExistingMedicines() {
+                if (!module.isEdit || module.allMedicines.length > 0) return;
+
+                var getMedicineItemsUrl = '@Url.Action("GetMedicineItems", "StoreIndent")';
+                $.get(getMedicineItemsUrl, { indentId: module.indentId })
+                    .done(function(result) {
+                        if (result.success && result.data.length > 0) {
+                            $('#medicineTableBody').empty();
+                            module.allMedicines = [];
+
+                            $.each(result.data, function(index, item) {
+                                var vendorCode = item.vendorCode || '';
+                                var unitPrice = item.unitPrice || 0;
+                                var totalAmount = item.totalAmount || 0;
+                                var remark = item.remark || '-';
+
+                                var medicineData = {
+                                    tempId: item.indentItemId.toString(),
+                                    indentItemId: item.indentItemId,
+                                    medItemId: item.medItemId,
+                                    medItemName: item.medItemName,
+                                    companyName: item.companyName,
+                                    vendorCode: vendorCode,
+                                    raisedQuantity: item.raisedQuantity,
+                                    receivedQuantity: item.receivedQuantity,
+                                    unitPrice: unitPrice,
+                                    totalAmount: totalAmount,
+                                    remark: remark,
+                                    isNew: false
+                                };
+
+                                module.allMedicines.push(medicineData);
+
+                                var displayVendorCode = vendorCode || '-';
+                                var actionButtons = '';
+                                var actionButtons1 = '';
+                                var actionButtons2 = '';
+                                var actionButtons3 = '';
+
+                                if (module.isStoreInventory) {
+                                    if (item.pendingQuantity > 0) {
+                                        actionButtons2 = `
+                                            <button type="button"
+                                                    class="btn btn-sm btn-primary"
+                                                    onclick="openBatchModal(${medicineData.indentItemId}, '${medicineData.medItemName}', ${medicineData.raisedQuantity})">
+                                                Edit Batches
+                                            </button>`;
+                                            actionButtons1 = `
+                                        <span class="text-warning">
+                                                 <i class="bi bi-exclamation-triangle me-1"></i>Partial Completed'
+                                            </span>`;
+                                            if (item.pendingQuantity < medicineData.raisedQuantity){
+                                                actionButtons = actionButtons1+ actionButtons2;
+                                            }
+                                            else
+                                           {
+                                               actionButtons = actionButtons2;
+                                           }
+
+                                    } else {
+                                        actionButtons = `
+                                            <span class="text-success">
+                                                <i class="bi bi-check-circle me-1"></i>Completed
+                                            </span>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-info btn-sm ms-1"
+                                                    onclick="openBatchModal(${medicineData.indentItemId}, '${medicineData.medItemName}', ${medicineData.raisedQuantity})"
+                                                    title="View Batches">
+                                                <i class="bi bi-eye"></i>View Batches
+                                            </button>`;
+                                    }
+                                } else {
+                                    actionButtons = `
+
+                                        <button class="btn btn-action-edit edit edit-medicine me-1" data-temp-id="${medicineData.tempId}" data-received-qty="${item.receivedQuantity}"  type="button" title="Edit" ${item.receivedQuantity > 0 ? "disabled" : ""}>
+                                            <i class="bi bi-pencil fs-6"></i>
+                                        </button>
+                                        <button class="btn btn-action-delete delete delete-medicine" data-temp-id="${medicineData.tempId}" data-received-qty="${item.receivedQuantity}"  type="button" title="Delete" ${item.receivedQuantity > 0 ? "disabled" : ""}>
+                                            <i class="bi bi-trash fs-6"></i>
+                                        </button>`;
+                                }
+
+                                var unitPriceColumn = '';
+                                var totalAmountColumn = '';
+                                var remarkColumn = '';
+
+                                if (module.isStoreInventory) {
+                                    unitPriceColumn = `
+                                        <td>
+                                            <span class="unit-price-display" data-value="${unitPrice}" data-indent-item-id="${medicineData.indentItemId}" title="Click to edit">
+                                                ${unitPrice > 0 ? `₹${unitPrice.toFixed(2)}` : '-'}
+                                            </span>
+                                            <input type="number" class="form-control form-control-sm unit-price-input"
+                                                   value="${unitPrice}" min="0" step="0.01" max="999999.99"
+                                                   style="display: none;" data-indent-item-id="${medicineData.indentItemId}" />
+                                        </td>`;
+
+                                    totalAmountColumn = `
+                                        <td>
+                                            <span class="total-amount-display">
+                                                ${totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00'}
+                                            </span>
+                                        </td>`;
+
+                                    remarkColumn = `
+                                        <td>
+                                            <span class="remark-display" data-value="${remark}" data-indent-item-id="${medicineData.indentItemId}" title="Click to edit">
+                                                ${remark || '-'}
+                                            </span>
+                                            <input type="text" class="form-control form-control-sm remark-input"
+                                                   value="${remark}" maxlength="500"
+                                                   style="display: none;" data-indent-item-id="${medicineData.indentItemId}" />
+                                        </td>`;
+                                }
+
+                                var tableRow = `
+                                    <tr data-temp-id="${medicineData.tempId}">
+                                        <td>${index + 1}</td>
+                                        <td>${medicineData.medItemName}</td>
+                                        <td>${medicineData.companyName}</td>
+                                        <td>${displayVendorCode}</td>
+                                        <td>${medicineData.raisedQuantity}</td>
+                                        <td>${item.pendingQuantity}</td>
+                                        ${unitPriceColumn}
+                                        ${totalAmountColumn}
+                                        ${remarkColumn}
+                                        <td>${actionButtons}</td>
+                                    </tr>`;
+
+                                $('#medicineTableBody').append(tableRow);
+                            });
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Failed to load existing medicines:', status, error);
+                        showValidationMessage('Failed to load existing medicines.', 'warning');
+                    });
+            }
+
+            // **ENHANCED: Updated form submission with comprehensive validation**
+            $('#storeIndentForm').on('submit', function(e) {
+                if (module.isStoreInventory) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                e.preventDefault();
+
+                var isValidForm = true;
+
+                if (!validateIndentType()) {
+                    isValidForm = false;
+                }
+
+                if ($('#indentDateInput').length > 0 && !$('#indentDateInput').prop('disabled') && !$('#indentDateInput').prop('readonly')) {
+                    if (!validateIndentDate()) {
+                        isValidForm = false;
+                    }
+                }
+
+                if (!validateComments()) {
+                    isValidForm = false;
+                }
+
+                if (!isValidForm) {
+                    showValidationMessage('Please fix form validation errors before submitting.', 'warning');
+                    updateSubmitButtons();
+                    return false;
+                }
+
+                $('#medicineValidationMessage').hide();
+
+                // **ENHANCED: Check for ANY validation errors in the medicine table**
+                var hasValidationErrors = false;
+                var errorMessages = [];
+
+                // Check for any visible invalid fields in editing rows
+                $('.editing-row .is-invalid').each(function() {
+                    hasValidationErrors = true;
+                    var errorMsg = $(this).siblings('.invalid-feedback').text();
+                    if (errorMsg) {
+                        errorMessages.push(errorMsg);
+                    }
+                });
+
+                // Check for incomplete editing rows
+                var hasIncompleteRows = false;
+                $('.editing-row').each(function() {
+                    var row = $(this);
+                    var medicineSelect = row.find('.medicine-dropdown');
+                    var vendorInput = row.find('.vendor-input');
+                    var raisedQtyInput = row.find('.raised-qty-input');
+
+                    var medItemId = medicineSelect.val();
+                    var vendorCode = vendorInput.val();
+                    var raisedQuantity = parseInt(raisedQtyInput.val());
+
+                    if (medItemId || vendorCode || raisedQuantity) {
+                        // Row has some data but may not be complete
+                        if (!medItemId || !raisedQuantity || raisedQuantity <= 0) {
+                            hasIncompleteRows = true;
+                            errorMessages.push('Please complete all medicine entries or delete incomplete ones.');
+                            return false;
+                        }
+
+                        // Validate vendor code format only if provided (optional)
+                        if (vendorCode && vendorCode.trim() !== '' && !validateVendorCode(vendorCode)) {
+                            hasIncompleteRows = true;
+                            errorMessages.push('Invalid vendor code format in medicine entries.');
+                            return false;
+                        }
+                    }
+                });
+
+                // **NEW: Check for duplicate medicines in editing rows**
+                $('.editing-row').each(function() {
+                    var row = $(this);
+                    var medicineSelect = row.find('.medicine-dropdown');
+                    var medItemId = medicineSelect.val();
+
+                    if (medItemId) {
+                        var editingMedId = row.attr('data-editing-med-id');
+                        var isDuplicateAllowed = editingMedId && parseInt(editingMedId) === parseInt(medItemId);
+
+                        if (!isDuplicateAllowed) {
+                            var duplicateCount = module.allMedicines.filter(m => m.medItemId == medItemId).length;
+                            if (duplicateCount > 0) {
+                                var medicineName = medicineSelect.find('option:selected').text();
+                                hasValidationErrors = true;
+                                errorMessages.push(`Duplicate medicine: "${medicineName}" is already added.`);
+                            }
+                        }
+                    }
+                });
+
+                // Block submission if there are validation errors or incomplete rows
+                if (hasValidationErrors || hasIncompleteRows) {
+                    var errorMessage = errorMessages.length > 0
+                        ? 'Please fix the following errors before submitting:<br>• ' + errorMessages.join('<br>• ')
+                        : 'Please fix validation errors before submitting.';
+
+                    showValidationMessage(errorMessage, 'error');
+                    return false;
+                }
+
+                // **ENHANCED: Final duplicate validation before submission**
+                var duplicateCheck = validateFinalMedicineList();
+                if (!duplicateCheck.isValid) {
+                    showValidationMessage(duplicateCheck.message, 'error');
+                    return false;
+                }
+
+                var jsonData = JSON.stringify(module.allMedicines);
+                $('#medicinesData').val(jsonData);
+
+                var actionType = $('#actionType').val();
+                var form = $(this);
+
+                $('#saveBtn, #submitBtn').prop('disabled', true);
+
+                $.post(form.attr('action'), form.serialize())
+                .done(function(res) {
+                    if (res.success) {
+                        module.hasUnsavedChanges = false;
+
+                        if (actionType.toLowerCase() === 'save') {
+                            showValidationMessage(res.message || 'Store Indent saved successfully!', 'success');
+
+                            if (typeof tbl !== 'undefined' && tbl.ajax) {
+                                tbl.ajax.reload();
+                            }
+
+                            if (form.attr('action').includes('Create') && res.indentId) {
+                                var editUrl = '@Url.Action("Edit", "StoreIndent")' + '/' + res.indentId;
+                                form.attr('action', editUrl);
+                                $('input[name="IndentId"]').val(res.indentId);
+                                module.indentId = res.indentId;
+                                module.hasBeenSavedOnce = true;
+                                $('input[readonly][value="AUTO"]').val(res.indentId);
+                            }
+                        } else {
+                            $('#modalStoreIndent').modal('hide');
+
+                            if (typeof tbl !== 'undefined' && tbl.ajax) {
+                                tbl.ajax.reload();
+                            }
+
+                            var isCreate = form.attr('action').includes('Create');
+                            if (isCreate && res.redirectToEdit) {
+                                if (typeof showMessage === 'function') {
+                                    showMessage('Store Indent submitted successfully! <a href="#" class="edit-link" data-id="' + res.indentId + '">Click here to add medicines</a>', 'success');
+                                }
+                            } else {
+                                if (typeof showMessage === 'function') {
+                                    var message = res.message || (isCreate ? 'Store Indent submitted successfully!' : 'Store Indent updated successfully!');
+                                    showMessage(message, 'success');
+                                }
+                            }
+                        }
+                    } else if (typeof res === 'string') {
+                        $('#modalBody').html(res);
+                    } else {
+                        // Display error message in the modal
+                        showValidationMessage(res.message || 'An error occurred while processing the request.', 'error');
+
+                        // Also try to show it at the page level if showMessage exists
+                        if (typeof showMessage === 'function') {
+                            showMessage(res.message || 'An error occurred while processing the request.', 'error');
+                        }
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.error('AJAX request failed:', status, error);
+                    if (typeof showMessage === 'function') {
+                        showMessage('Network error occurred. Please try again.', 'error');
+                    }
+                })
+                .always(function() {
+                    $('#saveBtn, #submitBtn').prop('disabled', false);
+                });
+
+                return false;
+            });
+
+            // Initialize everything
+            updateIndentTypeCharCount();
+            if (module.isEdit) {
+                updateCommentsCharCount();
+            }
+
+            validateIndentType();
+            validateIndentDate();
+            if (module.isEdit) {
+                validateComments();
+            }
+
+            updateSubmitButtons();
+            trackFormChanges();
+            loadExistingMedicines();
+
+            // Make functions globally available for the batch modal
+            window.updateMedicineTableRow = updateMedicineTableRow;
+            window.updateAllMedicinesArray = updateAllMedicinesArray;
+
+            function updateMedicineTableRow(indentItemId, totalReceived, batchData) {
+                console.log('Updating medicine table row for indentItemId:', indentItemId);
+
+                var targetRow = null;
+                targetRow = $(`#medicineTableBody tr[data-temp-id="${indentItemId}"]`);
+
+                if (targetRow.length === 0) {
+                    $(`#medicineTableBody tr`).each(function() {
+                        var $row = $(this);
+                        var editButton = $row.find('button[onclick*="openBatchModal"]');
+                        if (editButton.length > 0) {
+                            var onclickAttr = editButton.attr('onclick');
+                            if (onclickAttr && onclickAttr.includes(`openBatchModal(${indentItemId},`)) {
+                                targetRow = $row;
+                                return false;
+                            }
+                        }
+                    });
+                }
+
+                if (targetRow && targetRow.length > 0) {
+                    console.log('Found target row, updating...');
+
+                    var raisedQtyText = targetRow.find('td:eq(4)').text().trim();
+                    var raisedQty = parseInt(raisedQtyText) || 0;
+                    var pendingQty = Math.max(0, raisedQty - totalReceived);
+
+                    var pendingIndex = module.isStoreInventory ? 5 : 5;
+                    var pendingBadgeClass = pendingQty > 0 ? 'bg-warning' : 'bg-success';
+                    targetRow.find(`td:eq(${pendingIndex})`).html(`<span class="badge ${pendingBadgeClass}">${pendingQty}</span>`);
+
+                    // Recalculate total amount if unit price exists
+                    if (module.isStoreInventory) {
+                        var unitPrice = parseFloat(targetRow.find('.unit-price-display').data('value')) || 0;
+                        if (unitPrice > 0) {
+                            var totalAmount = unitPrice * totalReceived;
+                            targetRow.find('.total-amount-display').text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '₹0.00');
+                        }
+                    }
+
+                    var actionCell = targetRow.find('td:last');
+                    var medName = targetRow.find('td:eq(1)').text().trim();
+
+                    if (pendingQty > 0) {
+                        actionCell.html(`
+                            <button type="button"
+                                    class="btn btn-sm btn-primary"
+                                    onclick="openBatchModal(${indentItemId}, '${medName}', ${raisedQty})">
+                                Edit Batches
+                            </button>
+                        `);
+                    } else {
+                        actionCell.html(`
+                            <span class="text-success">
+                                <i class="bi bi-check-circle me-1"></i>Completed
+                            </span>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-info btn-sm ms-1"
+                                    onclick="openBatchModal(${indentItemId}, '${medName}', ${raisedQty})"
+                                    title="View Batches">
+                                <i class="bi bi-eye"></i>View Batches
+                            </button>
+                        `);
+                    }
+
+                    targetRow.addClass('table-success');
+                    setTimeout(() => {
+                        targetRow.removeClass('table-success');
+                    }, 2000);
+
+                    console.log('Medicine table row updated successfully', {
+                        indentItemId,
+                        totalReceived,
+                        pendingQty,
+                        batchCount: batchData.length
+                    });
+                } else {
+                    console.warn('Could not find medicine table row to update for indentItemId:', indentItemId);
+                }
+            }
+
+            function updateAllMedicinesArray(indentItemId, totalReceived, batchData) {
+                console.log('Updating allMedicines array for indentItemId:', indentItemId);
+
+                if (typeof module.allMedicines !== 'undefined' && Array.isArray(module.allMedicines)) {
+                    var medicineIndex = module.allMedicines.findIndex(med =>
+                        med.tempId == indentItemId || med.indentItemId == indentItemId
+                    );
+
+                    if (medicineIndex >= 0) {
+                        module.allMedicines[medicineIndex].receivedQuantity = totalReceived;
+
+                        if (batchData && batchData.length > 0) {
+                            module.allMedicines[medicineIndex].batches = batchData;
+                            module.allMedicines[medicineIndex].batchCount = batchData.length;
+                        }
+
+                        // Don't set hasUnsavedChanges for batch updates as they are saved immediately
+
+                        console.log('Updated allMedicines array for medicine:', module.allMedicines[medicineIndex]);
+                    } else {
+                        console.warn('Could not find medicine in allMedicines array for indentItemId:', indentItemId);
+                    }
+                }
+            }
+        });
+
+        // Enhanced Batch Edit Modal Script with AUTO-POPULATE Available Stock
+        window.StoreIndentBatch = window.StoreIndentBatch || {
+            currentIndentItemId: null,
+            batchRows: [],
+            requestedQuantity: 0, // Store the requested quantity
+
+            openBatchModal: function(indentItemId, medName, reqQty) {
+                this.currentIndentItemId = indentItemId;
+                this.requestedQuantity = reqQty; // Store the requested quantity
+                document.getElementById('modalMedName').innerText = medName;
+                document.getElementById('modalMedicineDisplay').innerText = medName;
+                document.getElementById('modalReqQty').innerText = reqQty;
+                this.batchRows = [];
+
+                $.get('@Url.Action("GetBatchesForMedicine", "StoreIndent")', { indentItemId: indentItemId }, (res) => {
+                    if (res.success) {
+                        this.batchRows = res.data || [];
+                        this.renderBatchRows();
+                        this.updateSummary();
+                        $('#batchEditModal').modal('show');
+                    } else {
+                        console.error('Failed to load batches:', res.message);
+                        alert('Failed to load batch data. Please try again.');
+                    }
+                }).fail((xhr, status, error) => {
+                    console.error('Error loading batches:', error);
+                    alert('Network error while loading batch data. Please try again.');
+                });
+            },
+
+            closeBatchModal: function() {
+                $('#batchEditModal').modal('hide');
+                this.currentIndentItemId = null;
+                this.batchRows = [];
+                this.requestedQuantity = 0; // Reset requested quantity
+                $('#modalMedName').text('');
+                $('#modalMedicineDisplay').text('');
+                $('#modalReqQty').text('');
+                $('#batchTable tbody').empty();
+                this.resetSummary();
+            },
+
+            renderBatchRows: function() {
+                var tbody = $('#batchTable tbody');
+                tbody.empty();
+
+                if (this.batchRows.length === 0) {
+                    tbody.append(`
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-3">
+                                <i class="bi bi-box me-2"></i>No batches added yet. Click "Add Batch" to start.
+                            </td>
+                        </tr>
+                    `);
+                    return;
+                }
+
+                var today = new Date().toISOString().split('T')[0];
+
+                this.batchRows.forEach((row, i) => {
+                    var expiryDateValue = row.expiryDate ? row.expiryDate.substr(0,10) : '';
+                    var receivedQty = row.receivedQuantity || 0;
+                    var availableStock = row.availableStock || 0;
+                    var consumedStock = receivedQty - availableStock;
+
+                    var stockStatusClass = '';
+                    var stockStatusText = '';
+                    if (availableStock === 0) {
+                        stockStatusClass = 'text-danger';
+                        stockStatusText = 'Out';
+                    } else if (availableStock <= (receivedQty * 0.2)) {
+                        stockStatusClass = 'text-warning';
+                        stockStatusText = 'Low';
+                    } else {
+                        stockStatusClass = 'text-success';
+                        stockStatusText = 'Good';
+                    }
+
+                    var isNewBatch = !row.batchId; // Check if it's a new batch (newly added)
+
+                    tbody.append(`
+                      <tr data-index="${i}">
+                        <td>
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   value="${row.batchNo || ''}"
+                                   placeholder="Enter batch number"
+                                   onchange="updateBatchField(${i},'BatchNo',this.value)"
+                                   required>
+                        </td>
+                        <td>
+                            <input type="date"
+                                   class="form-control form-control-sm expiry-date-input"
+                                   value="${expiryDateValue}"
+                                   min="${today}"
+                                   onchange="updateBatchField(${i},'ExpiryDate',this.value); validateBatchExpiryDate(this);"
+                                   required>
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   class="form-control form-control-sm received-qty-input"
+                                   value="${receivedQty}"
+                                   min="0"
+                                   max="${this.requestedQuantity}"
+                                   placeholder="Qty"
+                                   onchange="updateBatchField(${i},'ReceivedQuantity',this.value); updateRowCalculations(${i});"
+                                   oninput="updateBatchField(${i},'ReceivedQuantity',this.value); updateRowCalculations(${i});"
+                                   required>
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   class="form-control form-control-sm available-stock-input"
+                                   value="${availableStock}"
+                                   min="0"
+                                   placeholder="Available (auto-filled)"
+                                   onchange="updateBatchField(${i},'AvailableStock',this.value); handleAvailableStockChange(${i}, this.value);"
+                                   ${isNewBatch ? '' : 'disabled'}
+                                   required>
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   value="${row.vendorCode || ''}"
+                                   placeholder="Vendor code (optional)"
+                                   onchange="updateBatchField(${i},'VendorCode',this.value);"
+                                   ${isNewBatch ? '' : 'disabled'}
+                                   >
+                        </td>
+                        <td>
+                          <button class="btn btn-action-delete delete"
+                                  onclick="removeBatchRow(${i})"
+                                  title="Remove this batch">
+                              <i class="bi bi-trash fs-6"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    `);
+                });
+            },
+
+            updateBatchField: function(i, field, value) {
+                if (!this.batchRows[i]) return;
+
+                if (field === 'ReceivedQuantity' || field === 'AvailableStock') {
+                    value = parseInt(value, 10) || 0;
+                }
+
+                this.batchRows[i][field.charAt(0).toLowerCase() + field.slice(1)] = value;
+                this.updateSummary();
+            },
+
+            addBatchRow: function() {
+                var newBatch = {
+                    batchId: null,
+                    indentItemId: this.currentIndentItemId,
+                    batchNo: '',
+                    expiryDate: '',
+                    receivedQuantity: 0,
+                    availableStock: 0,
+                    vendorCode: ''
+                };
+
+                this.batchRows.push(newBatch);
+                this.renderBatchRows();
+                this.updateSummary();
+            },
+
+            removeBatchRow: function(i) {
+                if (confirm('Are you sure you want to remove this batch?')) {
+                    this.batchRows.splice(i, 1);
+                    this.renderBatchRows();
+                    this.updateSummary();
+                }
+            },
+
+            updateSummary: function() {
+                var totalReceived = this.batchRows.reduce((sum, batch) => sum + (batch.receivedQuantity || 0), 0);
+                var totalAvailable = this.batchRows.reduce((sum, batch) => sum + (batch.availableStock || 0), 0);
+                var totalConsumed = totalReceived - totalAvailable;
+                var remainingQuantity = this.requestedQuantity - totalReceived;
+
+                $('#modalReqQtyDisplay').text(this.requestedQuantity);
+                $('#totalReceivedSummary').text(totalReceived);
+                $('#totalAvailableSummary').text(totalAvailable);
+                $('#totalConsumedSummary').text(totalConsumed);
+                $('#remainingQuantitySummary').text(remainingQuantity);
+
+                // Update remaining quantity styling
+                var remainingElement = $('#remainingQuantitySummary');
+                remainingElement.removeClass('text-success text-warning text-danger text-secondary');
+                if (remainingQuantity < 0) {
+                    remainingElement.addClass('text-danger');
+                } else if (remainingQuantity === 0) {
+                    remainingElement.addClass('text-success');
+                } else {
+                    remainingElement.addClass('text-secondary');
+                }
+
+                var overallStatus = '';
+                var overallClass = '';
+                if (totalAvailable === 0) {
+                    overallStatus = 'Out of Stock';
+                    overallClass = 'text-danger';
+                } else if (totalAvailable <= (totalReceived * 0.2)) {
+                    overallStatus = 'Low Stock';
+                    overallClass = 'text-warning';
+                } else {
+                    overallStatus = 'Good Stock';
+                    overallClass = 'text-success';
+                }
+
+                $('#overallStockStatus').text(overallStatus).removeClass('text-danger text-warning text-success').addClass(overallClass);
+            },
+
+            resetSummary: function() {
+                $('#modalReqQtyDisplay').text('0');
+                $('#totalReceivedSummary').text('0');
+                $('#totalAvailableSummary').text('0');
+                $('#totalConsumedSummary').text('0');
+                $('#remainingQuantitySummary').text('0');
+                $('#overallStockStatus').text('-').removeClass('text-danger text-warning text-success');
+            },
+
+            saveBatches: function() {
+                var hasErrors = false;
+
+                for (var i = 0; i < this.batchRows.length; i++) {
+                    var batch = this.batchRows[i];
+
+                    if (!batch.batchNo || !batch.expiryDate || !batch.receivedQuantity) {
+                        alert(`Please fill all required fields for batch ${i + 1}.`);
+                        return;
+                    }
+
+                    if (batch.receivedQuantity < 0) {
+                        alert(`Received quantity must be greater than 0 for batch ${i + 1}.`);
+                        return;
+                    }
+
+                    // NEW VALIDATION: Check if received quantity exceeds requested quantity
+                    if (batch.receivedQuantity > this.requestedQuantity) {
+                        alert(`Received quantity (${batch.receivedQuantity}) cannot exceed requested quantity (${this.requestedQuantity}) for batch ${i + 1}.`);
+                        return;
+                    }
+
+                    if (batch.availableStock < 0) {
+                        alert(`Available stock cannot be negative for batch ${i + 1}.`);
+                        return;
+                    }
+
+                    if (batch.availableStock > batch.receivedQuantity) {
+                        alert(`Available stock (${batch.availableStock}) cannot exceed received quantity (${batch.receivedQuantity}) for batch ${i + 1}.`);
+                        return;
+                    }
+
+                    var expiryDate = new Date(batch.expiryDate);
+                    var today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    expiryDate.setHours(0, 0, 0, 0);
+
+                    if (expiryDate < today) {
+                        alert(`Batch "${batch.batchNo}" has an expiry date in the past. Please select today's date or a future date.`);
+                        return;
+                    }
+                }
+
+                // Additional validation: Check if total received quantity exceeds requested quantity
+                var totalReceived = this.batchRows.reduce((sum, batch) => sum + (batch.receivedQuantity || 0), 0);
+                if (totalReceived > this.requestedQuantity) {
+                    alert(`Total received quantity (${totalReceived}) cannot exceed requested quantity (${this.requestedQuantity}).`);
+                    return;
+                }
+
+                var toSend = this.batchRows.map(b => ({
+                    batchId: b.batchId,
+                    indentItemId: b.indentItemId,
+                    batchNo: b.batchNo,
+                    expiryDate: b.expiryDate,
+                    receivedQuantity: b.receivedQuantity,
+                    availableStock: b.availableStock,
+                    vendorCode: b.vendorCode || ''
+                }));
+
+                var saveBtn = document.querySelector('#batchEditModal .btn-primary');
+                var originalText = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Saving...';
+
+                const itemId =
+                this.currentIndentItemId ||
+                $('#batchModal').data('indentItemId') ||
+                parseInt(document.querySelector('input[name="IndentItemId"]')?.value || '0', 10) ||
+                0;
+
+                $.ajax({
+                    url: '@Url.Action("SaveBatchesForMedicine", "StoreIndent")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(toSend),
+                    headers: { 'X-IndentItemId': itemId },
+                    success: (res) => {
+                        if (res.success) {
+                            var totalReceived = res.totalReceived || toSend.reduce((sum, batch) => sum + batch.receivedQuantity, 0);
+                            var totalAvailable = res.totalAvailable || toSend.reduce((sum, batch) => sum + batch.availableStock, 0);
+                            var totalBatches = res.totalBatches || toSend.length;
+
+                            if (window.updateMedicineTableRow) {
+                                window.updateMedicineTableRow(this.currentIndentItemId, totalReceived, toSend);
+                            }
+
+                            if (window.updateAllMedicinesArray) {
+                                window.updateAllMedicinesArray(this.currentIndentItemId, totalReceived, toSend);
+                            }
+
+                            alert(`Batches saved successfully!\nTotal received: ${totalReceived}\nTotal available: ${totalAvailable}\nFrom ${totalBatches} batch(es).`);
+                            this.closeBatchModal();
+                        } else {
+                            alert('Save failed: ' + (res.message || 'Unknown error'));
+                        }
+                    },
+                    error: (xhr, status, error) => {
+                        console.error('Batch save error:', error);
+                        alert('Save failed due to network error. Please try again.');
+                    },
+                    complete: () => {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                    }
+                });
+            }
+        };
+
+        // ENHANCED Global functions for row calculations with AUTO-POPULATION and validation
+        window.updateRowCalculations = function(rowIndex) {
+            var batch = window.StoreIndentBatch.batchRows[rowIndex];
+            if (!batch) return;
+
+            var receivedQty = batch.receivedQuantity || 0;
+            var availableStock = batch.availableStock || 0;
+            var requestedQty = window.StoreIndentBatch.requestedQuantity || 0;
+
+            // Get the input elements
+            var receivedInputElement = $(`tr[data-index="${rowIndex}"] .received-qty-input`);
+            var availableInputElement = $(`tr[data-index="${rowIndex}"] .available-stock-input`);
+
+            // Validate received quantity against requested quantity
+            if (receivedQty > requestedQty) {
+                receivedInputElement.addClass('is-invalid');
+                receivedInputElement.siblings('.invalid-feedback').text(`Received quantity cannot exceed requested quantity (${requestedQty}).`);
+                // Reset to maximum allowed value
+                batch.receivedQuantity = requestedQty;
+                receivedInputElement.val(requestedQty);
+                receivedQty = requestedQty;
+            } else {
+                receivedInputElement.removeClass('is-invalid');
+                receivedInputElement.siblings('.invalid-feedback').text('');
+            }
+
+            // AUTO-POPULATE AVAILABLE STOCK when received quantity changes
+            if (receivedQty > 0) {
+                batch.availableStock = receivedQty;
+                availableInputElement.val(receivedQty);
+                availableStock = receivedQty;
+
+                // Remove any previous validation errors since we're auto-setting a valid value
+                availableInputElement.removeClass('is-invalid');
+                availableInputElement.siblings('.invalid-feedback').text('');
+            } else if (receivedQty === 0) {
+                // If received quantity is 0, set available stock to 0 as well
+                batch.availableStock = 0;
+                availableInputElement.val(0);
+                availableStock = 0;
+
+                availableInputElement.removeClass('is-invalid');
+                availableInputElement.siblings('.invalid-feedback').text('');
+            }
+
+            // Validate available stock against received quantity (if user manually changes it)
+            if (availableStock > receivedQty) {
+                availableInputElement.addClass('is-invalid');
+                availableInputElement.siblings('.invalid-feedback').text('Available stock cannot exceed received quantity.');
+                batch.availableStock = receivedQty;
+                availableInputElement.val(receivedQty);
+                availableStock = receivedQty;
+            } else if (availableStock < 0) {
+                availableInputElement.addClass('is-invalid');
+                availableInputElement.siblings('.invalid-feedback').text('Available stock cannot be negative.');
+                batch.availableStock = 0;
+                availableInputElement.val(0);
+                availableStock = 0;
+            } else {
+                availableInputElement.removeClass('is-invalid');
+                availableInputElement.siblings('.invalid-feedback').text('');
+            }
+
+            // Update the summary totals
+            window.StoreIndentBatch.updateSummary();
+        };
+
+        // Additional function to handle manual changes to Available Stock
+        window.handleAvailableStockChange = function(rowIndex, value) {
+            var batch = window.StoreIndentBatch.batchRows[rowIndex];
+            if (!batch) return;
+
+            var availableStock = parseInt(value) || 0;
+            var receivedQty = batch.receivedQuantity || 0;
+            var availableInputElement = $(`tr[data-index="${rowIndex}"] .available-stock-input`);
+
+            // Validate available stock
+            if (availableStock > receivedQty) {
+                availableInputElement.addClass('is-invalid');
+                availableInputElement.siblings('.invalid-feedback').text('Available stock cannot exceed received quantity.');
+                return;
+            } else if (availableStock < 0) {
+                availableInputElement.addClass('is-invalid');
+                availableInputElement.siblings('.invalid-feedback').text('Available stock cannot be negative.');
+                return;
+            } else {
+                availableInputElement.removeClass('is-invalid');
+                availableInputElement.siblings('.invalid-feedback').text('');
+            }
+
+            // Update the batch data
+            batch.availableStock = availableStock;
+
+            // Recalculate everything
+            window.updateRowCalculations(rowIndex);
+        };
+
+        // Enhanced batch validation function for expiry date
+        window.validateBatchExpiryDate = function(inputElement) {
+            var expiryDate = new Date(inputElement.value);
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            expiryDate.setHours(0, 0, 0, 0);
+
+            var isValid = expiryDate >= today;
+            var errorMessage = isValid ? '' : 'Expiry date cannot be in the past.';
+
+            if (!isValid) {
+                $(inputElement).addClass('is-invalid');
+                $(inputElement).siblings('.invalid-feedback').text(errorMessage);
+            } else {
+                $(inputElement).removeClass('is-invalid');
+                $(inputElement).siblings('.invalid-feedback').text('');
+            }
+
+            return isValid;
+        };
+
+        // Make functions globally available
+        window.openBatchModal = window.StoreIndentBatch.openBatchModal.bind(window.StoreIndentBatch);
+        window.closeBatchModal = window.StoreIndentBatch.closeBatchModal.bind(window.StoreIndentBatch);
+        window.renderBatchRows = window.StoreIndentBatch.renderBatchRows.bind(window.StoreIndentBatch);
+        window.updateBatchField = window.StoreIndentBatch.updateBatchField.bind(window.StoreIndentBatch);
+        window.addBatchRow = window.StoreIndentBatch.addBatchRow.bind(window.StoreIndentBatch);
+        window.removeBatchRow = window.StoreIndentBatch.removeBatchRow.bind(window.StoreIndentBatch);
+        window.saveBatches = window.StoreIndentBatch.saveBatches.bind(window.StoreIndentBatch);
+    })(jQuery);
+</script>

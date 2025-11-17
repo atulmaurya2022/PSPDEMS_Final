@@ -1,0 +1,131 @@
+﻿@model IEnumerable<EMS.WebApp.Data.SysAuditLog>
+
+<div class="mb-3">
+    <h5>History for @ViewBag.TableName - Record ID: @ViewBag.RecordId</h5>
+</div>
+
+@if (Model.Any())
+{
+    <div class="timeline">
+        @foreach (var audit in Model)
+        {
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    @{
+                        var iconClass = "fas fa-circle";
+                        var colorClass = "text-secondary";
+                        switch (audit.ActionType)
+                        {
+                            case "CREATE":
+                                iconClass = "fas fa-plus-circle";
+                                colorClass = "text-success";
+                                break;
+                            case "UPDATE":
+                                iconClass = "fas fa-edit";
+                                colorClass = "text-warning";
+                                break;
+                            case "DELETE":
+                                iconClass = "fas fa-trash";
+                                colorClass = "text-danger";
+                                break;
+                            case "VIEW":
+                                iconClass = "fas fa-eye";
+                                colorClass = "text-info";
+                                break;
+                        }
+                    }
+                    <i class="@iconClass @colorClass"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between">
+                                <span class="badge @(audit.ActionType == "CREATE" ? "badge-success" : audit.ActionType == "UPDATE" ? "badge-warning" : audit.ActionType == "DELETE" ? "badge-danger" : "badge-info")">
+                                    @audit.ActionType
+                                </span>
+                                <small class="text-muted">@audit.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</small>
+                            </div>
+                            <div class="mt-1">
+                                <strong>@audit.UserName</strong> from @audit.IpAddress
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            @if (!string.IsNullOrEmpty(audit.AdditionalInfo))
+                            {
+                                <p class="mb-2">@audit.AdditionalInfo</p>
+                            }
+
+                            @if (!string.IsNullOrEmpty(audit.OldValues) || !string.IsNullOrEmpty(audit.NewValues))
+                            {
+                                <div class="row">
+                                    @if (!string.IsNullOrEmpty(audit.OldValues))
+                                    {
+                                        <div class="col-md-6">
+                                            <h6>Before:</h6>
+                                            <pre class="bg-light p-2 small"><code>@audit.OldValues</code></pre>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(audit.NewValues))
+                                    {
+                                        <div class="col-md-6">
+                                            <h6>After:</h6>
+                                            <pre class="bg-light p-2 small"><code>@audit.NewValues</code></pre>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No audit history found for this record.
+    </div>
+}
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: #dee2e6;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -22px;
+        top: 10px;
+        width: 14px;
+        height: 14px;
+        background-color: white;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 14px;
+    }
+
+    .timeline-marker i {
+        font-size: 12px;
+    }
+
+    .timeline-content {
+        margin-left: 15px;
+    }
+</style>

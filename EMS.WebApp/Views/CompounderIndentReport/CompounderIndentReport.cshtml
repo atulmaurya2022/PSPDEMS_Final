@@ -1,0 +1,466 @@
+﻿@{
+    ViewData["Title"] = "Compounder/Pharmacist Indent Report";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/css/report.css" rel="stylesheet" />
+<!-- Enhanced Dashboard Header -->
+<div class="dashboard-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item">Reports</li>
+            <li class="breadcrumb-item active" aria-current="page">Compounder/Pharmacist Indent Report</li>
+        </ol>
+    </nav>
+    <h1 class="dashboard-title">
+        <i class="bi bi-file-earmark-text"></i>
+        Compounder/Pharmacist Indent Report
+    </h1>
+    <p class="dashboard-subtitle">Comprehensive analysis of compounder indents with advanced filtering and export capabilities</p>
+</div>
+
+<div class="container-fluid">
+    <!-- Enhanced Filter Controls Section -->
+    <div class="report-controls-section">
+        <div class="controls-row">
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-calendar-range me-2"></i>
+                    Date Range
+                </label>
+                <div class="date-range-inputs">
+                    <input type="date" class="form-control form-control-enhanced" id="fromDate" />
+                    <span class="date-separator">to</span>
+                    <input type="date" class="form-control form-control-enhanced" id="toDate" />
+                </div>
+            </div>
+            <div class="control-actions">
+                <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
+                    <i class="bi bi-search"></i>
+                    Generate Report
+                </button>
+                <div class="action-buttons" id="actionButtons" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
+                        <i class="bi bi-download"></i>
+                        Export
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="printReport()">
+                        <i class="bi bi-printer"></i>
+                        Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Summary Cards -->
+    <div id="reportSummary" class="summary-grid" style="display: none;">
+        <div class="summary-card" data-category="total-records">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Records</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-list-ul"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalRecords">0</div>
+                <div class="summary-subtitle">Compounder/Pharmacist indents processed</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-quantity">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Quantity</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-box"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalQuantity">0</div>
+                <div class="summary-subtitle">Units requested</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="plant-info">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Plant</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-building"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="currentPlantCode">-</div>
+                <div class="summary-subtitle">Current facility</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="date-range">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Date Range</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-calendar-range"></i>
+                    </div>
+                </div>
+                <div class="summary-value summary-value-small" id="dateRange">-</div>
+                <div class="summary-subtitle">Reporting period</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Header -->
+    <div id="reportHeader" class="report-header-section" style="display: none;">
+        <div class="report-header-content">
+            <div class="company-info">
+                <h4 id="unitHeader">Unit: ITC LIMITED - PSPD-N/A</h4>
+                <div class="report-meta">
+                    <span class="meta-item">
+                        <i class="bi bi-clock me-1"></i>
+                        Generated: <span id="runDateTime"></span>
+                    </span>
+                    <span class="meta-item">
+                        <i class="bi bi-person me-1"></i>
+                        By: <span id="generatedBy"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="report-title">
+                <h3>COMPOUNDER/PHARMACIST INDENT</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Search Section -->
+    <div id="searchSection" class="search-controls-section" style="display: none;">
+        <div class="search-wrapper">
+            <div class="search-input-group">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control search-input-enhanced" id="searchInput"
+                       placeholder="Search by medicine name, manufacturer, raised by, indent ID...">
+                <button type="button" class="btn btn-clear" onclick="clearSearch()">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="search-results-info">
+                <small class="text-muted" id="searchResultCount">No search applied</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Table -->
+    <div id="reportTableSection" class="report-table-section" style="display: none;">
+        <div class="table-container">
+            <div class="table-responsive">
+                <table class="table table-striped table-glass glass-table" id="reportTable">
+                    <thead>
+                        <tr>
+                            <th class="col-indent-id">INDENT ID</th>
+                            <th class="col-indent-date">INDENT DATE</th>
+                            <th class="col-medicine-name">MEDICINE NAME</th>
+                            <th class="col-manufacturer">MANUFACTURER NAME</th>
+                            <th class="col-quantity">QUANTITY</th>
+                            <th class="col-raised-by">RAISED BY</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportData">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-footer">
+                            <th colspan="4" class="text-end">Total Quantity:</th>
+                            <th id="footerTotalQuantity" class="total-value">0</th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced No Data State -->
+    <div id="noDataMessage" class="empty-state-section" style="display: none;">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-inbox"></i>
+            </div>
+            <h6 class="empty-state-title">No Data Found</h6>
+            <p class="empty-state-description">
+                No compounder indent records found for the selected date range.<br>
+                Try adjusting your date filters or check if data exists for this period.
+            </p>
+            <button type="button" class="btn btn-outline-primary btn-enhanced" onclick="$('#fromDate, #toDate').focus()">
+                <i class="bi bi-funnel"></i>
+                Adjust Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Enhanced Loading State -->
+    <div id="loadingSpinner" class="loading-state-section" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner-large"></div>
+            <h6 class="loading-title">Generating Report</h6>
+            <p class="loading-description">Processing compounder indent data...</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var allReportData = []; // Store all data for filtering
+        var currentFilteredData = []; // Store currently filtered data
+
+        $(document).ready(function() {
+            // Set default dates (current month)
+            var now = new Date();
+            var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            var today = new Date();
+
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(today.toISOString().split('T')[0]);
+
+            // Search input event with debounce
+            $('#searchInput').on('input', debounce(function() {
+                applyFilters();
+            }, 300));
+
+            // Enhanced form validation
+            $('#fromDate, #toDate').on('change', function() {
+                validateDateRange();
+            });
+        });
+
+        // Enhanced date validation
+        function validateDateRange() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                showAlert('warning', 'From Date cannot be greater than To Date', 'Invalid Date Range');
+                return false;
+            }
+            return true;
+        }
+
+        // Debounce function for search input
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function loadReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select both From Date and To Date', 'Missing Required Fields');
+                return;
+            }
+
+            if (!validateDateRange()) {
+                return;
+            }
+
+            // Show loading state
+            $('#loadingSpinner').show();
+            $('#reportTableSection').hide();
+            $('#reportHeader').hide();
+            $('#reportSummary').hide();
+            $('#noDataMessage').hide();
+            $('#searchSection').hide();
+            $('#actionButtons').hide();
+
+            $.ajax({
+                url: '@Url.Action("CompounderIndentReport", "CompounderIndentReport")',
+                type: 'GET',
+                data: {
+                    fromDate: fromDate,
+                    toDate: toDate
+                },
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+
+                    if (response.success && response.data && response.data.length > 0) {
+                        allReportData = response.data;
+                        currentFilteredData = [...allReportData]; // Copy all data initially
+
+                        applyFilters();
+                        updateReportHeader(response.reportInfo);
+                        updateSummaryCards(response.reportInfo);
+
+                        // Show all sections with animation
+                        $('#reportSummary').fadeIn(300);
+                        setTimeout(() => $('#reportHeader').fadeIn(300), 100);
+                        setTimeout(() => $('#searchSection').fadeIn(300), 200);
+                        setTimeout(() => $('#reportTableSection').fadeIn(300), 300);
+                        setTimeout(() => $('#actionButtons').fadeIn(300), 400);
+
+                        showAlert('success', `Report generated successfully with ${response.data.length} records`, 'Report Ready');
+                    } else {
+                        $('#noDataMessage').fadeIn(300);
+                        showAlert('info', 'No data found for the selected criteria', 'No Results');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#loadingSpinner').hide();
+                    $('#noDataMessage').show();
+                    showAlert('danger', 'Error loading report: ' + error, 'Load Error');
+                }
+            });
+        }
+
+        function applyFilters() {
+            var searchText = $('#searchInput').val().toLowerCase().trim();
+            var filteredData = allReportData;
+
+            // Apply search filter
+            if (searchText) {
+                filteredData = filteredData.filter(function(item) {
+                    return item.medicineName.toLowerCase().includes(searchText) ||
+                           item.manufacturerName.toLowerCase().includes(searchText) ||
+                           item.raisedBy.toLowerCase().includes(searchText) ||
+                           item.indentId.toString().includes(searchText);
+                });
+            }
+
+            currentFilteredData = filteredData;
+            populateReportTable(filteredData);
+            updateSearchResultCount(filteredData.length);
+        }
+
+        function updateSearchResultCount(count) {
+            var searchText = $('#searchInput').val().trim();
+
+            if (searchText) {
+                var filterInfo = `${count} of ${allReportData.length} records found`;
+                $('#searchResultCount').text(filterInfo);
+
+                if (count === 0) {
+                    $('#searchResultCount').addClass('text-warning').removeClass('text-muted');
+                } else {
+                    $('#searchResultCount').addClass('text-success').removeClass('text-muted text-warning');
+                }
+            } else {
+                $('#searchResultCount').text('No search applied').removeClass('text-warning text-success').addClass('text-muted');
+            }
+        }
+
+        function clearSearch() {
+            $('#searchInput').val('');
+            applyFilters();
+            showAlert('info', 'Search filters cleared', 'Filters Reset');
+        }
+
+        function populateReportTable(data) {
+            var tbody = $('#reportData');
+            tbody.empty();
+            var totalQuantity = 0;
+
+            $.each(data, function(index, item) {
+                totalQuantity += item.quantity;
+
+                var row = `<tr class="table-row-enhanced">
+                    <td class="indent-id-cell">
+                        <span class="id-badge">${item.indentId}</span>
+                    </td>
+                    <td class="date-cell">${item.indentDate}</td>
+                    <td class="medicine-cell">
+                        <span class="medicine-name">${item.medicineName}</span>
+                    </td>
+                    <td class="manufacturer-cell">${item.manufacturerName}</td>
+                    <td class="quantity-cell">
+                        <span class="quantity-badge">${item.quantity}</span>
+                    </td>
+                    <td class="raised-by-cell">${item.raisedBy}</td>
+                </tr>`;
+                tbody.append(row);
+            });
+
+            // Update footer total with animation
+            $('#footerTotalQuantity').fadeOut(150, function() {
+                $(this).text(totalQuantity).fadeIn(150);
+            });
+        }
+
+        function updateReportHeader(reportInfo) {
+            $('#runDateTime').text(reportInfo.generatedOn);
+            $('#generatedBy').text(reportInfo.generatedBy);
+
+            // Dynamic unit header with plant code
+            var unitText = 'Unit: ITC LIMITED - PSPD-' + (reportInfo.plantCode || 'N/A');
+            if (reportInfo.plantName && reportInfo.plantName !== 'Unknown Plant') {
+                unitText += ' (' + reportInfo.plantName + ')';
+            }
+            $('#unitHeader').text(unitText);
+        }
+
+        function updateSummaryCards(reportInfo) {
+            // Animate card values
+            animateValue('totalRecords', 0, reportInfo.totalRecords, 1000);
+            animateValue('totalQuantity', 0, reportInfo.totalQuantity, 1200);
+
+            $('#currentPlantCode').text(reportInfo.plantCode || 'N/A');
+            $('#dateRange').text(reportInfo.fromDate + ' to ' + reportInfo.toDate);
+        }
+
+        function animateValue(elementId, start, end, duration) {
+            const element = document.getElementById(elementId);
+            const startTime = performance.now();
+
+            function updateValue(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (end - start) * progress);
+
+                element.textContent = current.toLocaleString();
+
+                if (progress < 1) {
+                    requestAnimationFrame(updateValue);
+                }
+            }
+
+            requestAnimationFrame(updateValue);
+        }
+
+        function exportReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select date range first', 'Export Failed');
+                return;
+            }
+
+            showAlert('info', 'Preparing export file...', 'Export Started');
+
+            window.location.href = '@Url.Action("ExportCompounderIndentReport", "CompounderIndentReport")' +
+                '?fromDate=' + fromDate + '&toDate=' + toDate;
+        }
+
+        function printReport() {
+            if ($('#reportTableSection').is(':visible')) {
+                showAlert('info', 'Preparing print view...', 'Print Started');
+                setTimeout(() => window.print(), 500);
+            } else {
+                showAlert('warning', 'Please generate the report first', 'Print Failed');
+            }
+        }
+
+        // Enhanced alert system integration
+        function showAlert(type, message, title = null) {
+            // This function should integrate with your existing alert system
+            // For now, using console.log as placeholder
+            console.log(`${title || type.toUpperCase()}: ${message}`);
+
+            // If you have the showAlert function from your site.js, uncomment this:
+            // window.showAlert(type, message);
+        }
+    </script>
+}

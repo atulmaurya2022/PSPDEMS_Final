@@ -1,0 +1,702 @@
+﻿@model EMS.WebApp.Data.ImmunizationViewModel
+
+@{
+    ViewData["Title"] = "Employee Immunization";
+}
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+<div id="alertContainer"></div>
+<style>
+    .bg-header {
+        background: linear-gradient(150deg, #112f60 0%, #3a4994 100%);
+    }
+
+    #allRecordsTable_wrapper {
+        margin-top: 20px;
+    }
+</style>
+
+<!-- Header Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-header text-white text-center">
+                <h5 class="mb-1">ITC LIMITED</h5>
+                <p class="mb-1">UNIT : <span id="dynamicUnitName">Loading...</span></p>
+                <p class="mb-1">MEDICAL DEPARTMENT</p>
+                <h6 class="mb-0" id="immunizationRecordTitle">EMPLOYEE IMMUNIZATION RECORD</h6>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Immunization Type and Employee Search Section -->
+<div class="row align-items-end mb-3" id="searchSection">
+    <div class="col-md-4">
+        <label for="immunizationTypeFilter" class="form-label">Immunization Type</label>
+        <select class="form-select" id="immunizationTypeFilter">
+            <option value="">--Select--</option>
+        </select>
+    </div>
+
+    <div class="col-md-4">
+        <label for="empIdInput" class="form-label">Employee ID</label>
+        <input type="text" class="form-control" id="empIdInput" autocomplete="off" placeholder="Enter Employee ID" />
+    </div>
+
+    <div class="col-auto">
+        <button class="btn btn-primary" id="loadBtn" style="margin-top: 32px;">Get Details</button>
+    </div>
+
+    <div class="col-auto">
+        <button class="btn btn-secondary" id="backToAllRecordsBtn" style="margin-top: 32px; display: none;">
+            <i class="bi bi-arrow-left"></i> Back to All Records
+        </button>
+    </div>
+</div>
+
+<!-- All Immunization Records Table -->
+<div id="allRecordsTableContainer" class="card mb-4">
+    <div class="card-header bg-light">
+        <h6 class="mb-0">All Immunization Records</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="allRecordsTable" class="table table-striped table-hover" style="width:100%">
+                <thead class="table-light">
+                    <tr>
+                        <th>Emp ID</th>
+                        <th>Employee Name</th>
+                        <th>Immunization Type</th>
+                        <th>Patient Name</th>
+                        <th>Relationship</th>
+                        <th>Created By</th>
+                        <th>Created Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be populated via AJAX -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="immunizationFormContainer">
+    <!-- Partial view will be injected here -->
+</div>
+
+@section Scripts {
+    <link href="~/lib/datatables/css/datatables.min.css" rel="stylesheet" />
+    <script src="~/lib/datatables/js/datatables.min.js"></script>
+    <script src="~/js/jquery-ui.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            let allRecordsDataTable;
+
+            // Load current plant information and immunization types
+            loadCurrentPlantInfo();
+            loadImmunizationTypes();
+            loadAllRecordsTable();
+
+            $('#loadBtn').on('click', function () {
+                var empId = $('#empIdInput').val();
+                var immunizationType = $('#immunizationTypeFilter').val();
+
+                if (!immunizationType || immunizationType === '') {
+                    showAlert('error', 'Please select an Immunization Type.');
+                    return;
+                }
+
+                if (!empId || empId.trim() === '') {
+                    showAlert('error', 'Please enter a valid Employee ID.');
+                    return;
+                }
+
+                loadEmployeeDataByEmpId(empId, immunizationType);
+
+                // Hide all records table and show back button
+                $('#allRecordsTableContainer').hide();
+                $('#backToAllRecordsBtn').show();
+            });
+
+            // Back to all records button
+            $('#backToAllRecordsBtn').on('click', function() {
+                // Clear form container
+                $('#immunizationFormContainer').html('');
+
+                // Clear search inputs
+                $('#empIdInput').val('');
+                $('#immunizationTypeFilter').val('');
+                $('#immunizationRecordTitle').text('EMPLOYEE IMMUNIZATION RECORD');
+
+                // Show all records table and hide back button
+                $('#allRecordsTableContainer').show();
+                $(this).hide();
+
+                // Reload the table
+                if (allRecordsDataTable) {
+                    allRecordsDataTable.ajax.reload();
+                }
+            });
+
+            // Immunization type filter change event
+            $('#immunizationTypeFilter').on('change', function () {
+                var selectedType = $(this).find('option:selected').text();
+                if (selectedType && selectedType !== '--Select--') {
+                    $('#immunizationRecordTitle').text(selectedType + ' RECORD');
+                } else {
+                    $('#immunizationRecordTitle').text('EMPLOYEE IMMUNIZATION RECORD');
+                }
+            });
+
+            // Function to load all records table
+            function loadAllRecordsTable() {
+                allRecordsDataTable = $('#allRecordsTable').DataTable({
+                    ajax: {
+                        url: '@Url.Action("GetAllImmunizationRecords", "EmployeeImmunization")',
+                        type: 'GET',
+                        dataSrc: function(json) {
+                            if (json.success) {
+                                return json.data;
+                            }
+                            return [];
+                        },
+                        error: function(xhr, error, thrown) {
+                            showAlert('error', 'Error loading immunization records.');
+                        }
+                    },
+                    columns: [
+                        { data: 'empId' },
+                        { data: 'empName' },
+                        { data: 'immunizationType' },
+                        { data: 'patientName' },
+                        { data: 'relationship' },
+                        { data: 'createdBy' },
+                        { data: 'createdDate' },
+                        {
+                            data: null,
+                            orderable: false,
+                            render: function(data, type, row) {
+                                let buttons = `
+                                    <button type="button" class="btn btn-action-view view me-1 view-all-record"
+                                            data-record-id="${row.recordId}"
+                                            data-emp-id="${row.empId}"
+                                            title="View">
+                                        <i class="bi bi-eye fs-6"></i>
+                                    </button>
+                                `;
+
+                                if (row.isCreator) {
+                                    buttons += `
+                                        <button type="button" class="btn btn-action-edit edit me-1 edit-all-record"
+                                                data-record-id="${row.recordId}"
+                                                data-emp-id="${row.empId}"
+                                                title="Edit">
+                                            <i class="bi bi-pencil fs-6"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-action-delete delete delete-all-record"
+                                                data-record-id="${row.recordId}"
+                                                title="Delete">
+                                            <i class="bi bi-trash fs-6"></i>
+                                        </button>
+                                    `;
+                                }
+
+                                return buttons;
+                            }
+                        }
+                    ],
+                    pageLength: 25,
+                    responsive: true,
+                    language: {
+                        search: "Search Records:",
+                        lengthMenu: "Show _MENU_ records per page",
+                        info: "Showing _START_ to _END_ of _TOTAL_ records",
+                        infoEmpty: "No records available",
+                        emptyTable: "No immunization records found"
+                    }
+                });
+
+                // Handle VIEW from all records table (READ-ONLY)
+                $('#allRecordsTable').on('click', '.view-all-record', function() {
+                    var recordId = $(this).data('record-id');
+                    var empId = $(this).data('emp-id');
+
+                    // Get immunization type from the row
+                    var rowData = allRecordsDataTable.row($(this).closest('tr')).data();
+
+                    // Find immunization type ID
+                    var immunizationTypeSelect = $('#immunizationTypeFilter');
+                    var immunizationTypeId = immunizationTypeSelect.find('option:contains("' + rowData.immunizationType + '")').val();
+
+                    if (immunizationTypeId) {
+                        immunizationTypeSelect.val(immunizationTypeId);
+                        $('#immunizationRecordTitle').text(rowData.immunizationType + ' RECORD - VIEW MODE');
+                    }
+
+                    $('#empIdInput').val(empId);
+
+                    // Hide table and show form
+                    $('#allRecordsTableContainer').hide();
+                    $('#backToAllRecordsBtn').show();
+
+                    // Load the VIEW (read-only)
+                    loadEmployeeDataForView(empId, immunizationTypeId);
+                });
+
+                // Handle EDIT from all records table (EDITABLE)
+                $('#allRecordsTable').on('click', '.edit-all-record', function() {
+                    var recordId = $(this).data('record-id');
+                    var empId = $(this).data('emp-id');
+
+                    // Get immunization type from the row
+                    var rowData = allRecordsDataTable.row($(this).closest('tr')).data();
+
+                    // Find immunization type ID
+                    var immunizationTypeSelect = $('#immunizationTypeFilter');
+                    var immunizationTypeId = immunizationTypeSelect.find('option:contains("' + rowData.immunizationType + '")').val();
+
+                    if (immunizationTypeId) {
+                        immunizationTypeSelect.val(immunizationTypeId);
+                        $('#immunizationRecordTitle').text(rowData.immunizationType + ' RECORD - EDIT MODE');
+                    }
+
+                    $('#empIdInput').val(empId);
+
+                    // Hide table and show form
+                    $('#allRecordsTableContainer').hide();
+                    $('#backToAllRecordsBtn').show();
+
+                    // Load the EDIT partial (editable with record selection)
+                    loadEmployeeDataForEdit(empId, immunizationTypeId);
+                });
+
+                // Handle delete from all records table
+                $('#allRecordsTable').on('click', '.delete-all-record', function() {
+                    var recordId = $(this).data('record-id');
+                    if (confirm('Are you sure you want to delete this immunization record?')) {
+                        deleteRecordFromTable(recordId);
+                    }
+                });
+            }
+
+            function deleteRecordFromTable(recordId) {
+                $.ajax({
+                    url: '@Url.Action("DeleteImmunizationRecord", "EmployeeImmunization")',
+                    type: 'POST',
+                    data: { recordId: recordId },
+                    success: function (response) {
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            allRecordsDataTable.ajax.reload();
+                        } else {
+                            showAlert('error', response.message);
+                        }
+                    },
+                    error: function () {
+                        showAlert('error', 'Error deleting record.');
+                    }
+                });
+            }
+
+            // Function to load immunization types
+            function loadImmunizationTypes() {
+                $.ajax({
+                    url: '@Url.Action("GetImmunizationTypes", "EmployeeImmunization")',
+                    type: 'GET',
+                    success: function (types) {
+                        var dropdown = $('#immunizationTypeFilter');
+                        dropdown.empty();
+                        dropdown.append('<option value="">--Select--</option>');
+
+                        if (types && types.length > 0) {
+                            types.forEach(function (type) {
+                                dropdown.append('<option value="' + type.immun_type_uid + '">' + type.immun_type_name + '</option>');
+                            });
+                        }
+                    },
+                    error: function () {
+                        console.log('Could not load immunization types');
+                    }
+                });
+            }
+
+            // Function to load employee data for VIEW mode (read-only)
+            function loadEmployeeDataForView(empId, immunizationTypeId) {
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeUidFromEmpId", "EmployeeImmunization")',
+                    type: 'GET',
+                    data: { empId: empId },
+                    success: function (result) {
+                        if (result.success && result.empUid) {
+                            loadEmployeeViewData(result.empUid, immunizationTypeId);
+                        } else {
+                            showAlert('error', result.message || 'Employee not found.');
+                        }
+                    },
+                    error: function (xhr) {
+                        showAlert('error', 'Error finding employee. Please try again.');
+                    }
+                });
+            }
+
+            // Function to load the read-only view
+            function loadEmployeeViewData(empNo, immunizationTypeId) {
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeImmunizationView", "EmployeeImmunization")',
+                    type: 'GET',
+                    data: { empNo: empNo, immunizationTypeId: immunizationTypeId },
+                    success: function (result) {
+                        $('#immunizationFormContainer').html(result);
+                        // No need to initialize form for view mode - it's read-only
+                    },
+                    error: function (xhr) {
+                        if (xhr.status === 404) {
+                            showAlert('error', xhr.responseText);
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied. You do not have permission to view this employee\'s immunization records.');
+                        } else {
+                            $('#immunizationFormContainer').html('<div class="alert alert-danger">Error loading view. Please try again.</div>');
+                            showAlert('error', 'Error loading view. Please try again.');
+                        }
+                    }
+                });
+            }
+
+            // Function to load employee data for EDIT mode
+            function loadEmployeeDataForEdit(empId, immunizationTypeId) {
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeUidFromEmpId", "EmployeeImmunization")',
+                    type: 'GET',
+                    data: { empId: empId },
+                    success: function (result) {
+                        if (result.success && result.empUid) {
+                            loadEmployeeEditData(result.empUid, immunizationTypeId);
+                        } else {
+                            showAlert('error', result.message || 'Employee not found.');
+                        }
+                    },
+                    error: function (xhr) {
+                        showAlert('error', 'Error finding employee. Please try again.');
+                    }
+                });
+            }
+
+            // Function to load the edit view
+            function loadEmployeeEditData(empNo, immunizationTypeId) {
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeImmunizationEdit", "EmployeeImmunization")',
+                    type: 'GET',
+                    data: { empNo: empNo, immunizationTypeId: immunizationTypeId },
+                    success: function (result) {
+                        $('#immunizationFormContainer').html(result);
+                        // Edit view manages its own form logic
+                    },
+                    error: function (xhr) {
+                        if (xhr.status === 404) {
+                            showAlert('error', xhr.responseText);
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied. You do not have permission to edit this employee\'s immunization records.');
+                        } else {
+                            $('#immunizationFormContainer').html('<div class="alert alert-danger">Error loading edit view. Please try again.</div>');
+                            showAlert('error', 'Error loading edit view. Please try again.');
+                        }
+                    }
+                });
+            }
+
+            // Function to load employee data by Employee ID for ADD mode
+            function loadEmployeeDataByEmpId(empId, immunizationTypeId) {
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeUidFromEmpId", "EmployeeImmunization")',
+                    type: 'GET',
+                    data: { empId: empId },
+                    success: function (result) {
+                        if (result.success && result.empUid) {
+                            loadEmployeeData(result.empUid, immunizationTypeId);
+                        } else {
+                            showAlert('error', result.message || 'Employee not found.');
+                        }
+                    },
+                    error: function (xhr) {
+                        showAlert('error', 'Error finding employee. Please try again.');
+                    }
+                });
+            }
+
+            function loadEmployeeData(empNo, immunizationTypeId) {
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeImmunizationForm", "EmployeeImmunization")',
+                    type: 'GET',
+                    data: { empNo: empNo, immunizationTypeId: immunizationTypeId },
+                    success: function (result) {
+                        $('#immunizationFormContainer').html(result);
+                        initializeWorkflow();
+                    },
+                    error: function (xhr) {
+                        if (xhr.status === 404) {
+                            showAlert('error', xhr.responseText);
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied. You do not have permission to view this employee\'s immunization records.');
+                        } else {
+                            $('#immunizationFormContainer').html('<div class="alert alert-danger">Error loading form. Please try again.</div>');
+                            showAlert('error', 'Error loading form. Please try again.');
+                        }
+                    }
+                });
+            }
+
+            // Function to load current plant information
+            function loadCurrentPlantInfo() {
+                $.ajax({
+                    url: '@Url.Action("GetCurrentUserPlant", "EmployeeImmunization")',
+                    type: 'GET',
+                    success: function (result) {
+                        if (result.success) {
+                            $('#dynamicUnitName').text(result.plantName);
+                        }
+                    },
+                    error: function () {
+                        $('#dynamicUnitName').text('UNKNOWN UNIT');
+                    }
+                });
+            }
+
+            // Initialize workflow - show only employee details and buttons initially
+            function initializeWorkflow() {
+                $('#immunizationRecordSection').hide();
+                $('#doseProgressSection').hide();
+                $('#employeeDetailsSection').show();
+                $('#actionButtonsSection').show();
+                $('#existingRecordsSection').show();
+                bindWorkflowEvents();
+            }
+
+            function bindWorkflowEvents() {
+                $(document).off('click', '#addRecordBtn').on('click', '#addRecordBtn', function () {
+                    var selectedImmunizationType = $('#immunizationTypeFilter').val();
+                    $('#ImmunizationTypeId').val(selectedImmunizationType);
+                    $('#immunizationRecordSection').show();
+                    $(this).hide();
+                    if (typeof window.initializeForm === 'function') {
+                        window.initializeForm();
+                    }
+                });
+
+                $(document).off('click', '#cancelRecordBtn').on('click', '#cancelRecordBtn', function () {
+                    $('#immunizationRecordSection').hide();
+                    $('#doseProgressSection').hide();
+                    $('#addRecordBtn').show();
+                    clearImmunizationForm();
+                });
+
+                $(document).off('click', '#saveBtn').on('click', '#saveBtn', function (e) {
+                    e.preventDefault();
+                    saveImmunizationRecord();
+                });
+
+                $(document).off('click', '.edit-record').on('click', '.edit-record', function () {
+                    var recordId = $(this).data('record-id');
+                    editRecord(recordId);
+                });
+
+                $(document).off('click', '.delete-record').on('click', '.delete-record', function () {
+                    var recordId = $(this).data('record-id');
+                    if (confirm('Are you sure you want to delete this immunization record?')) {
+                        deleteRecord(recordId);
+                    }
+                });
+            }
+
+            function saveImmunizationRecord() {
+                var form = $('#immunizationForm');
+                if (form.length === 0) {
+                    showAlert('error', 'Form not found.');
+                    return;
+                }
+
+                var patientName = $('#PatientNameSelect').val();
+                var immunizationTypeId = $('#ImmunizationTypeId').val();
+
+                if (!patientName || !immunizationTypeId) {
+                    showAlert('error', 'Please select both Patient Name and ensure Immunization Type is selected.');
+                    return;
+                }
+
+                var hasAnyDose = $('#Dose1Date').val() || $('#Dose2Date').val() || $('#Dose3Date').val() ||
+                               $('#Dose4Date').val() || $('#Dose5Date').val() || $('#BoosterDoseDate').val();
+
+                if (!hasAnyDose) {
+                    showAlert('error', 'Please enter at least one dose date.');
+                    return;
+                }
+
+                var formData = form.serialize();
+                $('#saveBtn').prop('disabled', true).text('Saving...');
+
+                $.ajax({
+                    url: '@Url.Action("SaveImmunizationRecord", "EmployeeImmunization")',
+                    type: 'POST',
+                    data: formData,
+                    success: function (response) {
+                        $('#saveBtn').prop('disabled', false).text('Save');
+
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            $('#immunizationRecordSection').hide();
+                            $('#doseProgressSection').hide();
+                            $('#addRecordBtn').show();
+
+                            var empId = $('#empIdInput').val();
+                            var immunizationType = $('#immunizationTypeFilter').val();
+                            if (empId && immunizationType) {
+                                loadEmployeeDataByEmpId(empId, immunizationType);
+                            }
+
+                            // Reload all records table if it exists
+                            if (allRecordsDataTable) {
+                                allRecordsDataTable.ajax.reload();
+                            }
+                        } else {
+                            showAlert('error', response.message || 'Save failed. Please check the form data.');
+                        }
+                    },
+                    error: function (xhr) {
+                        $('#saveBtn').prop('disabled', false).text('Save');
+                        if (xhr.status === 400) {
+                            showAlert('error', 'Please correct the validation errors and try again.');
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied.');
+                        } else {
+                            showAlert('error', 'An error occurred while saving. Please try again.');
+                        }
+                    }
+                });
+            }
+
+            function clearImmunizationForm() {
+                $('#RecordId').val('');
+                $('#PatientNameSelect').val('');
+                $('#Relationship').val('');
+                $('#Dose1Date').val('');
+                $('#Dose2Date').val('');
+                $('#Dose3Date').val('');
+                $('#Dose4Date').val('');
+                $('#Dose5Date').val('');
+                $('#BoosterDoseDate').val('');
+                $('#Remarks').val('');
+                $('#IsNewEntry').val('true');
+                $('#CurrentNextDose').val('');
+                $('.dose-field').removeClass('next-dose-highlight').prop('disabled', false);
+                $('.badge').hide();
+            }
+
+            function editRecord(recordId) {
+                $.ajax({
+                    url: '@Url.Action("GetImmunizationRecord", "EmployeeImmunization")',
+                    type: 'GET',
+                    data: { recordId: recordId },
+                    success: function (record) {
+                        $('#immunizationRecordSection').show();
+                        $('#addRecordBtn').hide();
+                        $('#RecordId').val(record.recordId);
+                        $('#PatientNameSelect').val(record.patientName);
+                        $('#Relationship').val(record.relationship);
+                        $('#Dose1Date').val(record.dose1Date ? record.dose1Date.split('T')[0] : '');
+                        $('#Dose2Date').val(record.dose2Date ? record.dose2Date.split('T')[0] : '');
+                        $('#Dose3Date').val(record.dose3Date ? record.dose3Date.split('T')[0] : '');
+                        $('#Dose4Date').val(record.dose4Date ? record.dose4Date.split('T')[0] : '');
+                        $('#Dose5Date').val(record.dose5Date ? record.dose5Date.split('T')[0] : '');
+                        $('#BoosterDoseDate').val(record.boosterDoseDate ? record.boosterDoseDate.split('T')[0] : '');
+                        $('#Remarks').val(record.remarks);
+                        $('#IsNewEntry').val('false');
+
+                        if (record.nextDoseInfo) {
+                            if (record.nextDoseInfo.isComplete) {
+                                showAlert('info', 'All doses for this record are complete. You can still edit if needed.');
+                                $('#saveBtn').prop('disabled', false).text('Update Record');
+                            } else {
+                                $('#saveBtn').prop('disabled', false).text('Save Next Dose');
+                            }
+                        }
+
+                        if (typeof window.initializeForm === 'function') {
+                            window.initializeForm();
+                        }
+                    },
+                    error: function () {
+                        showAlert('error', 'Error loading record for editing.');
+                    }
+                });
+            }
+
+            function deleteRecord(recordId) {
+                $.ajax({
+                    url: '@Url.Action("DeleteImmunizationRecord", "EmployeeImmunization")',
+                    type: 'POST',
+                    data: { recordId: recordId },
+                    success: function (response) {
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            var empId = $('#empIdInput').val();
+                            var immunizationType = $('#immunizationTypeFilter').val();
+                            if (empId && immunizationType) {
+                                loadEmployeeDataByEmpId(empId, immunizationType);
+                            }
+
+                            // Reload all records table
+                            if (allRecordsDataTable) {
+                                allRecordsDataTable.ajax.reload();
+                            }
+                        } else {
+                            showAlert('error', response.message);
+                        }
+                    },
+                    error: function () {
+                        showAlert('error', 'Error deleting record.');
+                    }
+                });
+            }
+
+            $("#empIdInput").autocomplete({
+                source: function (request, response) {
+                    $.ajax({
+                        url: '@Url.Action("SearchEmployeeNos", "EmployeeImmunization")',
+                        data: { term: request.term },
+                        success: function (data) {
+                            response(data);
+                        },
+                        error: function () {
+                            response([]);
+                        }
+                    });
+                },
+                minLength: 1
+            });
+
+            window.checkForExistingRecord = checkForExistingRecord;
+            window.loadExistingRecordData = loadExistingRecordData;
+
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' : type === 'info' ? 'alert-info' : 'alert-danger';
+                const alertId = 'alert-' + Date.now();
+                const alertHtml = `
+                    <div id="${alertId}" class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+
+                $('#alertContainer').html(alertHtml);
+
+                setTimeout(() => {
+                    const alertEl = document.getElementById(alertId);
+                    if (alertEl) {
+                        bootstrap.Alert.getOrCreateInstance(alertEl).close();
+                    }
+                }, 5000);
+            }
+        });
+    </script>
+}

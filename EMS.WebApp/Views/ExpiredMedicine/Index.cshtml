@@ -1,0 +1,1231 @@
+﻿@{
+    ViewData["Title"] = "Expired Medicines Management";
+    var userRole = ViewBag.UserRole as string ?? "Unknown";
+    var accessibleSourceTypes = ViewBag.AccessibleSourceTypes as List<string> ?? new List<string>();
+}
+
+<!-- Role-Based Header -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <i class="fas fa-user-shield"></i>
+            <strong>Access Level:</strong>
+            @switch (userRole.ToLower())
+            {
+                case "store":
+                    <span class="badge bg-primary">🏪 Store Manager</span>
+                    <span class="text-muted">- You can manage Store Indent expired medicines</span>
+                    break;
+                case "compounder":
+                    <span class="badge bg-info">🧪 Compounder</span>
+                    <span class="text-muted">- You can manage Compounder Indent expired medicines</span>
+                    break;
+                case "doctor":
+                    <span class="badge bg-success">👨‍⚕️ Doctor</span>
+                    <span class="text-muted">- You can manage both Store and Compounder expired medicines</span>
+                    break;
+                default:
+                    <span class="badge bg-secondary">@userRole</span>
+                    break;
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards with Source Type Breakdown -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-exclamation-triangle"></i> Pending Disposal
+                </h5>
+                <h3 class="card-text" id="pendingCount">Loading...</h3>
+                <div class="small" id="pendingBreakdown"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-check-circle"></i> Disposed
+                </h5>
+                <h3 class="card-text" id="disposedCount">Loading...</h3>
+                <div class="small" id="disposedBreakdown"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <!-- Action Buttons -->
+        <div class="d-flex justify-content-between mb-3">
+            <div id="pendingActions">
+                <!-- Role-Based Sync Buttons -->
+                @if (accessibleSourceTypes.Count > 1)
+                {
+                    <div class="btn-group me-2">
+                        <button id="btnSyncExpired" class="btn btn-primary">
+                            <i class="fas fa-sync"></i> Sync All Expired
+                        </button>
+                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+                            <span class="visually-hidden">Toggle Dropdown</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            @foreach (var sourceType in accessibleSourceTypes)
+                            {
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="syncSpecificSource('@sourceType')">
+                                        @if (sourceType == "Store")
+                                        {
+                                            <i class="fas fa-store"></i>
+                                        }
+                                        else
+                                        {
+
+                                            <i class="fas fa-flask"></i>
+                                        }
+                                        Sync @sourceType Only
+                                    </a>
+                                </li>
+                            }
+
+                        </ul>
+                    </div>
+                }
+                else
+                {
+                    <button id="btnSyncExpired" class="btn btn-primary me-2">
+                        <i class="fas fa-sync"></i> Sync Expired Medicines
+                    </button>
+                }
+
+                <button id="btnBulkIssue" class="btn btn-danger me-2" disabled>
+                    <i class="fas fa-biohazard"></i> Bulk Issue to Biomedical Waste
+                </button>
+            </div>
+            <div id="disposedActions" style="display: none;">
+                <button id="btnPrintSelected" class="btn btn-success" disabled>
+                    <i class="fas fa-print"></i> Print Selected
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Tabs -->
+<ul class="nav nav-tabs mb-3" id="statusTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="pending-tab" data-status="pending" type="button" role="tab">
+            <i class="fas fa-clock"></i> Pending Disposal
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="disposed-tab" data-status="disposed" type="button" role="tab">
+            <i class="fas fa-check"></i> Disposed Items
+        </button>
+    </li>
+</ul>
+
+<!-- Source Type Filter (only show if user has access to multiple source types) -->
+@if (accessibleSourceTypes.Count > 1)
+{
+    <div class="row mb-3" id="sourceTypeFilter">
+        <div class="col-md-3">
+            <label for="sourceTypeSelect" class="form-label">Source Type:</label>
+            <select id="sourceTypeSelect" class="form-select">
+                <option value="">All Sources</option>
+                @foreach (var sourceType in accessibleSourceTypes)
+                {
+                    <option value="@sourceType">
+                        @if (sourceType == "Store")
+                        {
+                            <span>🏪</span>
+                        }
+                        else
+                        {
+
+                            <span>🧪</span>
+                        }
+                        @sourceType
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">&nbsp;</label>
+            <div>
+                <button id="btnApplySourceFilter" class="btn btn-primary">
+                    <i class="fas fa-filter"></i> Apply Filter
+                </button>
+                <button id="btnClearSourceFilter" class="btn btn-secondary ms-2">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Date Range Filter for Disposed Items -->
+<div id="dateRangeFilter" class="row mb-3" style="display: none;">
+    <div class="col-md-3">
+        <label for="fromDate" class="form-label">From Date:</label>
+        <input type="date" id="fromDate" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label for="toDate" class="form-label">To Date:</label>
+        <input type="date" id="toDate" class="form-control" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">&nbsp;</label>
+        <div>
+            <button id="btnApplyDateFilter" class="btn btn-primary">
+                <i class="fas fa-filter"></i> Apply Filter
+            </button>
+            <button id="btnClearDateFilter" class="btn btn-secondary ms-2">
+                <i class="fas fa-times"></i> Clear
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Alert for warnings -->
+<div class="alert alert-warning" role="alert" id="pendingAlert">
+    <i class="fas fa-exclamation-triangle"></i>
+    <strong>Warning:</strong> The medicines listed below have expired and need to be issued to biomedical waste for proper disposal.
+    <br><small><strong>Note:</strong> Medicine type must be selected (Solid, Liquid, or Gel) before disposal.</small>
+</div>
+
+<div class="alert alert-success" role="alert" id="disposedAlert" style="display: none;">
+    <i class="fas fa-check-circle"></i>
+    <strong>Information:</strong> The medicines listed below have been properly disposed of to biomedical waste.
+    <br><small><strong>Note:</strong> Use the date range filter to view disposed items for specific periods.</small>
+</div>
+
+<!-- Validation Alert -->
+<div class="alert alert-info alert-dismissible fade" role="alert" id="validationAlert" style="display: none;">
+    <i class="fas fa-info-circle"></i>
+    <strong>Action Required:</strong> <span id="validationMessage"></span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+
+<!-- Main Table with Updated Columns -->
+<table id="tblExpiredMedicines" class="table table-striped table-bordered">
+    <thead>
+        <tr>
+            <th><input type="checkbox" id="selectAll" title="Select All"></th>
+            <th>SI.No</th>
+            <th>Medicine Name</th>
+            <th>Company</th>
+            <th>Source</th> <!-- NEW: Source column -->
+            <th>Type</th>
+            <th>Batch Number</th>
+            <th>Vendor Code</th>
+            <th>Expired On</th>
+            <th>Qty Expired</th>
+            <th id="dynamicColumn">Actions</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<!-- Details Modal -->
+<div class="modal fade" id="modalDetails" tabindex="-1" aria-labelledby="modalDetailsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetailsLabel">
+                    <i class="fas fa-info-circle"></i> Expired Medicine Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalDetailsContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            console.log('Initializing Expired Medicine Management...');
+
+            let currentStatus = 'pending';
+            let currentSourceType = '';
+            let tbl;
+            let medicineTypes = [];
+            let accessibleSourceTypes = @Html.Raw(Json.Serialize(accessibleSourceTypes));
+            let userRole = '@userRole';
+            let isUpdatingMedicineType = false;
+
+            console.log('User Role:', userRole);
+            console.log('Accessible Source Types:', accessibleSourceTypes);
+
+            // Load medicine types
+            $.get('@Url.Action("GetMedicineTypes", "ExpiredMedicine")')
+                .done(function(response) {
+                    if (response.success) {
+                        medicineTypes = response.data;
+                        console.log('Medicine types loaded successfully:', medicineTypes);
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.error('Medicine types request failed:', error);
+                });
+
+            // Test database connectivity first
+            $.get('@Url.Action("TestDatabase", "ExpiredMedicine")')
+                .done(function(response) {
+                    if (response.success) {
+                        console.log('Database connection successful');
+                        initializeDataTable();
+                        loadStatistics();
+                    } else {
+                        console.error('Database test failed:', response.message);
+                        alert('Database connection failed: ' + response.message);
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.error('Database test request failed:', error);
+                    initializeDataTable();
+                    loadStatistics();
+                });
+
+            function initializeDataTable() {
+                console.log('Initializing DataTable...');
+
+                tbl = $('#tblExpiredMedicines').DataTable({
+                    processing: true,
+                    serverSide: false,
+                    ajax: {
+                        url: '@Url.Action("LoadData", "ExpiredMedicine")',
+                        type: 'GET',
+                        data: function(d) {
+                            var requestData = {
+                                status: currentStatus,
+                                sourceType: currentSourceType
+                            };
+
+                            if (currentStatus === 'disposed') {
+                                var fromDate = $('#fromDate').val();
+                                var toDate = $('#toDate').val();
+                                if (fromDate) requestData.fromDate = fromDate;
+                                if (toDate) requestData.toDate = toDate;
+                            }
+
+                            console.log('DataTable request data:', requestData);
+                            return requestData;
+                        },
+                        dataSrc: function(json) {
+                            console.log('DataTable received response:', json);
+
+                            if (json.error) {
+                                console.error('Server returned error:', json.error);
+                                alert('Error loading data: ' + json.error);
+                                return [];
+                            }
+
+                            if (json.data && Array.isArray(json.data)) {
+                                console.log('Successfully loaded', json.data.length, 'records');
+                                return json.data;
+                            } else {
+                                console.error('Invalid data format received:', json);
+                                return [];
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('DataTable AJAX Error:', status, error);
+                            let errorMessage = 'Failed to load data. ';
+                            if (xhr.status === 404) {
+                                errorMessage += 'Controller action not found (404).';
+                            } else if (xhr.status === 500) {
+                                errorMessage += 'Server error (500). Check server logs.';
+                            } else {
+                                errorMessage += `Status: ${xhr.status}, Error: ${error}`;
+                            }
+                            alert(errorMessage);
+                        }
+                    },
+                    columns: [
+                        {
+                            data: 'expiredMedicineId',
+                            render: function(data, type, row) {
+                                // CRITICAL FIX: Ensure canDispose is properly handled
+                                const canDispose = row.canDispose === true || row.canDispose === 'true' || row.canDispose === 'True';
+                                console.log(`Row ${data}: canDispose=${canDispose} (original: ${row.canDispose})`);
+
+                                return `<input type="checkbox" class="item-checkbox"
+                                       value="${data}"
+                                       data-can-dispose="${canDispose}"
+                                       data-medicine-name="${row.medicineName || ''}"
+                                       data-batch="${row.batchNumber || ''}"
+                                       data-type="${row.typeOfMedicine || ''}"
+                                       data-source-type="${row.sourceType || ''}">`;
+                            },
+                            orderable: false
+                        },
+                        { data: 'slNo', orderable: false },
+                        { data: 'medicineName' },
+                        { data: 'companyName' },
+                        {
+                            data: 'sourceType',
+                            render: function(data, type, row) {
+                                return `<span class="badge ${row.sourceBadgeClass}">${row.sourceDisplay}</span>`;
+                            },
+                            orderable: true,
+                            className: 'text-center'
+                        },
+                        {
+                            data: 'typeOfMedicine',
+                            render: function(data, type, row) {
+                                if (currentStatus === 'pending') {
+                                    let additionalClass = '';
+                                    let title = 'Click to edit type';
+
+                                    if (data === 'Select Type of Medicine') {
+                                        additionalClass = ' border border-danger';
+                                        title = 'REQUIRED: Click to select medicine type before disposal';
+                                    }
+
+                                    return `<span class="badge ${row.typeBadgeClass} medicine-type-badge${additionalClass}"
+                                           data-id="${row.expiredMedicineId}"
+                                           data-type="${data}"
+                                           style="cursor: pointer; user-select: none;"
+                                           title="${title}">
+                                           ${data === 'Select Type of Medicine' ? '<i class="fas fa-exclamation-triangle"></i> ' : ''}${data}
+                                           </span>`;
+                                } else {
+                                    return `<span class="badge ${row.typeBadgeClass}">${data}</span>`;
+                                }
+                            },
+                            orderable: true,
+                            className: 'text-center'
+                        },
+                        { data: 'batchNumber' },
+                        { data: 'vendorCode' },
+                        { data: 'expiredOn', type: 'date' },
+                        { data: 'qtyExpired', type: 'num' },
+                        {
+                            data: 'expiredMedicineId',
+                            render: function(data, type, row) {
+                                let buttons = `<button class="btn btn-sm btn-info me-1" onclick="viewDetails(${data})" title="View Details">
+                                                  <i class="fas fa-eye"></i> View
+                                               </button>`;
+
+                                if (currentStatus === 'pending') {
+                                    const canDispose = row.canDispose === true || row.canDispose === 'true' || row.canDispose === 'True';
+                                    const disabledClass = canDispose ? '' : 'disabled';
+                                    const disabledAttr = canDispose ? '' : 'disabled="disabled"';
+                                    const title = canDispose ? 'Issue to Biomedical Waste' : 'Please select medicine type first';
+
+                                    buttons += `<button class="btn btn-sm btn-danger dispose-btn ${disabledClass}"
+                                               data-id="${data}"
+                                               data-medicine-name="${row.medicineName}"
+                                               data-batch="${row.batchNumber}"
+                                               data-type="${row.typeOfMedicine}"
+                                               data-source-type="${row.sourceType}"
+                                               title="${title}" ${disabledAttr}>
+                                                   <i class="fas fa-biohazard"></i> Dispose
+                                               </button>`;
+                                }
+
+                                return buttons;
+                            },
+                            orderable: false
+                        }
+                    ],
+                    pageLength: 25,
+                    responsive: true,
+                    language: {
+                        emptyTable: "No expired medicines found",
+                        processing: "Loading expired medicines...",
+                        loadingRecords: "Loading...",
+                        zeroRecords: "No matching records found"
+                    },
+                    order: [[7, 'asc']],
+                    drawCallback: function(settings) {
+                        console.log('DataTable draw completed. Rows:', settings.aoData.length);
+                        bindEventHandlers();
+
+                        if (currentStatus === 'pending') {
+                            updateCheckboxStates();
+                        } else {
+                            updateDisposedItemsUI();
+                        }
+                    }
+                });
+            }
+
+            // FIXED: Centralized event binding function
+            function bindEventHandlers() {
+                // Unbind previous handlers to prevent duplicates
+                $('.medicine-type-badge').off('click');
+                $('.dispose-btn').off('click');
+                $('.item-checkbox').off('change');
+
+                if (currentStatus === 'pending') {
+                    $('.medicine-type-badge').on('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!isUpdatingMedicineType) {
+                            handleBadgeClick($(this));
+                        }
+                    });
+
+                    $('.dispose-btn').on('click', function(e) {
+                        e.preventDefault();
+                        const $btn = $(this);
+                        const id = $btn.data('id');
+                        const medicineName = $btn.data('medicine-name');
+                        const batchNumber = $btn.data('batch');
+                        const typeOfMedicine = $btn.data('type');
+                        const sourceType = $btn.data('source-type');
+
+                        issueToWaste(id, medicineName, batchNumber, typeOfMedicine, sourceType);
+                    });
+                }
+
+                // CRITICAL FIX: Enhanced checkbox change handler
+                $('.item-checkbox').on('change', function() {
+                    console.log('✓ Checkbox change event fired for ID:', $(this).val());
+                    console.log('✓ Checkbox checked:', $(this).is(':checked'));
+                    console.log('✓ Can dispose:', $(this).attr('data-can-dispose'));
+
+                    if (currentStatus === 'pending') {
+                        updateCheckboxStates();
+                    } else {
+                        updateDisposedItemsUI();
+                    }
+                    updateSelectAllCheckbox();
+                });
+            }
+
+            function handleBadgeClick($badge) {
+                if (isUpdatingMedicineType) return;
+
+                const id = $badge.data('id');
+                const currentType = $badge.data('type');
+
+                if (medicineTypes.length === 0) {
+                    showAlert('error', 'Medicine types not loaded. Please refresh the page.');
+                    return;
+                }
+
+                if ($badge.hasClass('editing')) {
+                    return;
+                }
+
+                isUpdatingMedicineType = true;
+                $badge.addClass('editing');
+
+                let dropdown = '<select class="form-select form-select-sm medicine-type-dropdown" data-id="' + id + '" style="min-width: 180px;">';
+                medicineTypes.forEach(function(type) {
+                    const selected = type.value === currentType ? 'selected' : '';
+                    dropdown += `<option value="${type.value}" ${selected}>${type.text}</option>`;
+                });
+                dropdown += '</select>';
+
+                $badge.replaceWith(dropdown);
+
+                const $dropdown = $('.medicine-type-dropdown[data-id="' + id + '"]');
+                $dropdown.focus();
+
+                $dropdown.on('change', function() {
+                    handleMedicineTypeChange($(this));
+                });
+
+                $dropdown.on('blur', function() {
+                    setTimeout(function() {
+                        if (!$dropdown.is(':focus') && isUpdatingMedicineType) {
+                            isUpdatingMedicineType = false;
+                        }
+                    }, 100);
+                });
+            }
+
+            // FIXED: Medicine type change handler with bulk button refresh
+            function handleMedicineTypeChange($dropdown) {
+                const id = $dropdown.data('id');
+                const newType = $dropdown.val();
+
+                $dropdown.prop('disabled', true);
+
+                $.post('@Url.Action("UpdateMedicineType", "ExpiredMedicine")', {
+                    id: id,
+                    typeOfMedicine: newType
+                })
+                .done(function(response) {
+                    if (response.success) {
+                        let additionalClass = '';
+                        let title = 'Click to edit type';
+
+                        if (response.typeOfMedicine === 'Select Type of Medicine') {
+                            additionalClass = ' border border-danger';
+                            title = 'REQUIRED: Click to select medicine type before disposal';
+                        }
+
+                        const newBadge = `<span class="badge ${response.badgeClass} medicine-type-badge${additionalClass}"
+                                         data-id="${id}"
+                                         data-type="${response.typeOfMedicine}"
+                                         style="cursor: pointer; user-select: none;"
+                                         title="${title}">
+                                         ${response.typeOfMedicine === 'Select Type of Medicine' ? '<i class="fas fa-exclamation-triangle"></i> ' : ''}${response.typeOfMedicine}</span>`;
+
+                        $dropdown.replaceWith(newBadge);
+
+                        updateRowElementsAfterTypeChange(id, response.canDispose, response.typeOfMedicine, response.sourceType);
+
+                        showAlert('success', response.message);
+
+                        bindEventHandlers();
+
+                        // Force immediate bulk button refresh
+                        setTimeout(function() {
+                            const $checkbox = $(`.item-checkbox[value="${id}"]`);
+                            if ($checkbox.is(':checked')) {
+                                console.log(`🔄 Forcing refresh for checked item ${id} with new canDispose: ${response.canDispose}`);
+                                updateCheckboxStates();
+                            }
+                        }, 100);
+
+                        isUpdatingMedicineType = false;
+                    } else {
+                        showAlert('error', response.message);
+                        if (tbl) tbl.ajax.reload();
+                        isUpdatingMedicineType = false;
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.error('Update failed:', error);
+                    showAlert('error', 'Failed to update medicine type');
+                    if (tbl) tbl.ajax.reload();
+                    isUpdatingMedicineType = false;
+                });
+            }
+
+            // Update row elements after type change
+            function updateRowElementsAfterTypeChange(id, canDispose, typeOfMedicine, sourceType) {
+                const $checkbox = $(`.item-checkbox[value="${id}"]`);
+
+                // CRITICAL: Update data attributes using attr() for proper DOM updates
+                $checkbox.attr('data-can-dispose', canDispose);
+                $checkbox.attr('data-type', typeOfMedicine);
+
+                const $disposeBtn = $(`.dispose-btn[data-id="${id}"]`);
+                if ($disposeBtn.length) {
+                    $disposeBtn.attr('data-type', typeOfMedicine);
+
+                    if (canDispose) {
+                        $disposeBtn.removeClass('disabled').prop('disabled', false);
+                        $disposeBtn.attr('title', 'Issue to Biomedical Waste');
+                    } else {
+                        $disposeBtn.addClass('disabled').prop('disabled', true);
+                        $disposeBtn.attr('title', 'Please select medicine type first');
+                    }
+                }
+
+                const $row = $checkbox.closest('tr');
+                if (canDispose) {
+                    $row.removeClass('table-warning');
+                } else {
+                    $row.addClass('table-warning');
+                }
+
+                console.log(`✓ Updated row elements for ID ${id}: canDispose=${canDispose}`);
+            }
+
+            // COMPLETELY FIXED: Checkbox state management
+            function updateCheckboxStates() {
+                console.log('🔄 Starting updateCheckboxStates...');
+
+                const $checkboxes = $('.item-checkbox');
+                let eligibleCount = 0;
+                let totalSelected = 0;
+
+                $checkboxes.each(function() {
+                    const $checkbox = $(this);
+                    const id = $checkbox.val();
+
+                    // CRITICAL FIX: Use attr() instead of data() for dynamic attributes
+                    const canDisposeAttr = $checkbox.attr('data-can-dispose');
+                    const canDispose = canDisposeAttr === 'true';
+                    const isChecked = $checkbox.is(':checked');
+                    const medicineType = $checkbox.attr('data-type');
+
+                    if (isChecked) {
+                        totalSelected++;
+                        if (canDispose) {
+                            eligibleCount++;
+                        }
+                        console.log(`✓ Selected item ${id}: canDispose=${canDispose} (attr: ${canDisposeAttr}), type=${medicineType}`);
+                    }
+
+                    // Update row styling
+                    const $row = $checkbox.closest('tr');
+                    if (!canDispose) {
+                        $row.addClass('table-warning');
+                        $checkbox.attr('title', 'Medicine type must be selected before disposal');
+                    } else {
+                        $row.removeClass('table-warning');
+                        $checkbox.attr('title', 'Ready for disposal');
+                    }
+                });
+
+                // CRITICAL FIX: Bulk button state update
+                const $bulkBtn = $('#btnBulkIssue');
+                const shouldEnable = eligibleCount > 0;
+
+                console.log(`📊 BULK BUTTON UPDATE:`);
+                console.log(`   - Total selected: ${totalSelected}`);
+                console.log(`   - Eligible: ${eligibleCount}`);
+                console.log(`   - Should enable: ${shouldEnable}`);
+
+                if (shouldEnable) {
+                    $bulkBtn.prop('disabled', false);
+                    $bulkBtn.removeClass('disabled');
+                    console.log('✅ Bulk button ENABLED');
+                } else {
+                    $bulkBtn.prop('disabled', true);
+                    $bulkBtn.addClass('disabled');
+                    console.log('❌ Bulk button DISABLED');
+                }
+
+                // Show validation message
+                if (totalSelected > 0 && eligibleCount < totalSelected) {
+                    const ineligibleCount = totalSelected - eligibleCount;
+                    showValidationAlert(`${ineligibleCount} of ${totalSelected} selected items need medicine type selection before disposal.`);
+                } else {
+                    hideValidationAlert();
+                }
+
+                console.log('✓ updateCheckboxStates completed');
+            }
+
+            function updateDisposedItemsUI() {
+                const $checkboxes = $('.item-checkbox');
+                let totalSelected = $checkboxes.filter(':checked').length;
+
+                const $printBtn = $('#btnPrintSelected');
+                if (totalSelected > 0) {
+                    $printBtn.prop('disabled', false);
+                    $printBtn.removeClass('disabled');
+                } else {
+                    $printBtn.prop('disabled', true);
+                    $printBtn.addClass('disabled');
+                }
+            }
+
+            function updateSelectAllCheckbox() {
+                const $selectAll = $('#selectAll');
+                const $checkboxes = $('.item-checkbox');
+                const totalCheckboxes = $checkboxes.length;
+                const checkedCheckboxes = $checkboxes.filter(':checked').length;
+
+                if (checkedCheckboxes === 0) {
+                    $selectAll.prop('indeterminate', false).prop('checked', false);
+                } else if (checkedCheckboxes === totalCheckboxes) {
+                    $selectAll.prop('indeterminate', false).prop('checked', true);
+                } else {
+                    $selectAll.prop('indeterminate', true).prop('checked', false);
+                }
+            }
+
+            function showValidationAlert(message) {
+                $('#validationMessage').text(message);
+                $('#validationAlert').removeClass('fade').addClass('show').show();
+            }
+
+            function hideValidationAlert() {
+                $('#validationAlert').removeClass('show').addClass('fade').hide();
+            }
+
+            function loadStatistics() {
+                $.get('@Url.Action("GetStatistics", "ExpiredMedicine")')
+                    .done(function(response) {
+                        if (response.success && response.data) {
+                            $('#pendingCount').text(response.data.pendingDisposal || 0);
+                            $('#disposedCount').text(response.data.disposed || 0);
+
+                            if (response.data.sourceTypeStats) {
+                                let pendingBreakdown = '';
+
+                                Object.keys(response.data.sourceTypeStats).forEach(sourceType => {
+                                    const count = response.data.sourceTypeStats[sourceType];
+                                    const icon = sourceType === 'Store' ? '🏪' : '🧪';
+                                    pendingBreakdown += `${icon} ${sourceType}: ${count} `;
+                                });
+
+                                $('#pendingBreakdown').html(pendingBreakdown);
+                                $('#disposedBreakdown').html('By source type');
+                            }
+                        } else {
+                            setErrorCounts();
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Statistics AJAX error:', status, error);
+                        setErrorCounts();
+                    });
+            }
+
+            function setErrorCounts() {
+                $('#pendingCount').text('Error');
+                $('#disposedCount').text('Error');
+            }
+
+            // Action functions
+            window.viewDetails = function(id) {
+                $.get(`@Url.Action("Details", "ExpiredMedicine")/${id}`)
+                    .done(function(html) {
+                        $('#modalDetailsContent').html(html);
+                        $('#modalDetails').modal('show');
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('View details error:', error);
+                        alert('Error loading details: ' + error);
+                    });
+            };
+
+            window.issueToWaste = function(id, medicineName, batchNumber, typeOfMedicine, sourceType) {
+                if (typeOfMedicine === 'Select Type of Medicine' || !typeOfMedicine) {
+                    showAlert('warning', `Please select a medicine type (Solid, Liquid, or Gel) for "${medicineName}" (Batch: ${batchNumber}) from ${sourceType} before disposal.`);
+                    const $badge = $(`.medicine-type-badge[data-id="${id}"]`);
+                    $badge.addClass('animate__animated animate__pulse');
+                    setTimeout(() => $badge.removeClass('animate__animated animate__pulse'), 2000);
+                    return;
+                }
+
+                if (!confirm(`Are you sure you want to issue "${medicineName}" (Batch: ${batchNumber}) from ${sourceType} to biomedical waste?\n\nThis action cannot be undone.`)) {
+                    return;
+                }
+
+                const $button = $(`.dispose-btn[data-id="${id}"]`);
+                const originalText = $button.html();
+                $button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+
+                $.post('@Url.Action("IssueToBiomedicalWaste", "ExpiredMedicine")', { id: id })
+                    .done(function(response) {
+                        if (response.success) {
+                            $('#modalDetails').modal('hide');
+                            showAlert('success', response.message);
+                            if (tbl) tbl.ajax.reload();
+                            loadStatistics();
+                        } else {
+                            if (response.requiresTypeSelection) {
+                                showAlert('warning', response.message);
+                                const $badge = $(`.medicine-type-badge[data-id="${id}"]`);
+                                $badge.addClass('animate__animated animate__pulse');
+                                setTimeout(() => $badge.removeClass('animate__animated animate__pulse'), 2000);
+                            } else {
+                                showAlert('error', response.message);
+                            }
+                        }
+                    })
+                    .fail(function() {
+                        showAlert('error', 'An error occurred while issuing to biomedical waste.');
+                    })
+                    .always(function() {
+                        $button.prop('disabled', false).html(originalText);
+                    });
+            };
+
+            window.syncSpecificSource = function(sourceType) {
+                console.log('Syncing specific source:', sourceType);
+                const btn = $('#btnSyncExpired');
+                const originalText = btn.html();
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Syncing...');
+
+                $.post('@Url.Action("SyncExpiredMedicines", "ExpiredMedicine")', { sourceType: sourceType })
+                    .done(function(response) {
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            if (tbl) tbl.ajax.reload();
+                            loadStatistics();
+                        } else {
+                            showAlert('error', response.message);
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Sync error:', status, error);
+                        showAlert('error', 'Failed to sync expired medicines');
+                    })
+                    .always(function() {
+                        btn.prop('disabled', false).html(originalText);
+                    });
+            };
+
+            // Event handlers
+            $('#btnSyncExpired').click(function() {
+                const btn = $(this);
+                const originalText = btn.html();
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Syncing...');
+
+                $.post('@Url.Action("SyncExpiredMedicines", "ExpiredMedicine")')
+                    .done(function(response) {
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            if (tbl) tbl.ajax.reload();
+                            loadStatistics();
+                        } else {
+                            showAlert('error', response.message);
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Sync error:', status, error);
+                        showAlert('error', 'Failed to sync expired medicines');
+                    })
+                    .always(function() {
+                        btn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            $('#statusTabs button').click(function() {
+                const status = $(this).data('status');
+                if (status !== currentStatus) {
+                    currentStatus = status;
+                    $('#statusTabs button').removeClass('active');
+                    $(this).addClass('active');
+
+                    if (status === 'pending') {
+                        $('#pendingAlert').show();
+                        $('#disposedAlert').hide();
+                        $('#dateRangeFilter').hide();
+                        $('#pendingActions').show();
+                        $('#disposedActions').hide();
+                        $('#dynamicColumn').text('Actions');
+                    } else {
+                        $('#pendingAlert').hide();
+                        $('#disposedAlert').show();
+                        $('#dateRangeFilter').show();
+                        $('#pendingActions').hide();
+                        $('#disposedActions').show();
+                        $('#dynamicColumn').text('Disposal Info');
+                    }
+
+                    if (tbl) {
+                        tbl.ajax.reload();
+                    }
+
+                    hideValidationAlert();
+                }
+            });
+
+            $('#btnApplySourceFilter').click(function() {
+                currentSourceType = $('#sourceTypeSelect').val();
+                console.log('Applying source filter:', currentSourceType);
+                if (tbl) {
+                    tbl.ajax.reload();
+                }
+            });
+
+            $('#btnClearSourceFilter').click(function() {
+                currentSourceType = '';
+                $('#sourceTypeSelect').val('');
+                if (tbl) {
+                    tbl.ajax.reload();
+                }
+            });
+
+            $('#btnApplyDateFilter').click(function() {
+                if (tbl) {
+                    tbl.ajax.reload();
+                }
+            });
+
+            $('#btnClearDateFilter').click(function() {
+                $('#fromDate').val('');
+                $('#toDate').val('');
+                if (tbl) {
+                    tbl.ajax.reload();
+                }
+            });
+
+            // FIXED: Select all checkbox
+            $('#selectAll').change(function() {
+                const isChecked = $(this).is(':checked');
+                console.log(`🔄 Select All clicked: ${isChecked}`);
+
+                $('.item-checkbox').prop('checked', isChecked);
+
+                if (currentStatus === 'pending') {
+                    updateCheckboxStates();
+                } else {
+                    updateDisposedItemsUI();
+                }
+            });
+
+            // Enhanced bulk issue
+            $('#btnBulkIssue').click(function() {
+                const $selectedCheckboxes = $('.item-checkbox:checked');
+                const selectedIds = [];
+                const ineligibleItems = [];
+                const sourceTypeSummary = {};
+
+                $selectedCheckboxes.each(function() {
+                    const $checkbox = $(this);
+                    const id = $checkbox.val();
+                    const canDisposeAttr = $checkbox.attr('data-can-dispose');
+                    const canDispose = canDisposeAttr === 'true';
+                    const sourceType = $checkbox.attr('data-source-type');
+
+                    if (!sourceTypeSummary[sourceType]) {
+                        sourceTypeSummary[sourceType] = 0;
+                    }
+                    sourceTypeSummary[sourceType]++;
+
+                    if (canDispose) {
+                        selectedIds.push(id);
+                    } else {
+                        ineligibleItems.push({
+                            id: id,
+                            name: $checkbox.attr('data-medicine-name'),
+                            batch: $checkbox.attr('data-batch'),
+                            type: $checkbox.attr('data-type'),
+                            sourceType: sourceType
+                        });
+                    }
+                });
+
+                if (selectedIds.length === 0) {
+                    if (ineligibleItems.length > 0) {
+                        const itemsList = ineligibleItems.map(item => `• ${item.name} (Batch: ${item.batch}) - ${item.sourceType}`).join('\n');
+                        showAlert('warning', `The following medicines need medicine type selection before disposal:\n\n${itemsList}`);
+                    } else {
+                        showAlert('warning', 'Please select at least one item that is ready for disposal.');
+                    }
+                    return;
+                }
+
+                const sourceTypeMessage = Object.keys(sourceTypeSummary).map(type => `${sourceTypeSummary[type]} ${type}`).join(', ');
+                let confirmMessage = `Are you sure you want to issue ${selectedIds.length} selected medicines (${sourceTypeMessage}) to biomedical waste?\n\nThis action cannot be undone.`;
+
+                if (ineligibleItems.length > 0) {
+                    confirmMessage += `\n\nNote: ${ineligibleItems.length} selected items will be skipped (medicine type not selected).`;
+                }
+
+                if (!confirm(confirmMessage)) {
+                    return;
+                }
+
+                const btn = $(this);
+                const originalText = btn.html();
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+
+                $.post('@Url.Action("BulkIssueToBiomedicalWaste", "ExpiredMedicine")', {
+                    ids: selectedIds.join(',')
+                })
+                .done(function(response) {
+                    if (response.success) {
+                        let message = response.message;
+                        if (ineligibleItems.length > 0) {
+                            message += `\n\n${ineligibleItems.length} items were skipped due to missing medicine type selection.`;
+                        }
+                        showAlert('success', message);
+                        if (tbl) tbl.ajax.reload();
+                        loadStatistics();
+                        $('#selectAll').prop('checked', false).prop('indeterminate', false);
+                        hideValidationAlert();
+                    } else {
+                        if (response.requiresTypeSelection) {
+                            showAlert('warning', response.message);
+                        } else {
+                            showAlert('error', response.message);
+                        }
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.error('Bulk issue error:', error);
+                    showAlert('error', 'Failed to process bulk issue');
+                })
+                .always(function() {
+                    btn.prop('disabled', false).html(originalText);
+                });
+            });
+
+            $('#btnPrintSelected').click(function () {
+                var selectedIds = [];
+                $('.item-checkbox:checked').each(function () {
+                    selectedIds.push($(this).val());
+                });
+
+                if (selectedIds.length === 0) {
+                    alert('Please select at least one record to print.');
+                    return;
+                }
+
+                $.ajax({
+                    url: '/ExpiredMedicine/PrintReport',
+                    type: 'GET',
+                    data: { ids: selectedIds.join(',') },
+                    success: function (result) {
+                        if (typeof result === "object" && result.success === false) {
+                            alert(result.message || "Failed to generate print preview.");
+                            return;
+                        }
+                        var printWindow = window.open('', '', 'height=800,width=1000');
+                        printWindow.document.write(result);
+                        printWindow.document.close();
+                        printWindow.focus();
+                    },
+                    error: function () {
+                        alert('Error: Unable to generate print preview. Please try again.');
+                    }
+                });
+            });
+
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' :
+                                 type === 'warning' ? 'alert-warning' : 'alert-danger';
+                const iconClass = type === 'success' ? 'fa-check-circle' :
+                                type === 'warning' ? 'fa-exclamation-triangle' : 'fa-exclamation-triangle';
+
+                const alertHtml = `<div class="alert ${alertClass} alert-dismissible fade show position-fixed"
+                                  style="top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 500px;">
+                                  <i class="fas ${iconClass}"></i>
+                                  <span style="white-space: pre-line;">${message}</span>
+                                  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>`;
+
+                $('body').append(alertHtml);
+
+                const timeout = type === 'warning' ? 8000 : 5000;
+                setTimeout(function() {
+                    $('.alert').alert('close');
+                }, timeout);
+            }
+
+            // DEBUG: Add test function to console
+            window.testBulkButton = function() {
+                console.log('=== TESTING BULK BUTTON ===');
+                $('.item-checkbox').each(function(index) {
+                    const $checkbox = $(this);
+                    const id = $checkbox.val();
+                    const isChecked = $checkbox.is(':checked');
+                    const canDisposeAttr = $checkbox.attr('data-can-dispose');
+                    const canDispose = canDisposeAttr === 'true';
+
+                    console.log(`Checkbox ${index + 1} (ID: ${id}):`, {
+                        isChecked: isChecked,
+                        canDisposeAttr: canDisposeAttr,
+                        canDispose: canDispose,
+                        medicineType: $checkbox.attr('data-type')
+                    });
+                });
+
+                updateCheckboxStates();
+                console.log('=== TEST COMPLETE ===');
+            };
+        });
+    </script>
+}
+}
+<style>
+    .modal-backdrop {
+        z-index: -1 !important;
+    }
+
+    .medicine-type-badge {
+        transition: all 0.2s ease;
+    }
+
+        .medicine-type-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .medicine-type-badge.border-danger {
+            animation: subtle-pulse 2s infinite;
+        }
+
+    @@keyframes subtle-pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4);
+        }
+
+        70% {
+            box-shadow: 0 0 0 4px rgba(220, 53, 69, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        }
+    }
+
+    .table-warning {
+        background-color: rgba(255, 193, 7, 0.1) !important;
+    }
+
+    .alert {
+        border-left: 4px solid;
+    }
+
+    .alert-warning {
+        border-left-color: #ffc107;
+    }
+
+    .alert-info {
+        border-left-color: #0dcaf0;
+    }
+
+    .alert-success {
+        border-left-color: #198754;
+    }
+
+    .alert-danger {
+        border-left-color: #dc3545;
+    }
+
+    /* Role-based styling */
+    .badge.bg-primary {
+        background-color: #0d6efd !important;
+    }
+
+    .badge.bg-info {
+        background-color: #0dcaf0 !important;
+    }
+
+    .badge.bg-success {
+        background-color: #198754 !important;
+    }
+
+    #sourceTypeFilter, #dateRangeFilter {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        border: 1px solid #dee2e6;
+    }
+
+        #sourceTypeFilter .form-label, #dateRangeFilter .form-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+    /* Button state styling */
+    .btn.disabled, .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    /* Ensure proper button states */
+    .dispose-btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .dispose-btn:not(.disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Checkbox styling */
+    .item-checkbox[data-can-dispose="false"], .item-checkbox[data-can-dispose="False"] {
+        opacity: 0.6;
+    }
+</style>

@@ -1,0 +1,378 @@
+﻿@model EMS.WebApp.Data.MedExaminationResultViewModel
+
+@{
+    ViewData["Title"] = "Medical Examination Result";
+}
+
+<div id="alertContainer"></div>
+
+<!-- Plant Information Display -->
+@* <div class="row mb-3">
+    <div class="col-md-12">
+        <div class="alert alert-info" id="plantInfo" style="display: none;">
+            <i class="fas fa-building"></i> <strong>Current Plant:</strong> <span id="currentPlantName">Loading...</span>
+        </div>
+    </div>
+</div> *@
+
+<!-- Employee Search Section -->
+<div class="row align-items-end mb-3">
+    <div class="col-md-4">
+        <label for="empIdInput" class="form-label">Emp No.</label>
+        <input type="text" class="form-control" id="empIdInput" autocomplete="off" placeholder="Enter Employee ID" />
+    </div>
+
+    <div class="col-auto">
+        <button class="btn btn-primary" id="loadBtn" style="margin-top: 32px;">Go</button>
+    </div>
+</div>
+
+<!-- Form Container -->
+<div id="medExamResultContainer">
+    <!-- Partial view will be injected here -->
+</div>
+
+@section Scripts {
+    <script src="~/js/jquery-ui.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Load current plant information
+            loadCurrentPlantInfo();
+
+            // Go button click handler
+            $('#loadBtn').on('click', function () {
+                var empId = $('#empIdInput').val();
+
+                if (!empId || empId.trim() === '') {
+                    showAlert('error', 'Please enter a valid Employee ID.');
+                    return;
+                }
+
+                // Load employee data (always new entry)
+                loadEmployeeDataByEmpId(empId);
+            });
+
+            // Function to load employee data by Employee ID
+            function loadEmployeeDataByEmpId(empId) {
+                // First, get the emp_uid from emp_id
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeUidFromEmpId", "MedExaminationResult")',
+                    type: 'GET',
+                    data: { empId: empId },
+                    success: function (result) {
+                        if (result.success && result.empUid) {
+                            loadMedExamResultData(result.empUid);
+                        } else {
+                            showAlert('error', result.message || 'Employee not found.');
+                        }
+                    },
+                    error: function (xhr) {
+                        showAlert('error', 'Error finding employee. Please try again.');
+                    }
+                });
+            }
+
+            function loadMedExamResultData(empNo) {
+                console.log('Loading form for employee:', empNo);
+
+                $.ajax({
+                    url: '@Url.Action("GetMedExamResultForm", "MedExaminationResult")',
+                    type: 'GET',
+                    data: { empNo: empNo, resultId: null },
+                    success: function (result) {
+                        console.log('Form loaded successfully');
+                        $('#medExamResultContainer').html(result);
+                    },
+                    error: function (xhr, status, error) {
+                        console.log('AJAX Error Details:');
+                        console.log('Status Code:', xhr.status);
+                        console.log('Status Text:', xhr.statusText);
+                        console.log('Response Text:', xhr.responseText);
+                        console.log('Error:', error);
+
+                        // Show the actual error message from server
+                        let errorMessage = 'Error loading form. Please try again.';
+
+                        if (xhr.responseText) {
+                            try {
+                                // Try to parse JSON error response
+                                let errorData = JSON.parse(xhr.responseText);
+                                errorMessage = errorData.message || errorData.error || xhr.responseText;
+                            } catch (e) {
+                                // If not JSON, use the raw response text
+                                errorMessage = xhr.responseText;
+                            }
+                        }
+
+                        if (xhr.status === 404) {
+                            showAlert('error', xhr.responseText || 'Employee not found.');
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied. You do not have permission to view this employee\'s medical examination results.');
+                        } else if (xhr.status === 400) {
+                            showAlert('error', errorMessage);
+                        } else if (xhr.status === 500) {
+                            showAlert('error', 'Server error: ' + errorMessage);
+                        } else {
+                            $('#medExamResultContainer').html('<div class="alert alert-danger">Error loading form: ' + errorMessage + '</div>');
+                            showAlert('error', 'Error loading form: ' + errorMessage);
+                        }
+                    }
+                });
+            }
+            // Function to load current plant information
+            function loadCurrentPlantInfo() {
+                $.ajax({
+                    url: '@Url.Action("GetCurrentUserPlant", "MedExaminationResult")',
+                    type: 'GET',
+                    success: function (result) {
+                        if (result.success) {
+                            $('#currentPlantName').text(result.plantName);
+                            $('#plantInfo').show();
+                        }
+                    },
+                    error: function () {
+                        console.log('Could not load plant information');
+                    }
+                });
+            }
+
+            // Save button click handler (delegated event)
+            $(document).on('click', '#saveBtn', function (e) {
+                e.preventDefault();
+
+                var form = $('#medExamResultForm');
+                if (form.length === 0) {
+                    showAlert('error', 'Form not found.');
+                    return;
+                }
+
+                var formData = form.serialize();
+                var actionUrl = '@Url.Action("SaveMedExamResult", "MedExaminationResult")';
+
+                $('#saveBtn').prop('disabled', true).text('Saving...');
+
+                $.ajax({
+                    url: actionUrl,
+                    type: 'POST',
+                    data: formData,
+                    success: function (response) {
+                        $('#saveBtn').prop('disabled', false).text('Save');
+
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            // Redirect to Index page after successful save
+                            setTimeout(function() {
+                                window.location.href = '@Url.Action("Index", "MedExaminationResult")';
+                            }, 1500);
+                        } else {
+                            showAlert('error', response.message || 'Save failed. Please check the form data.');
+                        }
+                    },
+                    error: function (xhr) {
+                        $('#saveBtn').prop('disabled', false).text('Save');
+
+                        if (xhr.status === 400) {
+                            $('#medExamResultContainer').html(xhr.responseText);
+                            showAlert('error', 'Please correct the validation errors and try again.');
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied. You do not have permission to save this employee\'s medical examination result.');
+                        } else {
+                            showAlert('error', 'An error occurred while saving. Please try again.');
+                        }
+                    }
+                });
+            });
+
+            // Employee ID autocomplete
+            $("#empIdInput").autocomplete({
+                source: function (request, response) {
+                    $.ajax({
+                        url: '@Url.Action("SearchEmployeeNos", "MedExaminationResult")',
+                        data: { term: request.term },
+                        success: function (data) {
+                            response(data);
+                        },
+                        error: function () {
+                            response([]);
+                        }
+                    });
+                },
+                minLength: 1,
+                select: function (event, ui) {
+                    setTimeout(function () {
+                        // When an employee ID is selected, load the form
+                        loadEmployeeDataByEmpId(ui.item.value);
+                    }, 100);
+                }
+            });
+
+            // Form submission handler (delegated event)
+            $(document).on('submit', '#medExamResultForm', function (e) {
+                e.preventDefault();
+                $('#saveBtn').click();
+            });
+
+            // Cancel button handler (delegated event)
+            $(document).on('click', '#cancelBtn', function () {
+                $('#medExamResultContainer').empty();
+                $('#empIdInput').val('');
+            });
+
+            // Reset form handler (delegated event)
+            $(document).on('click', '#btnResetForm', function () {
+                const form = $('#medExamResultForm');
+                if (form.length) {
+                    form[0].reset();
+                    form.find('.is-invalid').removeClass('is-invalid');
+                    showAlert('info', 'Form has been reset.');
+                }
+            });
+
+            // Employee ID input keypress handler
+            $('#empIdInput').on('keypress', function (e) {
+                if (e.which === 13) { // Enter key
+                    $('#loadBtn').click();
+                }
+            });
+
+            // Employee ID blur handler
+            $('#empIdInput').on('blur', function () {
+                var empId = $(this).val();
+                if (empId && empId.trim() !== '') {
+                    // Optional: Auto-load when employee ID is entered
+                    // loadEmployeeDataByEmpId(empId);
+                }
+            });
+
+            // Global cancel form function
+            window.cancelForm = function() {
+                $('#medExamResultContainer').empty();
+                $('#empIdInput').val('');
+            };
+
+            // Alert function
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' :
+                                 type === 'info' ? 'alert-info' : 'alert-danger';
+                const alertId = 'alert-' + Date.now();
+                const icon = type === 'success' ? 'fas fa-check-circle' :
+                           type === 'info' ? 'fas fa-info-circle' : 'fas fa-exclamation-triangle';
+
+                const alertHtml = `
+                    <div id="${alertId}" class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        <i class="${icon}"></i> ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+
+                $('#alertContainer').html(alertHtml);
+
+                // Auto-dismiss after 4 seconds for success/info, 6 seconds for errors
+                const dismissTime = type === 'error' ? 6000 : 4000;
+                setTimeout(() => {
+                    const alertEl = document.getElementById(alertId);
+                    if (alertEl && bootstrap.Alert.getOrCreateInstance) {
+                        bootstrap.Alert.getOrCreateInstance(alertEl).close();
+                    }
+                }, dismissTime);
+            }
+
+            // Initialize tooltips if available
+            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
+            }
+        });
+    </script>
+}
+
+<style>
+    /* Custom styles for the medical examination result page */
+    .glass {
+        --glass-bg: rgba(255, 255, 255, 0.30) !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .alert {
+        border: none;
+        border-radius: 8px;
+    }
+
+    #empIdInput {
+        border-radius: 6px;
+    }
+
+    #loadBtn {
+        border-radius: 6px;
+        min-width: 80px;
+    }
+
+    /* Autocomplete styling */
+    .ui-autocomplete {
+        z-index: 1051;
+        max-height: 200px;
+        overflow-y: auto;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        background: white;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    .ui-menu-item {
+        padding: 8px 12px;
+        border-bottom: 1px solid #f8f9fa;
+    }
+
+        .ui-menu-item:last-child {
+            border-bottom: none;
+        }
+
+    .ui-state-active {
+        background-color: #e7f1ff;
+        color: #0d6efd;
+        border: none;
+    }
+
+    /* Loading animation */
+    .loading {
+        position: relative;
+    }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            margin: auto;
+            border: 2px solid transparent;
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: button-loading-spinner 1s ease infinite;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+    @@keyframes button-loading-spinner {
+        from {
+            transform: translateY(-50%) rotate(0turn);
+        }
+
+        to {
+            transform: translateY(-50%) rotate(1turn);
+        }
+    }
+</style>

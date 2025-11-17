@@ -1,0 +1,302 @@
+﻿@model EMS.WebApp.Data.MedRefHospital
+
+<!-- Hospital Information Display -->
+<div class="form-section">
+    <h6 class="section-title">
+        <i class="bi bi-hospital"></i>
+        Hospital Information
+    </h6>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label class="form-label form-label-master">
+                <i class="bi bi-building"></i>
+                Hospital Name
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                <strong>@Model.hosp_name</strong>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-master">
+                <i class="bi bi-tag"></i>
+                Hospital Code
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                <span class="badge bg-primary" style="font-size: 12px;">@Model.hosp_code</span>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-master">
+                <i class="bi bi-heart-pulse"></i>
+                Speciality
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                <span class="badge bg-success" style="font-size: 12px;">@Model.speciality</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label class="form-label form-label-master">
+                <i class="bi bi-geo-alt"></i>
+                Address
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 80px; padding: 12px;">
+                @if (!string.IsNullOrEmpty(Model.address))
+                {
+                    @Model.address
+                }
+                else
+                {
+                    <em class="text-muted">No address provided</em>
+                }
+            </div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label form-label-master">
+                <i class="bi bi-card-text"></i>
+                Description
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 80px; padding: 12px;">
+                @if (!string.IsNullOrEmpty(Model.description))
+                {
+                    @Model.description
+                }
+                else
+                {
+                    <em class="text-muted">No description provided</em>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vendor Information Display -->
+<div class="form-section">
+    <h6 class="section-title">
+        <i class="bi bi-building"></i>
+        Vendor Information
+    </h6>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label class="form-label form-label-master">
+                <i class="bi bi-receipt"></i>
+                Tax Category
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                @if (Model.tax_category == "T")
+                {
+                    <span class="badge bg-success">
+                        <i class="bi bi-check-circle"></i>
+                        Taxable
+                    </span>
+                }
+                else if (Model.tax_category == "N")
+                {
+                    <span class="badge bg-danger">
+                        <i class="bi bi-x-circle"></i>
+                        Non-Taxable
+                    </span>
+                }
+                else
+                {
+                    <em class="text-muted">Not specified</em>
+                }
+            </div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label form-label-master">
+                <i class="bi bi-shop"></i>
+                Vendor Name
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                <strong>@Model.vendor_name</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label class="form-label form-label-master">
+                <i class="bi bi-upc"></i>
+                Vendor Code
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                <span class="badge bg-info" style="font-size: 12px;">@Model.vendor_code</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Information Display -->
+<div class="form-section">
+    <h6 class="section-title">
+        <i class="bi bi-person-lines-fill"></i>
+        Contact Information
+    </h6>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label class="form-label form-label-master">
+                <i class="bi bi-person"></i>
+                Contact Person Name
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                @if (!string.IsNullOrEmpty(Model.contact_person_name))
+                {
+                    <strong>@Model.contact_person_name</strong>
+                }
+                else
+                {
+                    <em class="text-muted">Not provided</em>
+                }
+            </div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label form-label-master">
+                <i class="bi bi-envelope"></i>
+                Contact Email
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                @if (!string.IsNullOrEmpty(Model.contact_person_email_id))
+                {
+                    <a href="mailto:@Model.contact_person_email_id" class="text-decoration-none">@Model.contact_person_email_id</a>
+                }
+                else
+                {
+                    <em class="text-muted">Not provided</em>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <label class="form-label form-label-master">
+                <i class="bi bi-phone"></i>
+                Mobile Number 1
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                @if (!string.IsNullOrEmpty(Model.mobile_number_1.ToString()))
+                {
+                    <span class="badge bg-secondary">@Model.mobile_number_1</span>
+                }
+                else
+                {
+                    <em class="text-muted">N/A</em>
+                }
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-master">
+                <i class="bi bi-phone"></i>
+                Mobile Number 2
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                @if (!string.IsNullOrEmpty(Model.mobile_number_2.ToString()))
+                {
+                    <span class="badge bg-secondary">@Model.mobile_number_2</span>
+                }
+                else
+                {
+                    <em class="text-muted">N/A</em>
+                }
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-master">
+                <i class="bi bi-telephone"></i>
+                Phone Number 1
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                @if (!string.IsNullOrEmpty(Model.phone_number_1.ToString()))
+                {
+                    <span class="badge bg-secondary">@Model.phone_number_1</span>
+                }
+                else
+                {
+                    <em class="text-muted">N/A</em>
+                }
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-master">
+                <i class="bi bi-telephone"></i>
+                Phone Number 2
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                @if (!string.IsNullOrEmpty(Model.phone_number_2.ToString()))
+                {
+                    <span class="badge bg-secondary">@Model.phone_number_2</span>
+                }
+                else
+                {
+                    <em class="text-muted">N/A</em>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue)
+{
+    <div class="audit-section">
+        <h6>
+            <i class="bi bi-clock-history"></i>
+            Audit Information
+        </h6>
+
+        @if (Model.CreatedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Created By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Created On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.ModifiedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Modified By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Modified On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="modal-footer modal-footer-master">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        Close
+    </button>
+</div>

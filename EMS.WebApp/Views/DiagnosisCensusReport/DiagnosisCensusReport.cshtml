@@ -1,0 +1,372 @@
+﻿@{
+    ViewData["Title"] = "Diagnosis Census Report";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/css/report.css" rel="stylesheet" />
+<link href="~/css/report-inventory.css" rel="stylesheet" />
+<link href="~/css/report-store.css" rel="stylesheet" />
+
+<style>
+    /* Small styling to highlight numeric/count cells and totals like Store Indent */
+    .count-cell {
+        background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+        text-align: center;
+        font-weight: 600;
+    }
+
+    .row-total {
+        background: linear-gradient(180deg, #f1f3f5 0%, #e2e6ea 100%);
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .col-total {
+        background: linear-gradient(180deg, #f1f3f5 0%, #e2e6ea 100%);
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .grand-total {
+        background: linear-gradient(180deg, #dfe7ef 0%, #cfdfe7 100%);
+        text-align: center;
+        font-weight: 800;
+    }
+    /* Make header sticky and bold for readability */
+    #reportHead th {
+        position: sticky;
+        top: 0;
+        background: #ffffff;
+        z-index: 2;
+        text-align: left;
+    }
+</style>
+
+<!-- Enhanced Dashboard Header -->
+<div class="dashboard-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item">Reports</li>
+            <li class="breadcrumb-item active" aria-current="page">Diagnosis Census Report</li>
+        </ol>
+    </nav>
+    <h1 class="dashboard-title">
+        <i class="bi bi-clipboard-check"></i>
+        Diagnosis Census Report
+    </h1>
+    <p class="dashboard-subtitle">Department vs Disease counts (Approved prescriptions)</p>
+</div>
+
+<div class="container-fluid">
+    <!-- Enhanced Filter Controls Section -->
+    <div class="report-controls-section">
+        <div class="controls-row">
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-calendar-range me-2"></i>
+                    Date Range
+                </label>
+                <div class="date-range-inputs">
+                    <input type="date" class="form-control form-control-enhanced" id="fromDate" />
+                    <span class="date-separator">to</span>
+                    <input type="date" class="form-control form-control-enhanced" id="toDate" />
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-funnel me-2"></i>
+                    Filters
+                </label>
+                <div class="filter-controls">
+                    <div class="form-group">
+                        <select id="deptSelect" class="form-control form-control-enhanced">
+                            <option value="">-- All Departments --</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-actions">
+                <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
+                    <i class="bi bi-search"></i>
+                    Generate Report
+                </button>
+                <div class="action-buttons" id="actionButtons" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
+                        <i class="bi bi-download"></i>
+                        Export
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="printReport()">
+                        <i class="bi bi-printer"></i>
+                        Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Summary Cards (hidden intentionally as requested) -->
+    <div id="reportSummary" class="store-indent-summary-grid" style="display: none;">
+        <!-- Keep DOM same as Store Indent but keep hidden -->
+        <!-- ... (the same 6 summary cards from store indent; omitted here for brevity) ... -->
+    </div>
+
+    <!-- Enhanced Plant Information -->
+    <div id="plantInfo" class="plant-info-section" style="display: none;">
+        <div class="plant-info-content">
+            <div class="plant-info-header">
+                <i class="bi bi-building me-2"></i>
+                <h6 class="plant-info-title">Plant Information</h6>
+            </div>
+            <div class="plant-info-details">
+                <div class="plant-detail-item">
+                    <span class="plant-detail-label">Plant Code:</span>
+                    <span class="plant-detail-value" id="currentPlantCode">-</span>
+                </div>
+                <div class="plant-detail-separator"></div>
+                <div class="plant-detail-item">
+                    <span class="plant-detail-label">Plant Name:</span>
+                    <span class="plant-detail-value" id="currentPlantName">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Header -->
+    <div id="reportHeader" class="report-header-section" style="display: none;">
+        <div class="report-header-content">
+            <div class="company-info">
+                <h4 id="unitHeader">Unit: ITC LIMITED - PSPD-N/A</h4>
+                <div class="report-meta">
+                    <span class="meta-item">
+                        <i class="bi bi-clock me-1"></i>
+                        Generated: <span id="runDateTime"></span>
+                    </span>
+                    <span class="meta-item">
+                        <i class="bi bi-person me-1"></i>
+                        By: <span id="generatedBy"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="report-title">
+                <h3>DIAGNOSIS CENSUS</h3>
+                <p class="report-subtitle">Department vs Disease (Approved prescriptions)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Section (not used for pivot but kept for parity) -->
+    <div id="searchSection" class="search-controls-section" style="display: none;">
+        <div class="search-wrapper">
+            <div class="search-input-group">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control search-input-enhanced" id="searchInput"
+                       placeholder="Search...">
+            </div>
+            <div class="search-results-info">
+                <small class="text-muted" id="searchResultCount">No search applied</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Table Section (pivot) -->
+    <div id="reportTableSection" class="store-indent-table-section" style="display: none;">
+        <div class="table-container">
+            <div class="table-responsive">
+                <!-- keep class names identical, but the table will be built dynamically -->
+                <table class="table table-striped table-glass glass-table table-sm" id="reportTablePivot">
+                    <thead id="reportHead"></thead>
+                    <tbody id="reportBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- No Data State -->
+    <div id="noDataMessage" class="empty-state-section" style="display: none;">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-clipboard-x"></i>
+            </div>
+            <h6 class="empty-state-title">No Diagnosis Census Data Found</h6>
+            <p class="empty-state-description">
+                No diagnosis data found for the selected date range.<br>
+                Try adjusting your date filters.
+            </p>
+            <button type="button" class="btn btn-outline-primary btn-enhanced" onclick="$('#fromDate, #toDate').focus()">
+                <i class="bi bi-funnel"></i>
+                Adjust Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingSpinner" class="loading-state-section" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner-large"></div>
+            <h6 class="loading-title">Generating Diagnosis Census Report</h6>
+            <p class="loading-description">Processing diagnosis data...</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var allReportData = []; // flattened counts list from server
+        var diseasesList = [];
+        var departmentsList = [];
+
+        $(document).ready(function() {
+            // default dates (current month)
+            var now = new Date();
+            var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(now.toISOString().split('T')[0]);
+
+            loadDepartments();
+            loadReport();
+        });
+
+        function loadDepartments() {
+            var from = $('#fromDate').val();
+            var to = $('#toDate').val();
+            $.get('@Url.Action("GetReport", "DiagnosisCensusReport")', { fromDate: from, toDate: to }, function(res) {
+                if (res && res.success) {
+                    departmentsList = res.departments;
+                    $('#deptSelect').empty().append('<option value="">-- All Departments --</option>');
+                    res.departments.forEach(function(d) {
+                        $('#deptSelect').append('<option value="' + d.deptId + '">' + d.deptName + '</option>');
+                    });
+                }
+            });
+        }
+
+        function loadReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+            var deptId = $('#deptSelect').val();
+
+            if (!fromDate || !toDate) {
+                alert('Please select both From Date and To Date');
+                return;
+            }
+
+            // show loading
+            $('#loadingSpinner').show();
+            $('#reportTableSection').hide();
+            $('#reportHeader').hide();
+            $('#plantInfo').hide();
+            $('#noDataMessage').hide();
+            $('#actionButtons').hide();
+
+            $.get('@Url.Action("GetReport", "DiagnosisCensusReport")', { fromDate: fromDate, toDate: toDate, deptId: deptId }, function(res) {
+                $('#loadingSpinner').hide();
+
+                if (res && res.success) {
+                    allReportData = res.data;
+                    diseasesList = res.diseases;
+                    departmentsList = res.departments;
+
+                    // build pivot including totals
+                    buildPivot(res.diseases, res.departments, res.data);
+
+                    // set plant information fields
+                    $('#currentPlantCode').text(res.reportInfo.plantCode || 'N/A');
+                    $('#currentPlantName').text(res.reportInfo.plantName || 'Unknown Plant');
+
+                    // update report header meta
+                    $('#runDateTime').text(res.reportInfo.generatedOn);
+                    $('#generatedBy').text(res.reportInfo.generatedBy);
+                    $('#unitHeader').text('Unit: ITC LIMITED - PSPD-' + (res.reportInfo.plantCode || 'N/A') + (res.reportInfo.plantName && res.reportInfo.plantName !== 'Unknown Plant' ? (' (' + res.reportInfo.plantName + ')') : ''));
+
+                    // Show sections
+                    $('#reportHeader').fadeIn(200);
+                    $('#plantInfo').fadeIn(200);
+                    $('#reportTableSection').fadeIn(200);
+                    $('#actionButtons').fadeIn(200);
+                } else {
+                    $('#noDataMessage').fadeIn(200);
+                }
+            }).fail(function() {
+                $('#loadingSpinner').hide();
+                alert('Failed to load Diagnosis Census report');
+            });
+        }
+
+        function buildPivot(diseases, departments, data) {
+            // header row (diseases + TOTAL column)
+            var thead = '<tr><th>Department</th>';
+            diseases.forEach(function(d) {
+                thead += '<th>' + d.diseaseName + '</th>';
+            });
+            thead += '<th style="text-align:center">TOTAL</th>';
+            thead += '</tr>';
+            $('#reportHead').html(thead);
+
+            // Prepare column totals
+            var colTotals = [];
+            for (var i = 0; i < diseases.length; i++) colTotals[i] = 0;
+            var grandTotal = 0;
+
+            // body rows
+            var tbody = '';
+            departments.forEach(function(dept) {
+                if ($('#deptSelect').val() && $('#deptSelect').val() != dept.deptId) return;
+
+                tbody += '<tr>';
+                tbody += '<td>' + dept.deptName + '</td>';
+
+                var rowTotal = 0;
+                diseases.forEach(function(dis, idx) {
+                    var rec = data.find(function(r) { return r.deptId == dept.deptId && r.diseaseId == dis.diseaseId; });
+                    var val = rec ? Number(rec.count) : 0;
+                    rowTotal += val;
+                    colTotals[idx] += val;
+
+                    tbody += '<td class="count-cell">' + val + '</td>';
+                });
+
+                grandTotal += rowTotal;
+                tbody += '<td class="row-total">' + rowTotal + '</td>';
+                tbody += '</tr>';
+            });
+
+            // append body
+            $('#reportBody').html(tbody);
+
+            // append totals footer row (as last row)
+            var footer = '<tr>';
+            footer += '<td style="font-weight:800">TOTAL</td>';
+            for (var j = 0; j < colTotals.length; j++) {
+                footer += '<td class="col-total">' + colTotals[j] + '</td>';
+            }
+            footer += '<td class="grand-total">' + grandTotal + '</td>';
+            footer += '</tr>';
+
+            // if table has a tfoot in markup, append there, otherwise append to tbody
+            $('#reportBody').append(footer);
+        }
+
+        function exportReport() {
+            var from = $('#fromDate').val();
+            var to = $('#toDate').val();
+            var dept = $('#deptSelect').val();
+
+            if (!from || !to) {
+                alert('Please select date range first');
+                return;
+            }
+
+            window.location = '@Url.Action("Export", "DiagnosisCensusReport")' + '?fromDate=' + encodeURIComponent(from) + '&toDate=' + encodeURIComponent(to) + (dept ? '&deptId=' + dept : '');
+        }
+
+        function printReport() {
+            if ($('#reportTableSection').is(':visible')) {
+                setTimeout(() => window.print(), 500);
+            } else {
+                alert('Please generate the report first');
+            }
+        }
+    </script>
+}

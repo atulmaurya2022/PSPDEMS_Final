@@ -1,0 +1,126 @@
+﻿@{
+    ViewData["Title"] = "Store Issue Report";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+<style>
+    .table tbody tr[data-href] {
+        cursor: pointer;
+    }
+
+        .table tbody tr[data-href]:hover {
+            background-color: rgba(0,0,0,.03);
+        }
+</style>
+
+<div class="container-fluid py-3">
+    <h2 class="mb-3">Store Issue Report</h2>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <form class="row g-3" id="frm-filter">
+                <div class="col-md-3">
+                    <label class="form-label">From Date</label>
+                    <input type="date" class="form-control" id="fromDate" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">To Date</label>
+                    <input type="date" class="form-control" id="toDate" />
+                    <div class="form-text">Leave blank to use current month (from start date).</div>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="btn-group">
+                        <button type="button" id="btn-run" class="btn btn-primary">Run</button>
+                        <a id="btn-export" class="btn btn-outline-secondary" href="#">Export CSV</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">Issued Items</div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle" id="tbl">
+                    <thead>
+                        <tr>
+                            <th>Indent #</th>
+                            <th>Indent Date</th>
+                            <th>Compounder</th>
+                            <th>Plant</th>
+                            <th>Med ID</th>
+                            <th>Medicine</th>
+                            <th>Raised</th>
+                            <th>Issued</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr><td colspan="9" class="text-muted">Select dates and click Run.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const routes = {
+          compounderIndentReview: '/CompounderIndent/Approve/' // adjust if different
+        };
+
+        function html(s){ return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+        function d(v){ if(!v) return ''; const t=new Date(v); return isNaN(t)?'':t.toLocaleDateString(); }
+        function go(e, href){ const nt=e&&(e.ctrlKey||e.metaKey||e.which===2); if(nt) window.open(href,'_blank'); else window.location.href=href; }
+
+        (function(){
+          // default from = first day of current month
+          const now = new Date(), first = new Date(now.getFullYear(), now.getMonth(), 1);
+          document.getElementById('fromDate').valueAsDate = first;
+
+          function run(){
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+
+            $('#tbl tbody').html('<tr><td colspan="9" class="text-muted">Loading…</td></tr>');
+
+            $.getJSON('/StoreIssueReport/GetReport', { fromDate, toDate, top: 5000 })
+              .done(rows=>{
+                const $tb = $('#tbl tbody').empty();
+                if(!rows || !rows.length){
+                  $tb.append('<tr><td colspan="9" class="text-muted">No records.</td></tr>');
+                  return;
+                }
+                rows.forEach(r=>{
+                  const href = routes.compounderIndentReview + r.indentId;
+                  $tb.append(`<tr data-href="${href}" title="Open indent #${r.indentId}">
+                    <td>${r.indentId}</td>
+                    <td>${d(r.indentDate)}</td>
+                    <td>${html(r.compounder)}</td>
+                    <td>${html(r.plantName)}</td>
+                    <td>${r.medItemId}</td>
+                    <td>${html(r.medicineName)}</td>
+                    <td>${r.raisedQty}</td>
+                    <td>${r.issuedQty}</td>
+                    <td>${r.balanceQty}</td>
+                  </tr>`);
+                });
+              })
+              .fail(()=> $('#tbl tbody').html('<tr><td colspan="9" class="text-danger">Failed to load.</td></tr>'));
+
+            // export
+            const qs = $.param({ fromDate, toDate });
+            $('#btn-export').attr('href', '/StoreIssueReport/Export?' + qs);
+          }
+
+          $('#btn-run').on('click', function(e){ e.preventDefault(); run(); });
+
+          // row click (open indent)
+          $('#tbl')
+            .on('click','tr[data-href]', function(e){ go(e, this.getAttribute('data-href')); })
+            .on('mousedown','tr[data-href]', function(e){ if(e.which===2){ go(e, this.getAttribute('data-href')); }});
+
+          // auto-run on page load
+          $(document).ready(run);
+        })();
+    </script>
+}

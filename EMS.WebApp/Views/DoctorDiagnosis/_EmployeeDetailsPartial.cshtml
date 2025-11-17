@@ -1,0 +1,223 @@
+﻿@model EMS.WebApp.Data.DoctorDiagnosisViewModel
+
+<!-- Employee Details + Health profile -->
+<div class="row gy-4 mb-4" id="empDetailsSection">
+    <div class="col-lg-6">
+        <div class="glass p-3 h-100">
+            <h6 class="mb-3">
+                <i class="bi bi-person-badge"></i> Employee Details
+            </h6>
+            <div class="row g-2 small">
+                <div class="col-6">
+                    <label class="form-label text-muted mb-0">Employee ID</label>
+                    <div class="fw-medium">@Model.Employee?.emp_id</div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label text-muted mb-0">Employee Name</label>
+                    <div class="fw-medium">@Model.Employee?.emp_name</div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label text-muted mb-0">Sex</label>
+                    <div class="fw-medium">@Model.Employee?.emp_Gender</div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label text-muted mb-0">DOB</label>
+                    <div class="fw-medium">@Model.Employee?.emp_DOB?.ToString("dd-MMM-yyyy")</div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label text-muted mb-0">Blood Group</label>
+                    <div class="fw-medium">@(Model.Employee?.emp_blood_Group ?? "Not specified")</div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label text-muted mb-0">Grade</label>
+                    <div class="fw-medium">@Model.Employee?.emp_Grade</div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label text-muted mb-0">Department</label>
+                    <div class="fw-medium">@Model.Employee?.org_department?.dept_name</div>
+                </div>
+                <div class="col-6">
+                    <label class="form-label text-muted mb-0">Plant</label>
+                    <div class="fw-medium">@Model.Employee?.org_plant?.plant_name</div>
+                </div>
+            </div>
+
+            <!-- Visit Type and Patient Status Information -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="p-2 rounded" style="background: rgba(13, 110, 253, 0.1);">
+                        <small class="text-primary d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Visit Type:</strong> @Model.VisitType
+                                @if (Model.VisitType == "First Aid or Emergency")
+                                {
+                                    <span class="badge bg-danger ms-2">Emergency</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success ms-2">Regular</span>
+                                }
+                            </span>
+                            <!-- Patient Status Display -->
+                            <span>
+                                <strong>Patient Status:</strong> @Model.PatientStatus
+                                @switch (Model.PatientStatus)
+                                {
+                                    case "On Duty":
+                                        <span class="badge bg-success ms-1">On Duty</span>
+                                        break;
+                                    case "Off Duty":
+                                        <span class="badge bg-warning text-dark ms-1">Off Duty</span>
+                                        break;
+                                    case "From BPL School":
+                                        <span class="badge bg-info ms-1">BPL School</span>
+                                        break;
+                                    case "Guest House":
+                                        <span class="badge bg-secondary ms-1">Guest House</span>
+                                        break;
+                                    default:
+                                        <span class="badge bg-light text-dark ms-1">@Model.PatientStatus</span>
+                                        break;
+                                }
+                            </span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Patient Information Section (NEW) -->
+    @if (!string.IsNullOrEmpty(Model.DependentName) && Model.DependentName != "Self")
+    {
+        <div class="col-lg-6">
+            <div class="glass p-3 h-100">
+                <h6 class="mb-3">
+                    <i class="bi bi-people"></i> Patient Information (Dependent)
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Patient Name</label>
+                        <div class="fw-medium text-primary">@Model.DependentName</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Relation</label>
+                        <div class="fw-medium">@(Model.DependentRelation ?? "N/A")</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Age</label>
+                        <div class="fw-medium">@(Model.DependentAge?.ToString() ?? "N/A") years</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Gender</label>
+                        <div class="fw-medium">@(Model.DependentGender ?? "N/A")</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Date of Birth</label>
+                        <div class="fw-medium">@(Model.DependentDOB?.ToString("dd-MMM-yyyy") ?? "N/A")</div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label text-muted mb-0">Status</label>
+                        <div class="fw-medium">
+                            @if (Model.DependentIsActive == true)
+                            {
+                                <span class="badge bg-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Inactive</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3 p-2 rounded" style="background: rgba(25, 135, 84, 0.1);">
+                    <p class="text-success small mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        This prescription is for the employee's dependent: <strong>@Model.DependentName</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="col-lg-6">
+            <div class="glass p-3 h-100">
+                <h6 class="mb-3">
+                    <i class="bi bi-heart-pulse"></i> Patient Information (Self)
+                </h6>
+                <div class="row g-2 small">
+                    <div class="col-12">
+                        <label class="form-label text-muted mb-0">Patient Name</label>
+                        <div class="fw-medium text-primary">@Model.Employee?.emp_name (Self)</div>
+                    </div>
+                </div>
+
+                <div class="mt-3 p-2 rounded" style="background: rgba(25, 135, 84, 0.1);">
+                    <p class="text-success small mb-0">
+                        <i class="bi bi-check-circle me-1"></i>
+                        This prescription is for the employee themselves.
+                    </p>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Health Profile Section (Always show for employee) -->
+    <div class="col-lg-12">
+        <div class="glass p-3">
+            <h6 class="mb-3">
+                <i class="bi bi-heart-pulse"></i> Employee Health Profile
+            </h6>
+            <div class="row g-2 small">
+                @if (Model.MedConditions?.Any() == true)
+                {
+                    @foreach (var condition in Model.MedConditions)
+                    {
+                        var isChecked = Model.SelectedConditionIds?.Contains(condition.cond_uid) == true;
+                        <div class="col-6 col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       id="healthCondition_@condition.cond_uid"
+                                       @(isChecked ? "checked" : "")
+                                       disabled />
+                                <label class="form-check-label small @(isChecked ? "fw-medium text-primary" : "")"
+                                       for="healthCondition_@condition.cond_uid">
+                                    @condition.cond_code
+                                </label>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="col-12">
+                        <p class="text-muted small mb-0">No health conditions recorded for the employee.</p>
+                    </div>
+                }
+            </div>
+
+            @if (Model.SelectedConditionIds?.Any() != true)
+            {
+                <div class="mt-3 p-2 rounded" style="background: rgba(25, 135, 84, 0.1);">
+                    <p class="text-success small mb-0">
+                        <i class="bi bi-check-circle me-1"></i>
+                        No specific health conditions are currently flagged for this employee.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="mt-3 p-2 rounded" style="background: rgba(255, 193, 7, 0.1);">
+                    <p class="text-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        @Model.SelectedConditionIds.Count health condition(s) flagged for the employee. Please review before prescribing.
+                    </p>
+                </div>
+            }
+        </div>
+    </div>
+</div>

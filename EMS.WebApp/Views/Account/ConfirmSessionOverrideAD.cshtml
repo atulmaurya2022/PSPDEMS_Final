@@ -1,0 +1,13 @@
+﻿@{
+    ViewData["Title"] = "Confirm AD Login";
+    var adid = ViewBag.adid;
+}
+
+<h2>Active AD Session Detected</h2>
+<p>Your account is already logged in elsewhere. Do you want to continue and terminate the existing session?</p>
+
+<form asp-action="ConfirmSessionOverrideAD" method="post">
+    <input type="hidden" name="adid" value="@adid" />
+    <button type="submit" class="btn btn-primary">Yes, Continue</button>
+    <a href='@Url.Action("Login", "Account")' class="btn btn-secondary">Cancel</a>
+</form>

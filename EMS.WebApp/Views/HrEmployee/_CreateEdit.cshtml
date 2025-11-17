@@ -1,0 +1,654 @@
+﻿@model EMS.WebApp.Data.HrEmployee
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Warning</strong>
+                @ViewBag.Error
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form asp-action="@(Model.emp_uid == 0 ? "Create" : "Edit")" method="post" id="hrEmployeeForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="emp_uid" type="hidden" />
+    <input asp-for="CreatedBy" type="hidden" />
+    <input asp-for="CreatedOn" type="hidden" />
+    <input type="hidden" id="checkUrlHidden" value="@Url.Action("CheckEmployeeIdExists", "HrEmployee")" />
+
+    <!-- Display general validation message -->
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-x-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Validation Error</strong>
+                Please correct the errors below and try again.
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- First Row: Employee ID, Name, DOB -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label asp-for="emp_id" class="form-label form-label-master">
+                Employee ID <span class="text-danger">*</span>
+            </label>
+            <input asp-for="emp_id" class="form-control form-control-master" id="empIdInput" maxlength="20" placeholder="Enter employee ID" />
+            <div class="char-counter-container">
+                <span asp-validation-for="emp_id" class="field-validation-error" id="empIdValidation"></span>
+                <small class="char-counter" id="empIdCharCount">0/20</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="emp_name" class="form-label form-label-master">
+                Employee Name <span class="text-danger">*</span>
+            </label>
+            <input asp-for="emp_name" class="form-control form-control-master" id="empNameInput" maxlength="100" placeholder="Enter employee name" />
+            <div class="char-counter-container">
+                <span asp-validation-for="emp_name" class="field-validation-error" id="empNameValidation"></span>
+                <small class="char-counter" id="empNameCharCount">0/100</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="emp_DOB" class="form-label form-label-master">
+                Date of Birth
+            </label>
+            <input asp-for="emp_DOB" type="date" class="form-control form-control-master" id="empDOBInput" />
+            <div class="char-counter-container">
+                <span asp-validation-for="emp_DOB" class="field-validation-error" id="empDOBValidation"></span>
+                <small>&nbsp;</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Row: Gender, Grade, Department -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label asp-for="emp_Gender" class="form-label form-label-master">
+                Gender <span class="text-danger">*</span>
+            </label>
+            <select asp-for="emp_Gender" class="form-select form-control-master" id="empGenderInput">
+                <option value="">-- Select Gender --</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+                <option value="O">Other</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="emp_Gender" class="field-validation-error" id="empGenderValidation"></span>
+                <small>&nbsp;</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="emp_Grade" class="form-label form-label-master">
+                Grade <span class="text-danger">*</span>
+            </label>
+            <input asp-for="emp_Grade" class="form-control form-control-master" id="empGradeInput" maxlength="10" placeholder="Enter employee grade" />
+            <div class="char-counter-container">
+                <span asp-validation-for="emp_Grade" class="field-validation-error" id="empGradeValidation"></span>
+                <small class="char-counter" id="empGradeCharCount">0/10</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="dept_id" class="form-label form-label-master">
+                Department <span class="text-danger">*</span>
+            </label>
+            <select asp-for="dept_id" class="form-select form-control-master" asp-items="ViewBag.OrgDepartmentList" id="deptIdInput">
+                <option value="">-- Select Department --</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="dept_id" class="field-validation-error" id="deptIdValidation"></span>
+                <small>&nbsp;</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Third Row: Plant, Employee Category, Blood Group -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label asp-for="plant_id" class="form-label form-label-master">
+                Plant <span class="text-danger">*</span>
+            </label>
+            <select asp-for="plant_id" class="form-select form-control-master" asp-items="ViewBag.OrgPlantList" id="plantIdInput">
+                <option value="">-- Select Plant --</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="plant_id" class="field-validation-error" id="plantIdValidation"></span>
+                <small>&nbsp;</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="emp_category_id" class="form-label form-label-master">
+                Employee Category <span class="text-danger">*</span>
+            </label>
+            <select asp-for="emp_category_id" class="form-select form-control-master" asp-items="ViewBag.OrgEmployeeCategoryList" id="empCategoryIdInput">
+                <option value="">-- Select Employee Category --</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="emp_category_id" class="field-validation-error" id="empCategoryIdValidation"></span>
+                <small>&nbsp;</small>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="emp_blood_Group" class="form-label form-label-master">
+                Blood Group
+            </label>
+            <select asp-for="emp_blood_Group" class="form-select form-control-master" id="empBloodGroupInput">
+                <option value="">-- Select Blood Group --</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="emp_blood_Group" class="field-validation-error" id="empBloodGroupValidation"></span>
+                <small>&nbsp;</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fourth Row: Marital Status -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <label asp-for="marital_status" class="form-label form-label-master">
+                Marital Status
+            </label>
+            <select asp-for="marital_status" class="form-select form-control-master" id="maritalStatusInput">
+                <option value="">-- Select --</option>
+                <option value="true">Married</option>
+                <option value="false">Single</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="marital_status" class="field-validation-error" id="maritalStatusValidation"></span>
+                <small>&nbsp;</small>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <!-- Empty space for layout consistency -->
+        </div>
+    </div>
+
+    @if (Model.emp_uid > 0 && (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue))
+    {
+        <div class="audit-section">
+            <h6>
+                Audit Information
+            </h6>
+
+            @if (Model.CreatedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Created By</label>
+                        <input class="form-control" value="@(Model.CreatedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Created On</label>
+                        <input class="form-control" value="@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ModifiedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Modified By</label>
+                        <input class="form-control" value="@(Model.ModifiedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Modified On</label>
+                        <input class="form-control" value="@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="modal-footer modal-footer-master">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            @(Model.emp_uid == 0 ? "Save Employee" : "Update Employee")
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+   @*  <script type="text/javascript">
+        $(document).ready(function() {
+            // Form elements
+            const form = $('#hrEmployeeForm');
+            const submitBtn = $('#submitBtn');
+            const empIdInput = $('#empIdInput');
+            const empNameInput = $('#empNameInput');
+            const empDOBInput = $('#empDOBInput');
+            const empGenderInput = $('#empGenderInput');
+            const empGradeInput = $('#empGradeInput');
+            const deptIdInput = $('#deptIdInput');
+            const plantIdInput = $('#plantIdInput');
+            const empCategoryIdInput = $('#empCategoryIdInput');
+            const empBloodGroupInput = $('#empBloodGroupInput');
+            const maritalStatusInput = $('#maritalStatusInput');
+            const empUid = $('#emp_uid').val();
+
+            // Character count elements
+            const empIdCharCount = $('#empIdCharCount');
+            const empNameCharCount = $('#empNameCharCount');
+            const empGradeCharCount = $('#empGradeCharCount');
+
+            // Validation flags
+            let isCheckingEmpId = false;
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Security patterns to check for
+            const dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            // Function to check for dangerous input
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Enhanced character count functions
+            function updateCharCount(input, countElement, maxLength) {
+                const currentLength = input.val().length;
+                countElement.text(`${currentLength}/${maxLength}`);
+
+                // Remove previous classes
+                countElement.removeClass('warning danger');
+
+                // Calculate thresholds
+                const warningThreshold = Math.floor(maxLength * 0.8);
+
+                if (currentLength >= maxLength) {
+                    countElement.addClass('danger');
+                } else if (currentLength >= warningThreshold) {
+                    countElement.addClass('warning');
+                }
+            }
+
+            // Enhanced validation functions
+            function validateEmployeeId() {
+                const empId = empIdInput.val().trim();
+                const validationSpan = $('#empIdValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empIdInput.removeClass('is-invalid is-valid');
+
+                if (!empId) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID is required.');
+                    isValid = false;
+                } else if (empId.length < 2) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID must be at least 2 characters.');
+                    isValid = false;
+                } else if (empId.length > 20) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID cannot exceed 20 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(empId)) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\-_]+$/.test(empId)) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID can only contain letters, numbers, hyphens, and underscores.');
+                    isValid = false;
+                } else {
+                    empIdInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateEmployeeName() {
+                const empName = empNameInput.val().trim();
+                const validationSpan = $('#empNameValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empNameInput.removeClass('is-invalid is-valid');
+
+                if (!empName) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name is required.');
+                    isValid = false;
+                } else if (empName.length < 2) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name must be at least 2 characters.');
+                    isValid = false;
+                } else if (empName.length > 100) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name cannot exceed 100 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(empName)) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z\s\-\.]+$/.test(empName)) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name can only contain letters, spaces, hyphens, and dots.');
+                    isValid = false;
+                } else {
+                    empNameInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateEmployeeGrade() {
+                const empGrade = empGradeInput.val().trim();
+                const validationSpan = $('#empGradeValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empGradeInput.removeClass('is-invalid is-valid');
+
+                if (!empGrade) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade is required.');
+                    isValid = false;
+                } else if (empGrade.length < 1) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade must be at least 1 character.');
+                    isValid = false;
+                } else if (empGrade.length > 10) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade cannot exceed 10 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(empGrade)) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\-_]+$/.test(empGrade)) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade can only contain letters, numbers, hyphens, and underscores.');
+                    isValid = false;
+                } else {
+                    empGradeInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateDateOfBirth() {
+                const empDOB = empDOBInput.val();
+                const validationSpan = $('#empDOBValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empDOBInput.removeClass('is-invalid is-valid');
+
+                if (empDOB) {
+                    const dobDate = new Date(empDOB);
+                    const today = new Date();
+                    const age = today.getFullYear() - dobDate.getFullYear();
+                    const monthDiff = today.getMonth() - dobDate.getMonth();
+                    const dayDiff = today.getDate() - dobDate.getDate();
+
+                    // Adjust age if birthday hasn't occurred this year
+                    const actualAge = (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) ? age - 1 : age;
+
+                    if (dobDate > today) {
+                        showFieldError(validationSpan, empDOBInput, 'Date of Birth cannot be in the future.');
+                        isValid = false;
+                    } else if (actualAge < 16) {
+                        showFieldError(validationSpan, empDOBInput, 'Employee must be at least 16 years old.');
+                        isValid = false;
+                    } else if (actualAge > 80) {
+                        showFieldError(validationSpan, empDOBInput, 'Employee age cannot exceed 80 years.');
+                        isValid = false;
+                    } else {
+                        empDOBInput.addClass('is-valid');
+                    }
+                }
+
+                return isValid;
+            }
+
+            function validateRequiredFields() {
+                let isValid = true;
+
+                // Gender validation
+                const empGender = empGenderInput.val();
+                const genderValidationSpan = $('#empGenderValidation');
+                genderValidationSpan.text('').removeClass('field-validation-error').hide();
+                empGenderInput.removeClass('is-invalid is-valid');
+
+                if (!empGender) {
+                    showFieldError(genderValidationSpan, empGenderInput, 'Gender is required.');
+                    isValid = false;
+                } else {
+                    empGenderInput.addClass('is-valid');
+                }
+
+                // Department validation
+                const deptId = deptIdInput.val();
+                const deptValidationSpan = $('#deptIdValidation');
+                deptValidationSpan.text('').removeClass('field-validation-error').hide();
+                deptIdInput.removeClass('is-invalid is-valid');
+
+                if (!deptId) {
+                    showFieldError(deptValidationSpan, deptIdInput, 'Department is required.');
+                    isValid = false;
+                } else {
+                    deptIdInput.addClass('is-valid');
+                }
+
+                // Plant validation
+                const plantId = plantIdInput.val();
+                const plantValidationSpan = $('#plantIdValidation');
+                plantValidationSpan.text('').removeClass('field-validation-error').hide();
+                plantIdInput.removeClass('is-invalid is-valid');
+
+                if (!plantId) {
+                    showFieldError(plantValidationSpan, plantIdInput, 'Plant is required.');
+                    isValid = false;
+                } else {
+                    plantIdInput.addClass('is-valid');
+                }
+
+                // Employee Category validation
+                const empCategoryId = empCategoryIdInput.val();
+                const empCategoryValidationSpan = $('#empCategoryIdValidation');
+                empCategoryValidationSpan.text('').removeClass('field-validation-error').hide();
+                empCategoryIdInput.removeClass('is-invalid is-valid');
+
+                if (!empCategoryId) {
+                    showFieldError(empCategoryValidationSpan, empCategoryIdInput, 'Employee Category is required.');
+                    isValid = false;
+                } else {
+                    empCategoryIdInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            // Real-time validation for employee ID uniqueness
+            function checkEmployeeIdUniqueness() {
+                const empId = empIdInput.val().trim();
+                const validationSpan = $('#empIdValidation');
+
+                if (!empId || !validateEmployeeId()) {
+                    updateSubmitButton();
+                    return;
+                }
+
+                if (isCheckingEmpId) return;
+
+                isCheckingEmpId = true;
+                submitBtn.prop('disabled', true);
+
+                const checkUrl = $('#checkUrlHidden').val();
+                $.post(checkUrl, {
+                    empId: empId,
+                    empUid: empUid || null
+                })
+                .done(function(response) {
+                    if (response.exists) {
+                        showFieldError(validationSpan, empIdInput, 'An employee with this ID already exists. Please choose a different ID.');
+                        submitBtn.prop('disabled', true);
+                    } else {
+                        if (validateEmployeeId()) {
+                            validationSpan.text('').removeClass('field-validation-error').hide();
+                            empIdInput.removeClass('is-invalid').addClass('is-valid');
+                        }
+                        updateSubmitButton();
+                    }
+                })
+                .fail(function() {
+                    console.log('Error checking employee ID uniqueness');
+                    updateSubmitButton();
+                })
+                .always(function() {
+                    isCheckingEmpId = false;
+                });
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0 ||
+                                isCheckingEmpId;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Event handlers with enhanced character counting
+            empIdInput.on('input paste keyup cut', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), empIdCharCount, 20);
+                    validateEmployeeId();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            empNameInput.on('input paste keyup cut', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), empNameCharCount, 100);
+                    validateEmployeeName();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            empGradeInput.on('input paste keyup cut', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), empGradeCharCount, 10);
+                    validateEmployeeGrade();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            empDOBInput.on('change blur', function() {
+                setTimeout(() => {
+                    validateDateOfBirth();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            empGenderInput.on('change', function() {
+                validateRequiredFields();
+                updateSubmitButton();
+            });
+
+            deptIdInput.on('change', function() {
+                validateRequiredFields();
+                updateSubmitButton();
+            });
+
+            plantIdInput.on('change', function() {
+                validateRequiredFields();
+                updateSubmitButton();
+            });
+
+            empCategoryIdInput.on('change', function() {
+                validateRequiredFields();
+                updateSubmitButton();
+            });
+
+            // Debounced employee ID uniqueness check
+            let empIdCheckTimeout;
+            empIdInput.on('input keyup', function() {
+                clearTimeout(empIdCheckTimeout);
+                empIdCheckTimeout = setTimeout(checkEmployeeIdUniqueness, 500);
+            });
+
+            // Initialize on page load
+            updateCharCount(empIdInput, empIdCharCount, 20);
+            updateCharCount(empNameInput, empNameCharCount, 100);
+            updateCharCount(empGradeInput, empGradeCharCount, 10);
+            validateEmployeeId();
+            validateEmployeeName();
+            validateEmployeeGrade();
+            validateDateOfBirth();
+            validateRequiredFields();
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateEmployeeId() || !validateEmployeeName() || !validateEmployeeGrade() ||
+                    !validateDateOfBirth() || !validateRequiredFields() || isCheckingEmpId) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Double-check for dangerous input before submission
+                const empId = empIdInput.val().trim();
+                const empName = empNameInput.val().trim();
+                const empGrade = empGradeInput.val().trim();
+
+                if (containsDangerousInput(empId) || containsDangerousInput(empName) || containsDangerousInput(empGrade)) {
+                    e.preventDefault();
+                    alert('Invalid input detected. Please remove any script tags or unsafe characters.');
+                    return false;
+                }
+            });
+
+            // Prevent pasting of dangerous content
+            function handleDangerousPaste(input, inputName) {
+                input.on('paste', function(e) {
+                    setTimeout(function() {
+                        const pastedContent = input.val();
+                        if (containsDangerousInput(pastedContent)) {
+                            input.val('');
+                            alert('Pasted content in ' + inputName + ' contains unsafe characters and has been removed.');
+                        }
+                    }, 10);
+                });
+            }
+
+            handleDangerousPaste(empIdInput, 'Employee ID');
+            handleDangerousPaste(empNameInput, 'Employee Name');
+            handleDangerousPaste(empGradeInput, 'Grade');
+        });
+    </script> *@
+}

@@ -1,0 +1,902 @@
+﻿@{
+    ViewData["Title"] = "Employee Master";
+}
+
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+
+<div class="master-container">
+    <!-- Alert Container -->
+    <div id="alertContainer"></div>
+
+    <!-- Enhanced Master Header with Search and Add Button -->
+    <div class="master-header">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="flex-grow-1">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-master">
+                        <li class="breadcrumb-item">Home</li>
+                        <li class="breadcrumb-item active" aria-current="page">Employee Master</li>
+                    </ol>
+                </nav>
+                <h1 class="master-title">
+                    <i class="bi bi-people"></i>
+                    Employee Master
+                </h1>
+                <p class="master-subtitle">Manage employee information and organizational assignments</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative">
+                    <input type="text" class="form-control" placeholder="Search employees..." id="searchBox" style="min-width: 250px; padding-left: 40px !important;" />
+                    <i class="bi bi-search position-absolute" style="left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280;"></i>
+                </div>
+                <button id="btnCreate" class="btn btn-add-master">
+                    <i class="bi bi-plus-lg"></i>
+                    Add Employee
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced DataTable Container -->
+    <div class="master-form">
+        <div class="card-body p-0">
+            <table id="tblEmployee" class="table table-striped table-glass glass-table mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Employee ID</th>
+                        <th>Name</th>
+                        <th>DOB</th>
+                        <th>Gender</th>
+                        <th>Grade</th>
+                        <th>Department</th>
+                        <th>Plant</th>
+                        <th>Category</th>
+                        <th>Created By</th>
+                        <th>Created On</th>
+                        <th style="width:200px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Employee Master Modal -->
+<div class="modal fade" id="modalEmployee" tabindex="-1" aria-labelledby="modalEmployeeLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="modalEmployeeLabel">
+                    <i class="bi bi-people"></i>
+                    Employee Master
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master" id="modalBody">
+                <div class="loading-overlay">
+                    <div class="loading-spinner-master"></div>
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audit Details Modal -->
+<div class="modal fade" id="modalAuditDetails" tabindex="-1" aria-labelledby="modalAuditLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="modalAuditLabel">
+                    <i class="bi bi-clock-history"></i>
+                    Audit Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master" id="modalAuditBody">
+                <div class="loading-overlay">
+                    <div class="loading-spinner-master"></div>
+                    Loading audit information...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Enhanced Alert System
+            function showAlert(type, message, title = null) {
+                const alertContainer = document.getElementById('alertContainer');
+                const alertId = 'alert-' + Date.now();
+
+                const iconMap = {
+                    success: 'bi-check-circle',
+                    warning: 'bi-exclamation-triangle',
+                    danger: 'bi-x-circle',
+                    info: 'bi-info-circle'
+                };
+
+                const icon = iconMap[type] || 'bi-info-circle';
+                const alertTitle = title || type.charAt(0).toUpperCase() + type.slice(1);
+
+                const alertHtml = `
+                    <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert"
+                         style="border: none; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; font-weight: 500; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);">
+                        <div class="d-flex align-items-start">
+                            <i class="bi ${icon} me-3 flex-shrink-0" style="font-size: 18px;"></i>
+                            <div class="flex-grow-1">
+                                <strong class="d-block mb-1">${alertTitle}</strong>
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+
+                alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    const alertElement = document.getElementById(alertId);
+                    if (alertElement) {
+                        const alert = bootstrap.Alert.getOrCreateInstance(alertElement);
+                        alert.close();
+                    }
+                }, 5000);
+            }
+
+            // Modal setup
+            const modalEl = $('#modalEmployee');
+            const auditModalEl = $('#modalAuditDetails');
+
+            modalEl.appendTo('body');
+            auditModalEl.appendTo('body');
+
+            modalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+            auditModalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+
+            // Function to truncate text with tooltip
+            function truncateText(data, maxLength = 30) {
+                if (!data) return 'N/A';
+                if (data.length > maxLength) {
+                    return `<span title="${data}" data-bs-toggle="tooltip">${data.substring(0, maxLength)}...</span>`;
+                }
+                return data;
+            }
+
+            // Function to format date
+            function formatDate(dateString) {
+                if (!dateString) return 'N/A';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                } catch (e) {
+                    return 'N/A';
+                }
+            }
+
+            // Enhanced DataTable
+            const tbl = $('#tblEmployee').DataTable({
+                ajax: {
+                    url: '@Url.Action("LoadData")',
+                    dataSrc: 'data',
+                    error: function(xhr, error, code) {
+                        console.error('DataTable error:', error);
+                        showAlert('danger', 'Failed to load employee data. Please refresh the page.', 'Loading Error');
+                    }
+                },
+                columns: [
+                    {
+                        data: 'emp_uid',
+                        className: 'text-center',
+                        width: '80px'
+                    },
+                    {
+                        data: 'emp_id',
+                        render: function(data) {
+                            return `<span class="badge bg-info">${data || 'N/A'}</span>`;
+                        }
+                    },
+                    {
+                        data: 'emp_name',
+                        render: function(data) {
+                            return `<strong>${truncateText(data, 25)}</strong>`;
+                        }
+                    },
+                    {
+                        data: 'emp_DOB',
+                        // render: function(data) {
+                        //     return formatDate(data);
+                        // }
+                    },
+                    {
+                        data: 'emp_Gender',
+                        render: function(data) {
+                            const genderMap = { 'M': 'Male', 'F': 'Female', 'O': 'Other' };
+                            const display = genderMap[data] || data || 'N/A';
+                            const colorClass = data === 'M' ? 'text-primary' : data === 'F' ? 'text-danger' : 'text-warning';
+                            return `<span class="${colorClass}">${display}</span>`;
+                        }
+                    },
+                    {
+                        data: 'emp_Grade',
+                        render: function(data) {
+                            return `<span class="badge bg-secondary">${data || 'N/A'}</span>`;
+                        }
+                    },
+                    {
+                        data: 'dept_name',
+                        render: function(data) {
+                            return truncateText(data, 20);
+                        }
+                    },
+                    {
+                        data: 'plant_name',
+                        render: function(data) {
+                            return truncateText(data, 20);
+                        }
+                    },
+                    {
+                        data: 'emp_category_name',
+                        render: function(data) {
+                            return truncateText(data, 15);
+                        }
+                    },
+                    {
+                        data: 'createdBy',
+                        title: 'Created By',
+                        render: function(data) {
+                            return truncateText(data || 'N/A', 15);
+                        }
+                    },
+                    {
+                        data: 'createdOn',
+                        title: 'Created On',
+                        // render: function(data) {
+                        //     return formatDate(data);
+                        // }
+                    },
+                    {
+                        data: null,
+                        className: 'text-center',
+                        orderable: false,
+                        render: function(data, type, row) {
+                            const id = row.emp_uid;
+                            const hasAuditData = row.createdOn || row.modifiedOn;
+
+                            let buttons = `
+                                <button class="btn btn-action-view view me-1" data-id="${id}" title="View Details">
+                                    <i class="bi bi-eye fs-6"></i>
+                                </button>
+                                <button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit">
+                                    <i class="bi bi-pencil fs-6"></i>
+                                </button>`;
+
+                            // if (hasAuditData) {
+                            //     buttons += `
+                            //         <button class="btn btn-action-audit audit me-1" data-id="${id}" title="Audit Details">
+                            //             <i class="bi bi-clock-history fs-6"></i>
+                            //         </button>`;
+                            // }
+
+                            buttons += `
+                                <button class="btn btn-action-delete delete" data-id="${id}" title="Delete">
+                                    <i class="bi bi-trash fs-6"></i>
+                                </button>`;
+
+                            return buttons;
+                        }
+                    }
+                ],
+                pageLength: 25,
+                responsive: true,
+                language: {
+                    emptyTable: '<div class="empty-state-master"><i class="bi bi-people"></i><h6>No Employees Found</h6><p>No employee records are available. Click "Add Employee" to create your first employee record.</p></div>',
+                    processing: '<div class="loading-spinner-master"></div> Processing...',
+                    loadingRecords: '<div class="loading-spinner-master"></div> Loading...',
+                    zeroRecords: '<div class="empty-state-master"><i class="bi bi-search"></i><h6>No Results Found</h6><p>No employees match your search criteria.</p></div>'
+                },
+                drawCallback: function() {
+                    // Initialize tooltips
+                    $('[data-bs-toggle="tooltip"]').tooltip();
+                }
+            });
+
+            // Enhanced search functionality
+            $('#searchBox').on('keyup', function() {
+                tbl.search(this.value).draw();
+            });
+
+
+
+                    // === Init function for Create/Edit partial ===
+        window.initOrgPlantForm = function () {
+             // Form elements
+            const form = $('#hrEmployeeForm');
+            const submitBtn = $('#submitBtn');
+            const empIdInput = $('#empIdInput');
+            const empNameInput = $('#empNameInput');
+            const empDOBInput = $('#empDOBInput');
+            const empGenderInput = $('#empGenderInput');
+            const empGradeInput = $('#empGradeInput');
+            const deptIdInput = $('#deptIdInput');
+            const plantIdInput = $('#plantIdInput');
+            const empCategoryIdInput = $('#empCategoryIdInput');
+            const empBloodGroupInput = $('#empBloodGroupInput');
+            const maritalStatusInput = $('#maritalStatusInput');
+            const empUid = $('#emp_uid').val();
+
+            // Character count elements
+            const empIdCharCount = $('#empIdCharCount');
+            const empNameCharCount = $('#empNameCharCount');
+            const empGradeCharCount = $('#empGradeCharCount');
+
+            // Validation flags
+            let isCheckingEmpId = false;
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Security patterns to check for
+            const dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            // Function to check for dangerous input
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Enhanced character count functions
+            function updateCharCount(input, countElement, maxLength) {
+                const currentLength = input.val().length;
+                countElement.text(`${currentLength}/${maxLength}`);
+
+                // Remove previous classes
+                countElement.removeClass('warning danger');
+
+                // Calculate thresholds
+                const warningThreshold = Math.floor(maxLength * 0.8);
+
+                if (currentLength >= maxLength) {
+                    countElement.addClass('danger');
+                } else if (currentLength >= warningThreshold) {
+                    countElement.addClass('warning');
+                }
+            }
+
+            // Enhanced validation functions
+            function validateEmployeeId() {
+                const empId = empIdInput.val().trim();
+                const validationSpan = $('#empIdValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empIdInput.removeClass('is-invalid is-valid');
+
+                if (!empId) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID is required.');
+                    isValid = false;
+                } else if (empId.length < 2) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID must be at least 2 characters.');
+                    isValid = false;
+                } else if (empId.length > 20) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID cannot exceed 20 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(empId)) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\-_]+$/.test(empId)) {
+                    showFieldError(validationSpan, empIdInput, 'Employee ID can only contain letters, numbers, hyphens, and underscores.');
+                    isValid = false;
+                } else {
+                    empIdInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateEmployeeName() {
+                const empName = empNameInput.val().trim();
+                const validationSpan = $('#empNameValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empNameInput.removeClass('is-invalid is-valid');
+
+                if (!empName) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name is required.');
+                    isValid = false;
+                } else if (empName.length < 2) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name must be at least 2 characters.');
+                    isValid = false;
+                } else if (empName.length > 100) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name cannot exceed 100 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(empName)) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z\s\-\.]+$/.test(empName)) {
+                    showFieldError(validationSpan, empNameInput, 'Employee Name can only contain letters, spaces, hyphens, and dots.');
+                    isValid = false;
+                } else {
+                    empNameInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateEmployeeGrade() {
+                const empGrade = empGradeInput.val().trim();
+                const validationSpan = $('#empGradeValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empGradeInput.removeClass('is-invalid is-valid');
+
+                if (!empGrade) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade is required.');
+                    isValid = false;
+                } else if (empGrade.length < 1) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade must be at least 1 character.');
+                    isValid = false;
+                } else if (empGrade.length > 10) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade cannot exceed 10 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(empGrade)) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\-_]+$/.test(empGrade)) {
+                    showFieldError(validationSpan, empGradeInput, 'Grade can only contain letters, numbers, hyphens, and underscores.');
+                    isValid = false;
+                } else {
+                    empGradeInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateDateOfBirth() {
+                const empDOB = empDOBInput.val();
+                const validationSpan = $('#empDOBValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empDOBInput.removeClass('is-invalid is-valid');
+
+                if (empDOB) {
+                    const dobDate = new Date(empDOB);
+                    const today = new Date();
+                    const age = today.getFullYear() - dobDate.getFullYear();
+                    const monthDiff = today.getMonth() - dobDate.getMonth();
+                    const dayDiff = today.getDate() - dobDate.getDate();
+
+                    // Adjust age if birthday hasn't occurred this year
+                    const actualAge = (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) ? age - 1 : age;
+
+                    if (dobDate > today) {
+                        showFieldError(validationSpan, empDOBInput, 'Date of Birth cannot be in the future.');
+                        isValid = false;
+                    } else if (actualAge < 16) {
+                        showFieldError(validationSpan, empDOBInput, 'Employee must be at least 16 years old.');
+                        isValid = false;
+                    } else if (actualAge > 80) {
+                        showFieldError(validationSpan, empDOBInput, 'Employee age cannot exceed 80 years.');
+                        isValid = false;
+                    } else {
+                        empDOBInput.addClass('is-valid');
+                    }
+                }
+
+                return isValid;
+            }
+
+            function validateRequiredFields() {
+                let isValid = true;
+
+                // Gender validation
+                const empGender = empGenderInput.val();
+                const genderValidationSpan = $('#empGenderValidation');
+                genderValidationSpan.text('').removeClass('field-validation-error').hide();
+                empGenderInput.removeClass('is-invalid is-valid');
+
+                if (!empGender) {
+                    showFieldError(genderValidationSpan, empGenderInput, 'Gender is required.');
+                    isValid = false;
+                } else {
+                    empGenderInput.addClass('is-valid');
+                }
+
+                // Department validation
+                const deptId = deptIdInput.val();
+                const deptValidationSpan = $('#deptIdValidation');
+                deptValidationSpan.text('').removeClass('field-validation-error').hide();
+                deptIdInput.removeClass('is-invalid is-valid');
+
+                if (!deptId) {
+                    showFieldError(deptValidationSpan, deptIdInput, 'Department is required.');
+                    isValid = false;
+                } else {
+                    deptIdInput.addClass('is-valid');
+                }
+
+                // Plant validation
+                const plantId = plantIdInput.val();
+                const plantValidationSpan = $('#plantIdValidation');
+                plantValidationSpan.text('').removeClass('field-validation-error').hide();
+                plantIdInput.removeClass('is-invalid is-valid');
+
+                if (!plantId) {
+                    showFieldError(plantValidationSpan, plantIdInput, 'Plant is required.');
+                    isValid = false;
+                } else {
+                    plantIdInput.addClass('is-valid');
+                }
+
+                // Employee Category validation
+                const empCategoryId = empCategoryIdInput.val();
+                const empCategoryValidationSpan = $('#empCategoryIdValidation');
+                empCategoryValidationSpan.text('').removeClass('field-validation-error').hide();
+                empCategoryIdInput.removeClass('is-invalid is-valid');
+
+                if (!empCategoryId) {
+                    showFieldError(empCategoryValidationSpan, empCategoryIdInput, 'Employee Category is required.');
+                    isValid = false;
+                } else {
+                    empCategoryIdInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            // Real-time validation for employee ID uniqueness
+            function checkEmployeeIdUniqueness() {
+                const empId = empIdInput.val().trim();
+                const validationSpan = $('#empIdValidation');
+
+                if (!empId || !validateEmployeeId()) {
+                    updateSubmitButton();
+                    return;
+                }
+
+                if (isCheckingEmpId) return;
+
+                isCheckingEmpId = true;
+                submitBtn.prop('disabled', true);
+
+                const checkUrl = $('#checkUrlHidden').val();
+                $.post(checkUrl, {
+                    empId: empId,
+                    empUid: empUid || null
+                })
+                .done(function(response) {
+                    if (response.exists) {
+                        showFieldError(validationSpan, empIdInput, 'An employee with this ID already exists. Please choose a different ID.');
+                        submitBtn.prop('disabled', true);
+                    } else {
+                        if (validateEmployeeId()) {
+                            validationSpan.text('').removeClass('field-validation-error').hide();
+                            empIdInput.removeClass('is-invalid').addClass('is-valid');
+                        }
+                        updateSubmitButton();
+                    }
+                })
+                .fail(function() {
+                    console.log('Error checking employee ID uniqueness');
+                    updateSubmitButton();
+                })
+                .always(function() {
+                    isCheckingEmpId = false;
+                });
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0 ||
+                                isCheckingEmpId;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Event handlers with enhanced character counting
+            empIdInput.on('input paste keyup cut', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), empIdCharCount, 20);
+                    validateEmployeeId();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            empNameInput.on('input paste keyup cut', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), empNameCharCount, 100);
+                    validateEmployeeName();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            empGradeInput.on('input paste keyup cut', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), empGradeCharCount, 10);
+                    validateEmployeeGrade();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            empDOBInput.on('change blur', function() {
+                setTimeout(() => {
+                    validateDateOfBirth();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            empGenderInput.on('change', function() {
+                validateRequiredFields();
+                updateSubmitButton();
+            });
+
+            deptIdInput.on('change', function() {
+                validateRequiredFields();
+                updateSubmitButton();
+            });
+
+            plantIdInput.on('change', function() {
+                validateRequiredFields();
+                updateSubmitButton();
+            });
+
+            empCategoryIdInput.on('change', function() {
+                validateRequiredFields();
+                updateSubmitButton();
+            });
+
+            // Debounced employee ID uniqueness check
+            let empIdCheckTimeout;
+            empIdInput.on('input keyup', function() {
+                clearTimeout(empIdCheckTimeout);
+                empIdCheckTimeout = setTimeout(checkEmployeeIdUniqueness, 500);
+            });
+
+            // Initialize on page load
+            updateCharCount(empIdInput, empIdCharCount, 20);
+            updateCharCount(empNameInput, empNameCharCount, 100);
+            updateCharCount(empGradeInput, empGradeCharCount, 10);
+            validateEmployeeId();
+            validateEmployeeName();
+            validateEmployeeGrade();
+            validateDateOfBirth();
+            validateRequiredFields();
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateEmployeeId() || !validateEmployeeName() || !validateEmployeeGrade() ||
+                    !validateDateOfBirth() || !validateRequiredFields() || isCheckingEmpId) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Double-check for dangerous input before submission
+                const empId = empIdInput.val().trim();
+                const empName = empNameInput.val().trim();
+                const empGrade = empGradeInput.val().trim();
+
+                if (containsDangerousInput(empId) || containsDangerousInput(empName) || containsDangerousInput(empGrade)) {
+                    e.preventDefault();
+                    alert('Invalid input detected. Please remove any script tags or unsafe characters.');
+                    return false;
+                }
+            });
+
+            // Prevent pasting of dangerous content
+            function handleDangerousPaste(input, inputName) {
+                input.on('paste', function(e) {
+                    setTimeout(function() {
+                        const pastedContent = input.val();
+                        if (containsDangerousInput(pastedContent)) {
+                            input.val('');
+                            alert('Pasted content in ' + inputName + ' contains unsafe characters and has been removed.');
+                        }
+                    }, 10);
+                });
+            }
+
+            handleDangerousPaste(empIdInput, 'Employee ID');
+            handleDangerousPaste(empNameInput, 'Employee Name');
+            handleDangerousPaste(empGradeInput, 'Grade');
+        };
+
+
+
+
+
+
+            // Open Create Modal
+            $('#btnCreate').click(function() {
+                showModalLoading('Add Employee', '<i class="bi bi-plus-lg"></i>');
+
+                $.get('@Url.Action("Create")')
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        window.initOrgPlantForm();   // << init counters + validation here
+
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load create form. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // Open Edit Modal
+            $('#tblEmployee').on('click', '.edit', function () {
+                const id = $(this).data('id');
+                showModalLoading('Edit Employee', '<i class="bi bi-pencil"></i>');
+
+                $.get(`@Url.Action("Edit")/${id}`)
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        window.initOrgPlantForm();   // << init counters + validation here
+
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load edit form. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // View Modal
+            $('#tblEmployee').on('click', '.view', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                showModalLoading('View Employee', '<i class="bi bi-eye"></i>');
+
+                $.get(`@Url.Action("Details")/${id}`)
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load employee details. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // Audit Details Modal
+            $('#tblEmployee').on('click', '.audit', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                showAuditModalLoading();
+
+                $.get(`@Url.Action("AuditDetails")/${id}`)
+                    .done(function(html) {
+                        $('#modalAuditBody').html(html);
+                        auditModalEl.modal('show');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load audit details. Please try again.', 'Loading Error');
+                        auditModalEl.modal('hide');
+                    });
+            });
+
+            // Submit Form (Create/Edit)
+            modalEl.on('submit', 'form', function (e) {
+                e.preventDefault();
+                const form = $(this);
+                const submitBtn = form.find('[type="submit"]');
+                const originalText = submitBtn.html();
+
+                // Show loading state
+                submitBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div> Saving...');
+
+                $.post(form.attr('action'), form.serialize())
+                    .done(function(res) {
+                        if (res.success) {
+                            modalEl.modal('hide');
+                            tbl.ajax.reload(null, false);
+                            const isCreate = form.attr('action').includes('Create');
+                            showAlert('success',
+                                isCreate ? 'Employee record created successfully.' : 'Employee record updated successfully.',
+                                'Success'
+                            );
+                        } else {
+                            $('#modalBody').html(res);
+                        }
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to save employee. Please try again.', 'Save Error');
+                    })
+                    .always(function() {
+                        submitBtn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            // Enhanced Delete with confirmation
+            $('#tblEmployee').on('click', '.delete', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                const row = tbl.row($(this).closest('tr')).data();
+                const empName = row ? `${row.emp_name} (${row.emp_id})` : 'this employee';
+
+                if (!confirm(`Are you sure you want to delete "${empName}"?\n\nThis action cannot be undone.`)) {
+                    return;
+                }
+
+                const deleteBtn = $(this);
+                const originalText = deleteBtn.html();
+                deleteBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div>');
+
+                $.post('@Url.Action("Delete")', { id: id })
+                    .done(function() {
+                        tbl.ajax.reload(null, false);
+                        showAlert('warning', `Employee "${empName}" has been deleted.`, 'Deleted');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to delete employee. Please try again.', 'Delete Error');
+                    })
+                    .always(function() {
+                        deleteBtn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            // Helper functions
+            function showModalLoading(title, icon) {
+                modalEl.find('.modal-title').html(icon + ' ' + title);
+                $('#modalBody').html(`
+                    <div class="loading-overlay">
+                        <div class="loading-spinner-master"></div>
+                        Loading...
+                    </div>
+                `);
+                modalEl.modal('show');
+            }
+
+            function showAuditModalLoading() {
+                $('#modalAuditBody').html(`
+                    <div class="loading-overlay">
+                        <div class="loading-spinner-master"></div>
+                        Loading audit information...
+                    </div>
+                `);
+                auditModalEl.modal('show');
+            }
+
+            // Clear search on page load
+            $('#searchBox').val('');
+        });
+    </script>
+}

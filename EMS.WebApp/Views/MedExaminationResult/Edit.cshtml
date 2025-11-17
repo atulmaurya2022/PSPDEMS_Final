@@ -1,0 +1,148 @@
+@model EMS.WebApp.Data.MedExaminationResultViewModel
+
+@{
+    ViewData["Title"] = "Edit Medical Examination Result";
+}
+
+<div id="alertContainer"></div>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <h4>Edit Medical Examination Result</h4>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="@Url.Action("Index", "MedExaminationResult")">Medical Examination Results</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Edit</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<!-- Form Container -->
+<div id="medExamResultContainer">
+    @await Html.PartialAsync("_MedExamResultFormPartial", Model)
+</div>
+
+@section Scripts {
+    <script src="~/js/jquery-ui.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Save button click handler
+            $(document).on('click', '#saveBtn', function (e) {
+                e.preventDefault();
+
+                var form = $('#medExamResultForm');
+                if (form.length === 0) {
+                    showAlert('error', 'Form not found.');
+                    return;
+                }
+
+                var formData = form.serialize();
+                var actionUrl = '@Url.Action("Update", "MedExaminationResult")';
+
+                $('#saveBtn').prop('disabled', true).text('Saving...');
+
+                $.ajax({
+                    url: actionUrl,
+                    type: 'POST',
+                    data: formData,
+                    success: function (response) {
+                        $('#saveBtn').prop('disabled', false).text('Save');
+
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            // Redirect to index after successful save
+                            setTimeout(function() {
+                                window.location.href = '@Url.Action("Index", "MedExaminationResult")';
+                            }, 2000);
+                        } else {
+                            showAlert('error', response.message || 'Save failed. Please check the form data.');
+                        }
+                    },
+                    error: function (xhr) {
+                        $('#saveBtn').prop('disabled', false).text('Save');
+
+                        if (xhr.status === 400) {
+                            $('#medExamResultContainer').html(xhr.responseText);
+                            showAlert('error', 'Please correct the validation errors and try again.');
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied. You do not have permission to edit this medical examination result.');
+                        } else {
+                            showAlert('error', 'An error occurred while saving. Please try again.');
+                        }
+                    }
+                });
+            });
+
+            // Form submission handler
+            $(document).on('submit', '#medExamResultForm', function (e) {
+                e.preventDefault();
+                $('#saveBtn').click();
+            });
+
+            // Cancel button handler
+            $(document).on('click', '#cancelBtn', function () {
+                window.location.href = '@Url.Action("Index", "MedExaminationResult")';
+            });
+
+            // Reset form handler
+            $(document).on('click', '#btnResetForm', function () {
+                const form = $('#medExamResultForm');
+                if (form.length) {
+                    if (confirm('Are you sure you want to reset the form? All unsaved changes will be lost.')) {
+                        location.reload();
+                    }
+                }
+            });
+
+            // Alert function
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' :
+                                 type === 'info' ? 'alert-info' : 'alert-danger';
+                const alertId = 'alert-' + Date.now();
+                const icon = type === 'success' ? 'fas fa-check-circle' :
+                           type === 'info' ? 'fas fa-info-circle' : 'fas fa-exclamation-triangle';
+
+                const alertHtml = `
+                    <div id="${alertId}" class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        <i class="${icon}"></i> ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+
+                $('#alertContainer').html(alertHtml);
+
+                const dismissTime = type === 'error' ? 6000 : 4000;
+                setTimeout(() => {
+                    const alertEl = document.getElementById(alertId);
+                    if (alertEl && bootstrap.Alert.getOrCreateInstance) {
+                        bootstrap.Alert.getOrCreateInstance(alertEl).close();
+                    }
+                }, dismissTime);
+            }
+        });
+    </script>
+}
+
+<style>
+    .glass {
+        --glass-bg: rgba(255, 255, 255, 0.30) !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .alert {
+        border: none;
+        border-radius: 8px;
+    }
+</style>

@@ -1,0 +1,232 @@
+﻿@model EMS.WebApp.Data.MedExaminationResultViewModel
+
+@* <style>
+    .glass {
+        --glass-bg: rgba(255, 255, 255, 0.30) !important;
+    }
+</style> *@
+
+@*<form asp-action="SaveMedExamResult" asp-controller="MedExaminationResult" method="post" id="medExamResultForm" data-ajax="true"> *@
+<form asp-action="@(Model.IsNewEntry ? "SaveMedExamResult" : "Update")" asp-controller="MedExaminationResult" method="post" id="medExamResultForm" data-ajax="true">
+    @Html.AntiForgeryToken()
+    @if (!Model.IsNewEntry && Model.ResultId.HasValue)
+    {
+        <input type="hidden" asp-for="ResultId" />
+    }
+    <input type="hidden" asp-for="EmpNo" />
+    <input type="hidden" asp-for="IsNewEntry" />
+    <input type="hidden" asp-for="PlantId" />
+
+    <!-- Employee Details Section -->
+    @if (Model.EmployeeDetails != null)
+    {
+        <div class="border p-3 mb-3 rounded glass">
+            <h6>Employee Details</h6>
+
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Name:</label>
+                    <div class="form-control-plaintext">@(Model.EmployeeDetails.emp_name ?? "N/A")</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">JHI:</label>
+                    <div class="form-control-plaintext">NOT APPLICABLE</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">DMT:</label>
+                    <div class="form-control-plaintext">@(Model.EmployeeDetails.org_department?.dept_name ?? "N/A")</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Sex:</label>
+                    @{
+                        string genderDisplay = Model.EmployeeDetails.emp_Gender == "M" ? "Male" :
+                        Model.EmployeeDetails.emp_Gender == "F" ? "Female" :
+                        Model.EmployeeDetails.emp_Gender == "O" ? "Other" : "N/A";
+                    }
+                    <div class="form-control-plaintext">@genderDisplay</div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">DOB:</label>
+                    <div class="form-control-plaintext">@(Model.EmployeeDetails.emp_DOB?.ToString("dd-MMM-yyyy") ?? "N/A")</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Age:</label>
+                    @{
+                        int age = 0;
+                        if (Model.EmployeeDetails.emp_DOB.HasValue)
+                        {
+                            var today = DateOnly.FromDateTime(DateTime.Today);
+                            var birthDate = Model.EmployeeDetails.emp_DOB.Value;
+                            age = today.Year - birthDate.Year;
+                            if (today < birthDate.AddYears(age))
+                                age--;
+                        }
+                    }
+                    <div class="form-control-plaintext">@(age > 0 ? age.ToString() : "N/A")</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Blood Group:</label>
+                    <div class="form-control-plaintext">@(Model.EmployeeDetails.emp_blood_Group ?? "N/A")</div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Department:</label>
+                    <div class="form-control-plaintext">@(Model.EmployeeDetails.org_department?.dept_name ?? "N/A")</div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">Designation:</label>
+                    <div class="form-control-plaintext">@(Model.EmployeeDetails.org_employee_category?.emp_category_name ?? "N/A")</div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Medical Examination Result Section -->
+    <div class="border p-3 mb-3 rounded glass">
+        <h6>Medical Examination Result</h6>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label asp-for="CatId" class="form-label">Medical Examination Category</label>
+                <select asp-for="CatId" class="form-select rounded-2 glass">
+                    <option value="">-- Select Category --</option>
+                    @if (Model.ExamCategories != null)
+                    {
+                        @foreach (var category in Model.ExamCategories)
+                        {
+                            <option value="@category.CatId">@category.CatName</option>
+                        }
+                    }
+                </select>
+                <span asp-validation-for="CatId" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="LastCheckupDate" class="form-label">Last Check Up Date</label>
+                <input asp-for="LastCheckupDate" type="date" class="form-control rounded-2 glass" />
+                <span asp-validation-for="LastCheckupDate" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label asp-for="TestDate" class="form-label">Test Date</label>
+                <input asp-for="TestDate" type="date" class="form-control rounded-2 glass" />
+                <span asp-validation-for="TestDate" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="LocationId" class="form-label">Test Location</label>
+                <select asp-for="LocationId" class="form-select rounded-2 glass">
+                    <option value="">-- Select Location --</option>
+                    @if (Model.TestLocations != null)
+                    {
+                        @foreach (var location in Model.TestLocations)
+                        {
+                            <option value="@location.LocationId">@location.LocationName</option>
+                        }
+                    }
+                </select>
+                <span asp-validation-for="LocationId" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label asp-for="Result" class="form-label">Result</label>
+                <select asp-for="Result" class="form-select rounded-2 glass">
+                    <option value="">-- Select Result --</option>
+                    @if (Model.ResultOptions != null)
+                    {
+                        @foreach (var result in Model.ResultOptions)
+                        {
+                            <option value="@result">@result</option>
+                        }
+                    }
+                </select>
+                <span asp-validation-for="Result" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <label asp-for="Remarks" class="form-label">Remarks</label>
+                <textarea asp-for="Remarks" class="form-control rounded-2 glass" rows="3" placeholder="Enter any additional remarks or notes..."></textarea>
+                <span asp-validation-for="Remarks" class="text-danger"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Action Buttons -->
+    <div class="row mt-3">
+        <div class="col-12">
+            @* <button type="button" class="btn btn-primary me-2" id="saveBtn">Save</button> *@
+            <button type="button" class="btn btn-primary me-2" id="saveBtn">@(Model.IsNewEntry ? "Save" : "Update")</button>
+            <button type="button" class="btn btn-secondary me-2" id="btnResetForm">Reset</button>
+            <button type="button" class="btn btn-outline-secondary" id="cancelBtn" onclick="cancelForm()">Cancel</button>
+        </div>
+    </div>
+</form>
+
+<script>
+    function cancelForm() {
+        $('#medExamResultContainer').empty();
+    }
+
+    $(document).ready(function() {
+        // FIXED: Safe date field initialization with null checks
+        @if (Model.TestDate.HasValue)
+        {
+                    <text>
+                    $('#TestDate').val('@Model.TestDate.Value.ToString("yyyy-MM-dd")');
+                    </text>
+        }
+
+        @if (Model.LastCheckupDate.HasValue)
+        {
+                    <text>
+                    $('#LastCheckupDate').val('@Model.LastCheckupDate.Value.ToString("yyyy-MM-dd")');
+                    </text>
+        }
+
+        // FIXED: Safe dropdown value setting with null checks
+        @if (Model.CatId.HasValue)
+        {
+                    <text>
+                    $('#CatId').val(@Model.CatId.Value);
+                    </text>
+        }
+
+        @if (Model.LocationId.HasValue)
+        {
+                    <text>
+                    $('#LocationId').val(@Model.LocationId.Value);
+                    </text>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.Result))
+        {
+                    <text>
+                    $('#Result').val('@Html.Raw(Model.Result)');
+                    </text>
+        }
+    });
+</script>
+
+@section Scripts {
+
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

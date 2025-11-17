@@ -1,0 +1,484 @@
+﻿@model EMS.WebApp.Data.MedMaster
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Warning</strong>
+                @ViewBag.Error
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form asp-action="@(Model.MedItemId == 0 ? "Create" : "Edit")" method="post" id="medMasterForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="MedItemId" type="hidden" />
+    <input asp-for="CreatedBy" type="hidden" />
+    <input asp-for="CreatedOn" type="hidden" />
+
+    <!-- Display general validation message -->
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-x-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Validation Error</strong>
+                Please correct the errors below and try again.
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- Medicine Information Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="MedItemName" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.MedItemName)
+                <span class="text-danger">*</span>
+            </label>
+            <input asp-for="MedItemName" class="form-control form-control-master" id="medItemNameInput" maxlength="120" placeholder="Enter medicine name (e.g., Paracetamol 500mg)" />
+            <div class="char-counter-container">
+                <span asp-validation-for="MedItemName" class="field-validation-error" id="medItemNameValidation"></span>
+                <small class="char-counter" id="medItemNameCharCount">0/120</small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="BaseId" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.BaseId)
+               @*  <span class="text-danger">*</span> *@
+            </label>
+            <select asp-for="BaseId" class="form-control form-control-master" asp-items="ViewBag.MedBaseList" id="baseIdInput">
+                <option selected disabled value="">-- Select Medicine Base --</option>
+            </select>
+            <span asp-validation-for="BaseId" class="field-validation-error" id="baseIdValidation"></span>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="CompanyName" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.CompanyName)
+            </label>
+            <input asp-for="CompanyName" class="form-control form-control-master" id="companyNameInput" maxlength="120" placeholder="Enter company name (optional)" />
+            <div class="char-counter-container">
+                <span asp-validation-for="CompanyName" class="field-validation-error" id="companyNameValidation"></span>
+                <small class="char-counter" id="companyNameCharCount">0/120</small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="ReorderLimit" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.ReorderLimit)
+                <span class="text-danger">*</span>
+            </label>
+            <input asp-for="ReorderLimit" class="form-control form-control-master" id="reorderLimitInput" type="number" min="0" max="999999" placeholder="Enter reorder limit" />
+            <div class="char-counter-container">
+                <span asp-validation-for="ReorderLimit" class="field-validation-error" id="reorderLimitValidation"></span>
+                <small class="form-text text-info">
+                    <i class="bi bi-info-circle"></i>
+                    Range: 0 - 999,999
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Combination Validation Alert -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="alert alert-info alert-dismissible fade show d-none" id="combinationAlert" role="alert">
+                <div class="d-flex align-items-start">
+                    <i class="bi bi-info-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+                    <div class="flex-grow-1">
+                        <strong class="d-block mb-1">Combination Validation</strong>
+                        Medicine Name + Base + Company must be unique.
+                    </div>
+                    <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.MedItemId > 0 && (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue))
+    {
+        <div class="audit-section">
+            <h6>
+                <i class="bi bi-clock-history"></i>
+                Audit Information
+            </h6>
+
+            @if (Model.CreatedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Created By</label>
+                        <input class="form-control" value="@(Model.CreatedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Created On</label>
+                        <input class="form-control" value="@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ModifiedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Modified By</label>
+                        <input class="form-control" value="@(Model.ModifiedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Modified On</label>
+                        <input class="form-control" value="@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="modal-footer modal-footer-master">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            @(Model.MedItemId == 0 ? "Save Medicine" : "Update Medicine")
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+   @*  <script type="text/javascript">
+        $(document).ready(function() {
+            // Form elements
+            const form = $('#medMasterForm');
+            const submitBtn = $('#submitBtn');
+            const medItemNameInput = $('#medItemNameInput');
+            const baseIdInput = $('#baseIdInput');
+            const companyNameInput = $('#companyNameInput');
+            const reorderLimitInput = $('#reorderLimitInput');
+            const medItemId = $('#MedItemId').val();
+
+            // Character count elements
+            const medItemNameCharCount = $('#medItemNameCharCount');
+            const companyNameCharCount = $('#companyNameCharCount');
+            const combinationAlert = $('#combinationAlert');
+
+            // Validation flags
+            let isCheckingCombination = false;
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Security patterns to check for
+            const dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            // Function to check for dangerous input
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Enhanced character count functions
+            function updateCharCount(input, countElement, maxLength) {
+                const currentLength = input.val().length;
+                countElement.text(`${currentLength}/${maxLength}`);
+
+                // Remove previous classes
+                countElement.removeClass('text-warning text-danger');
+
+                // Calculate thresholds
+                const warningThreshold = Math.floor(maxLength * 0.8);
+
+                if (currentLength >= maxLength) {
+                    countElement.addClass('text-danger');
+                } else if (currentLength >= warningThreshold) {
+                    countElement.addClass('text-warning');
+                }
+            }
+
+            // Enhanced validation functions
+            function validateMedItemName() {
+                const medItemName = medItemNameInput.val().trim();
+                const validationSpan = $('#medItemNameValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                medItemNameInput.removeClass('is-invalid is-valid');
+
+                if (!medItemName) {
+                    showFieldError(validationSpan, medItemNameInput, 'Medicine Name is required.');
+                    isValid = false;
+                } else if (medItemName.length < 2) {
+                    showFieldError(validationSpan, medItemNameInput, 'Medicine Name must be at least 2 characters.');
+                    isValid = false;
+                } else if (medItemName.length > 120) {
+                    showFieldError(validationSpan, medItemNameInput, 'Medicine Name cannot exceed 120 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(medItemName)) {
+                    showFieldError(validationSpan, medItemNameInput, 'Medicine Name contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\s\-_\.\(\)\[\]\/\+]+$/.test(medItemName)) {
+                    showFieldError(validationSpan, medItemNameInput, 'Medicine Name can only contain letters, numbers, spaces, hyphens, underscores, dots, parentheses, brackets, forward slashes, and plus signs.');
+                    isValid = false;
+                } else {
+                    medItemNameInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateCompanyName() {
+                const companyName = companyNameInput.val().trim();
+                const validationSpan = $('#companyNameValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                companyNameInput.removeClass('is-invalid is-valid');
+
+                if (companyName) {
+                    if (companyName.length < 2) {
+                        showFieldError(validationSpan, companyNameInput, 'Company Name must be at least 2 characters when provided.');
+                        isValid = false;
+                    } else if (companyName.length > 120) {
+                        showFieldError(validationSpan, companyNameInput, 'Company Name cannot exceed 120 characters.');
+                        isValid = false;
+                    } else if (containsDangerousInput(companyName)) {
+                        showFieldError(validationSpan, companyNameInput, 'Company Name contains invalid characters. Script tags and unsafe characters are not allowed.');
+                        isValid = false;
+                    } else if (!/^[a-zA-Z0-9\s\-_\.\(\)\[\]&,]+$/.test(companyName)) {
+                        showFieldError(validationSpan, companyNameInput, 'Company Name can only contain letters, numbers, spaces, hyphens, underscores, dots, parentheses, brackets, ampersands, and commas.');
+                        isValid = false;
+                    } else {
+                        companyNameInput.addClass('is-valid');
+                    }
+                }
+
+                return isValid;
+            }
+
+            function validateBase() {
+                const baseId = baseIdInput.val();
+                const validationSpan = $('#baseIdValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                baseIdInput.removeClass('is-invalid is-valid');
+
+                if (!baseId || baseId === '') {
+                    showFieldError(validationSpan, baseIdInput, 'Medicine Base selection is required.');
+                    isValid = false;
+                } else {
+                    baseIdInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateReorderLimit() {
+                const reorderLimit = reorderLimitInput.val();
+                const validationSpan = $('#reorderLimitValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                reorderLimitInput.removeClass('is-invalid is-valid');
+
+                if (!reorderLimit) {
+                    showFieldError(validationSpan, reorderLimitInput, 'Reorder Limit is required.');
+                    isValid = false;
+                } else if (isNaN(reorderLimit) || parseInt(reorderLimit) < 0 || parseInt(reorderLimit) > 999999) {
+                    showFieldError(validationSpan, reorderLimitInput, 'Reorder Limit must be a number between 0 and 999,999.');
+                    isValid = false;
+                } else {
+                    reorderLimitInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            // Real-time validation for medicine combination uniqueness
+            function checkMedItemDetailsCombination() {
+                const medItemName = medItemNameInput.val().trim();
+                const baseId = baseIdInput.val() ? parseInt(baseIdInput.val()) : null;
+                const companyName = companyNameInput.val().trim();
+
+                // Clear previous combination errors
+                $('.combination-error').remove();
+
+                if (!medItemName || !baseId) {
+                    combinationAlert.addClass('d-none');
+                    updateSubmitButton();
+                    return;
+                }
+
+                // Show combination validation alert
+                combinationAlert.removeClass('d-none');
+
+                if (isCheckingCombination) return;
+
+                isCheckingCombination = true;
+                submitBtn.prop('disabled', true);
+
+                $.post('@Url.Action("CheckMedItemDetailsExists", "MedMaster")', {
+                    medItemName: medItemName,
+                    baseId: baseId,
+                    companyName: companyName || null,
+                    medItemId: medItemId || null
+                })
+                .done(function(response) {
+                    if (response.exists) {
+                        const errorMessage = 'This medicine combination already exists.';
+
+                        // Add combination error messages
+                        $('#medItemNameValidation').after('<div class="combination-error text-danger small mt-1">Combination already exists</div>');
+                        $('#baseIdValidation').after('<div class="combination-error text-danger small mt-1">Combination already exists</div>');
+                        $('#companyNameValidation').after('<div class="combination-error text-danger small mt-1">Combination already exists</div>');
+
+                        medItemNameInput.addClass('is-invalid');
+                        baseIdInput.addClass('is-invalid');
+                        companyNameInput.addClass('is-invalid');
+                        submitBtn.prop('disabled', true);
+                    } else {
+                        // Clear combination errors
+                        $('.combination-error').remove();
+                        updateSubmitButton();
+                    }
+                })
+                .fail(function() {
+                    console.log('Error checking medicine combination');
+                    $('.combination-error').remove();
+                    updateSubmitButton();
+                })
+                .always(function() {
+                    isCheckingCombination = false;
+                });
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0 ||
+                                $('.combination-error').length > 0 ||
+                                isCheckingCombination;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Real-time character counting and validation
+            medItemNameInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), medItemNameCharCount, 120);
+                    validateMedItemName();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            companyNameInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), companyNameCharCount, 120);
+                    validateCompanyName();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            baseIdInput.on('change', function() {
+                validateBase();
+                updateSubmitButton();
+            });
+
+            reorderLimitInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    validateReorderLimit();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            // Debounced combination check
+            let combinationCheckTimeout;
+            function debouncedCombinationCheck() {
+                clearTimeout(combinationCheckTimeout);
+                combinationCheckTimeout = setTimeout(checkMedItemDetailsCombination, 500);
+            }
+
+            // Bind combination check events
+            medItemNameInput.on('input keyup', debouncedCombinationCheck);
+            baseIdInput.on('change', debouncedCombinationCheck);
+            companyNameInput.on('input keyup', debouncedCombinationCheck);
+
+            // Initialize on page load
+            updateCharCount(medItemNameInput, medItemNameCharCount, 120);
+            updateCharCount(companyNameInput, companyNameCharCount, 120);
+            validateMedItemName();
+            validateCompanyName();
+            validateBase();
+            validateReorderLimit();
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateMedItemName() || !validateCompanyName() || !validateBase() || !validateReorderLimit() || isCheckingCombination) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0 || $('.combination-error').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Double-check for dangerous input before submission
+                const medItemName = medItemNameInput.val().trim();
+                const companyName = companyNameInput.val().trim();
+
+                if (containsDangerousInput(medItemName) || containsDangerousInput(companyName)) {
+                    e.preventDefault();
+                    alert('Invalid input detected. Please remove any script tags or unsafe characters.');
+                    return false;
+                }
+            });
+
+            // Prevent pasting of dangerous content
+            function handleDangerousPaste(input, inputName) {
+                input.on('paste', function(e) {
+                    setTimeout(function() {
+                        const pastedContent = input.val();
+                        if (containsDangerousInput(pastedContent)) {
+                            input.val('');
+                            alert('Pasted content in ' + inputName + ' contains unsafe characters and has been removed.');
+                        }
+                    }, 10);
+                });
+            }
+
+            handleDangerousPaste(medItemNameInput, 'Medicine Name');
+            handleDangerousPaste(companyNameInput, 'Company Name');
+        });
+    </script> *@
+}

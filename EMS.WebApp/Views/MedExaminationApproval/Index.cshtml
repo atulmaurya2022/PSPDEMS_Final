@@ -1,0 +1,568 @@
+﻿@model EMS.WebApp.Data.MedExaminationApprovalViewModel
+
+@{
+    ViewData["Title"] = "Medical Examination Approval";
+}
+
+<div id="alertContainer"></div>
+
+<!-- Plant Information Display -->
+@* <div class="row mb-3">
+    <div class="col-md-12">
+        <div class="alert alert-info" id="plantInfo" style="display: none;">
+            <i class="fas fa-building"></i> <strong>Current Plant:</strong> <span id="currentPlantName">Loading...</span>
+        </div>
+    </div>
+</div> *@
+
+<!-- Filter Section -->
+<div class="border p-3 mb-3 rounded glass">
+    @* <h6 class="mb-3">Medical Examination Approval</h6> *@
+
+    <form id="filterForm">
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label for="SelectedCategoryId" class="form-label">Medical examination category:</label>
+                <select asp-for="SelectedCategoryId" class="form-select rounded-2 glass" id="SelectedCategoryId">
+                    <option value="">Select</option>
+                    @foreach (var category in Model.ExamCategories)
+                    {
+                        <option value="@category.CatId">@category.CatName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label for="ScheduledMonths" class="form-label">Medical examination category scheduled months:</label>
+                <input asp-for="ScheduledMonths"
+                       type="text"
+                       class="form-control rounded-2 glass"
+                       id="ScheduledMonths"
+                       placeholder="Select a category above"
+                       readonly />
+            </div>
+
+            <div class="col-md-2">
+                <label for="SelectedLocationId" class="form-label">Test location:</label>
+                <select asp-for="SelectedLocationId" class="form-select rounded-2 glass" id="SelectedLocationId">
+                    <option value="">Select</option>
+                    @foreach (var location in Model.TestLocations)
+                    {
+                        <option value="@location.LocationId">@location.LocationName</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="button" class="btn btn-primary me-2" id="viewPendingBtn">View Pending</button>
+                <button type="button" class="btn btn-outline-primary" id="filterBtn">Filter All</button>
+            </div>
+        </div>
+
+        <!-- Status Filter Row -->
+        <div class="row mb-2">
+            <div class="col-md-12">
+                <label class="form-label">Filter by Status:</label>
+                <div class="btn-group" role="group" aria-label="Status filter">
+                    <button type="button" class="btn btn-outline-secondary btn-sm status-filter" data-status="">All</button>
+                    <button type="button" class="btn btn-outline-warning btn-sm status-filter" data-status="Pending">Pending</button>
+                    <button type="button" class="btn btn-outline-success btn-sm status-filter" data-status="Approved">Approved</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm status-filter" data-status="Rejected">Rejected</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden approval status filter -->
+        <input type="hidden" asp-for="SelectedApprovalStatus" id="SelectedApprovalStatus" value="" />
+    </form>
+</div>
+
+<!-- Approval Grid Container -->
+<div id="approvalGridContainer">
+    @await Html.PartialAsync("_ApprovalGridPartial", Model)
+</div>
+
+<!-- Action Buttons -->
+<div class="border-top pt-3 mt-3">
+    <div class="row">
+        <div class="col-md-12 text-center">
+            <button type="button" class="btn btn-success me-2" id="approveBtn" disabled>
+                <i class="fas fa-check"></i> Approve Selected
+            </button>
+            <button type="button" class="btn btn-danger me-2" id="rejectBtn" disabled>
+                <i class="fas fa-times"></i> Reject Selected
+            </button>
+            <button type="button" class="btn btn-warning" id="unApproveBtn" disabled>
+                <i class="fas fa-undo"></i> UnApprove Selected
+            </button>
+        </div>
+    </div>
+    <div class="row mt-2">
+        <div class="col-md-12 text-center">
+            <small class="text-muted">
+                <span id="actionHelp">Select items to enable actions. Only approved items can be un-approved.</span>
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Rejection Reason Modal -->
+<div class="modal fade" id="rejectionModal" tabindex="-1" aria-labelledby="rejectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rejectionModalLabel">Rejection Reason</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="rejectionReason" class="form-label">Reason for rejection:</label>
+                    <textarea class="form-control" id="rejectionReason" rows="3" placeholder="Enter reason for rejection..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmRejectBtn">Reject</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Load current plant information
+            loadCurrentPlantInfo();
+
+            // Category dropdown change event handler
+            $('#SelectedCategoryId').on('change', function () {
+                var selectedCategoryId = $(this).val();
+                if (selectedCategoryId) {
+                    loadScheduledMonths(selectedCategoryId);
+                } else {
+                    // Clear the scheduled months field if no category is selected
+                    $('#ScheduledMonths').val('');
+                }
+            });
+
+            // Initialize scheduled months if category is already selected
+            var initialCategoryId = $('#SelectedCategoryId').val();
+            if (initialCategoryId) {
+                loadScheduledMonths(initialCategoryId);
+            }
+
+            // Status filter buttons
+            $('.status-filter').on('click', function () {
+                $('.status-filter').removeClass('active');
+                $(this).addClass('active');
+                var status = $(this).data('status');
+                $('#SelectedApprovalStatus').val(status);
+                loadApprovalData();
+            });
+
+            // Filter button click (show all)
+            $('#filterBtn').on('click', function () {
+                $('#SelectedApprovalStatus').val('');
+                $('.status-filter').removeClass('active');
+                $('.status-filter[data-status=""]').addClass('active');
+                loadApprovalData();
+            });
+
+            // View Pending button click
+            $('#viewPendingBtn').on('click', function () {
+                $('#SelectedApprovalStatus').val('Pending');
+                $('.status-filter').removeClass('active');
+                $('.status-filter[data-status="Pending"]').addClass('active');
+                loadApprovalData();
+            });
+
+            // Approve button click
+            $('#approveBtn').on('click', function () {
+                var selectedIds = getSelectedApprovalIds();
+                var pendingIds = getSelectedIdsByStatus('Pending');
+
+                if (selectedIds.length === 0) {
+                    showAlert('warning', 'Please select at least one item to approve.');
+                    return;
+                }
+
+                if (pendingIds.length === 0) {
+                    showAlert('warning', 'Only pending examinations can be approved.');
+                    return;
+                }
+
+                if (confirm(`Are you sure you want to approve ${pendingIds.length} examination(s)?`)) {
+                    performBulkAction('approve', pendingIds);
+                }
+            });
+
+            // Reject button click
+            $('#rejectBtn').on('click', function () {
+                var selectedIds = getSelectedApprovalIds();
+                var pendingIds = getSelectedIdsByStatus('Pending');
+
+                if (selectedIds.length === 0) {
+                    showAlert('warning', 'Please select at least one item to reject.');
+                    return;
+                }
+
+                if (pendingIds.length === 0) {
+                    showAlert('warning', 'Only pending examinations can be rejected.');
+                    return;
+                }
+
+                // Show rejection reason modal
+                $('#rejectionModal').modal('show');
+            });
+
+            // Confirm reject button click
+            $('#confirmRejectBtn').on('click', function () {
+                var pendingIds = getSelectedIdsByStatus('Pending');
+                var rejectionReason = $('#rejectionReason').val();
+
+                $('#rejectionModal').modal('hide');
+                performBulkAction('reject', pendingIds, rejectionReason);
+            });
+
+            // UnApprove button click
+            $('#unApproveBtn').on('click', function () {
+                var selectedIds = getSelectedApprovalIds();
+                var approvedIds = getSelectedIdsByStatus('Approved');
+
+                if (selectedIds.length === 0) {
+                    showAlert('warning', 'Please select at least one item to un-approve.');
+                    return;
+                }
+
+                if (approvedIds.length === 0) {
+                    showAlert('warning', 'Only approved examinations can be un-approved.');
+                    return;
+                }
+
+                if (confirm(`Are you sure you want to un-approve ${approvedIds.length} examination(s)? They will be moved back to pending status.`)) {
+                    performBulkAction('unapprove', approvedIds);
+                }
+            });
+
+            // Select All checkbox handler (delegated)
+            $(document).on('change', '#selectAll', function () {
+                var isChecked = $(this).is(':checked');
+                $('.approval-checkbox').prop('checked', isChecked);
+                updateActionButtonsState();
+            });
+
+            // Individual checkbox handler (delegated)
+            $(document).on('change', '.approval-checkbox', function () {
+                updateSelectAllState();
+                updateActionButtonsState();
+            });
+
+            // Function to load scheduled months for selected category
+            function loadScheduledMonths(categoryId) {
+                if (!categoryId) {
+                    $('#ScheduledMonths').val('');
+                    return;
+                }
+
+                // Show loading indicator
+                $('#ScheduledMonths').prop('disabled', true).val('Loading...');
+
+                $.ajax({
+                    url: '@Url.Action("GetCategoryScheduledMonths", "MedExaminationApproval")',
+                    type: 'GET',
+                    data: { categoryId: categoryId },
+                    success: function (result) {
+                        if (result.success) {
+                            $('#ScheduledMonths').val(result.scheduledMonths || '');
+
+                            // Optional: Log category details for debugging
+                            console.log('Category Details:', {
+                                name: result.categoryName,
+                                scheduledMonths: result.scheduledMonths,
+                                yearsFreq: result.yearsFreq,
+                                annuallyRule: result.annuallyRule
+                            });
+                        } else {
+                            $('#ScheduledMonths').val('');
+                            console.warn('Failed to load scheduled months:', result.message);
+                            showAlert('warning', 'Could not load scheduled months for the selected category.');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        $('#ScheduledMonths').val('');
+                        console.error('Error loading scheduled months:', error);
+                        showAlert('warning', 'Could not load scheduled months for the selected category.');
+                    },
+                    complete: function () {
+                        // Re-enable the field
+                        $('#ScheduledMonths').prop('disabled', false);
+                    }
+                });
+            }
+
+            // Function to load approval data
+            function loadApprovalData() {
+                var formData = $('#filterForm').serialize();
+
+                $.ajax({
+                    url: '@Url.Action("FilterData", "MedExaminationApproval")',
+                    type: 'POST',
+                    data: formData,
+                    success: function (result) {
+                        $('#approvalGridContainer').html(result);
+                        updateActionButtonsState();
+                    },
+                    error: function (xhr) {
+                        showAlert('error', 'Error loading approval data. Please try again.');
+                        console.error('Filter error:', xhr);
+                    }
+                });
+            }
+
+            // Function to get selected approval IDs
+            function getSelectedApprovalIds() {
+                var selectedIds = [];
+                $('.approval-checkbox:checked').each(function () {
+                    selectedIds.push(parseInt($(this).val()));
+                });
+                return selectedIds;
+            }
+
+            // Function to get selected IDs by status
+            function getSelectedIdsByStatus(status) {
+                var selectedIds = [];
+                $('.approval-checkbox:checked').each(function () {
+                    var row = $(this).closest('tr');
+                    var statusElement = row.find('td:nth-child(2) .badge');
+                    var rowStatus = statusElement.text().trim();
+
+                    if (rowStatus === status) {
+                        selectedIds.push(parseInt($(this).val()));
+                    }
+                });
+                return selectedIds;
+            }
+
+            // Function to perform bulk actions
+            function performBulkAction(action, approvalIds, rejectionReason = null) {
+                var url = '';
+                var data = {};
+
+                switch (action) {
+                    case 'approve':
+                        url = '@Url.Action("ApproveSelected", "MedExaminationApproval")';
+                        data = approvalIds;
+                        break;
+                    case 'reject':
+                        url = '@Url.Action("RejectSelected", "MedExaminationApproval")';
+                        data = {
+                            approvalIds: approvalIds,
+                            rejectionReason: rejectionReason
+                        };
+                        break;
+                    case 'unapprove':
+                        url = '@Url.Action("UnApproveSelected", "MedExaminationApproval")';
+                        data = approvalIds;
+                        break;
+                }
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    headers: {
+                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            loadApprovalData(); // Refresh the grid
+                            $('#rejectionReason').val(''); // Clear rejection reason
+                        } else {
+                            showAlert('error', response.message);
+                        }
+                    },
+                    error: function (xhr) {
+                        showAlert('error', `Error performing ${action} operation. Please try again.`);
+                        console.error(`${action} error:`, xhr);
+                    }
+                });
+            }
+
+            // Function to update Select All checkbox state
+            function updateSelectAllState() {
+                var totalCheckboxes = $('.approval-checkbox').length;
+                var checkedCheckboxes = $('.approval-checkbox:checked').length;
+
+                if (checkedCheckboxes === 0) {
+                    $('#selectAll').prop('indeterminate', false).prop('checked', false);
+                } else if (checkedCheckboxes === totalCheckboxes) {
+                    $('#selectAll').prop('indeterminate', false).prop('checked', true);
+                } else {
+                    $('#selectAll').prop('indeterminate', true).prop('checked', false);
+                }
+            }
+
+            // Function to update action buttons state
+            function updateActionButtonsState() {
+                var selectedIds = getSelectedApprovalIds();
+                var pendingIds = getSelectedIdsByStatus('Pending');
+                var approvedIds = getSelectedIdsByStatus('Approved');
+
+                // Enable/disable buttons based on selection and status
+                $('#approveBtn').prop('disabled', pendingIds.length === 0);
+                $('#rejectBtn').prop('disabled', pendingIds.length === 0);
+                $('#unApproveBtn').prop('disabled', approvedIds.length === 0);
+
+                // Update help text
+                var helpText = '';
+                if (selectedIds.length === 0) {
+                    helpText = 'Select items to enable actions. Only approved items can be un-approved.';
+                } else {
+                    helpText = `Selected: ${selectedIds.length} items. `;
+                    if (pendingIds.length > 0) {
+                        helpText += `${pendingIds.length} pending (can approve/reject). `;
+                    }
+                    if (approvedIds.length > 0) {
+                        helpText += `${approvedIds.length} approved (can un-approve). `;
+                    }
+                }
+                $('#actionHelp').text(helpText);
+            }
+
+            // Function to load current plant information
+            function loadCurrentPlantInfo() {
+                $.ajax({
+                    url: '@Url.Action("GetCurrentUserPlant", "MedExaminationApproval")',
+                    type: 'GET',
+                    success: function (result) {
+                        if (result.success) {
+                            $('#currentPlantName').text(result.plantName);
+                            $('#plantInfo').show();
+                        }
+                    },
+                    error: function () {
+                        console.log('Could not load plant information');
+                    }
+                });
+            }
+
+            // Alert function
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' :
+                                 type === 'warning' ? 'alert-warning' :
+                                 type === 'info' ? 'alert-info' : 'alert-danger';
+                const alertId = 'alert-' + Date.now();
+                const icon = type === 'success' ? 'fas fa-check-circle' :
+                           type === 'warning' ? 'fas fa-exclamation-triangle' :
+                           type === 'info' ? 'fas fa-info-circle' : 'fas fa-exclamation-triangle';
+
+                const alertHtml = `
+                    <div id="${alertId}" class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        <i class="${icon}"></i> ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+
+                $('#alertContainer').html(alertHtml);
+
+                const dismissTime = type === 'error' ? 6000 : 4000;
+                setTimeout(() => {
+                    const alertEl = document.getElementById(alertId);
+                    if (alertEl && bootstrap.Alert.getOrCreateInstance) {
+                        bootstrap.Alert.getOrCreateInstance(alertEl).close();
+                    }
+                }, dismissTime);
+            }
+
+            // Initialize with all records showing
+            $('#SelectedApprovalStatus').val('');
+            $('.status-filter[data-status=""]').addClass('active');
+            updateActionButtonsState();
+        });
+    </script>
+}
+
+<style>
+    /* Custom styles for approval page */
+    .glass {
+        --glass-bg: rgba(255, 255, 255, 0.30) !important;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .table-glass {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+    }
+
+        .table-glass th {
+            background: rgba(13, 110, 253, 0.8);
+            color: white;
+            border: none;
+        }
+
+        .table-glass td {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+    .table-striped > tbody > tr:nth-of-type(odd) > td {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-primary:hover, .btn-success:hover, .btn-danger:hover, .btn-warning:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        transition: all 0.2s ease;
+    }
+
+    .approval-checkbox {
+        transform: scale(1.2);
+    }
+
+    .badge {
+        font-size: 0.75em;
+    }
+
+    #selectAll {
+        transform: scale(1.2);
+    }
+
+    .modal-content {
+        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    /* Styling for readonly scheduled months field */
+    #ScheduledMonths[readonly] {
+        background-color: rgba(248, 249, 250, 0.8);
+        cursor: not-allowed;
+    }
+
+    #ScheduledMonths[disabled] {
+        opacity: 0.7;
+    }
+
+    /* Status filter buttons */
+    .status-filter.active {
+        background-color: #0d6efd;
+        color: white;
+        border-color: #0d6efd;
+    }
+
+    .btn-group .btn {
+        margin-right: 0;
+    }
+
+    /* Action buttons disabled state */
+    .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    #actionHelp {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+</style>

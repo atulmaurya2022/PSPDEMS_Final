@@ -1,0 +1,727 @@
+﻿@{
+    ViewData["Title"] = "Email Configuration";
+}
+
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+
+<div class="master-container">
+    <!-- Alert Container -->
+    <div id="alertContainer"></div>
+
+    <!-- Enhanced Master Header -->
+    <div class="master-header">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="flex-grow-1">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-master">
+                        <li class="breadcrumb-item">Home</li>
+                        <li class="breadcrumb-item active" aria-current="page">Email Configuration</li>
+                    </ol>
+                </nav>
+                <h1 class="master-title">
+                    <i class="bi bi-envelope-gear"></i>
+                    Email Configuration
+                </h1>
+                <p class="master-subtitle">Manage email config values and content</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <button type="button" id="IDForEditBtn" class="btn btn-add-master">
+                    <i class="bi bi-pencil"></i>
+                    Edit
+                </button>
+                <button type="button" id="IdForSaveBtn2" onclick="SaveConfigDetails();" class="btn btn-success" style="display:none;">
+                    <i class="bi bi-check-lg"></i>
+                    Save Changes
+                </button>
+                <button type="button" id="IdForCancelBtn2" onclick="window.location.reload();" class="btn btn-danger" style="display:none;">
+                    <i class="bi bi-x-lg"></i>
+                    Discard Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Content Container -->
+    <div class="master-form">
+        <div class="card-body p-0">
+            <!-- SMTP SETTINGS -->
+            <div>
+                <div class="master-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear"></i>
+                        SMTP Configuration
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="row mb-3">
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">App Link</label>
+                                <input type="text" id="IdForAppLink" disabled class="form-control form-control-master" placeholder="https://app.example.com" />
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">
+                                    Email Display Name
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="IdForSmtpDisplayName" disabled class="form-control form-control-master" placeholder="Enter Email Display Name here" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-sm-5">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">
+                                    SMTP Host
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="IdForSmtpHost" disabled class="form-control form-control-master" placeholder="smtp.domain.com" />
+                            </div>
+                        </div>
+                        <div class="col-sm-2">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">
+                                    Port
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="IdForSmtpPort" disabled class="form-control form-control-master" placeholder="587" />
+                            </div>
+                        </div>
+                        <div class="col-sm-2">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">Username</label>
+                                <input type="text" id="IdForSmtpUsername" disabled class="form-control form-control-master" placeholder="no-reply@domain.com" />
+                            </div>
+                        </div>
+                        <div class="col-sm-3">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">Password</label>
+                                <input type="password" id="IdForSmtpPassword" disabled class="form-control form-control-master" placeholder="********" autocomplete="new-password" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-sm-4">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">
+                                    1st Reminder Days (In Days)
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="IdForReminder1Days" disabled class="form-control form-control-master" />
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">
+                                    2nd Reminder Days (In Days)
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="IdForReminder2Days" disabled class="form-control form-control-master" />
+                            </div>
+                        </div>
+                        <div class="col-sm-4">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">
+                                    3rd Reminder Days (In Days)
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="IdForReminder3Days" disabled class="form-control form-control-master" />
+                            </div>
+                        </div>
+                        
+                    </div>
+                    @* <div class="row">
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">
+                                    Email Scheduler Hours (in 24 format)
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="IdForScheduleHours" disabled class="form-control form-control-master" />
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label class="form-label form-label-master">
+                                    Email Scheduler Hours (in 24 format)
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" id="IdForScheduleMinutes" disabled class="form-control form-control-master" />
+                            </div>
+                        </div>
+                    </div> *@
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="master-form">
+        <div class="card-body p-0">
+
+            <!-- EMAIL CONTENT CARDS -->
+            <div class="master-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-envelope-paper"></i>
+                        Email Content Configuration
+                    </h5>
+                    <button type="button" title="Placeholders Info" onclick="OpenPlaceModal();" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-info-circle"></i>
+                        Placeholder Info
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <input type="hidden" id="EmailTypeHidden" />
+
+                <!-- Medical Check Pending -->
+                <div class="">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Medical Check Pending/Upcoming Email Trigger
+                        </h6>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="SendEmail('MedicalCheck_Pending')">
+                                <i class="bi bi-send"></i>
+                                Send Email
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="IDForEditEmailBtn1" onclick="EmailContent('MedicalCheck_Pending');">
+                                <i class="bi bi-pencil"></i>
+                                Edit
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" id="IDForTestEmailBtn1" onclick="TestMail('MedicalCheck_Pending');">
+                                <i class="bi bi-envelope-check"></i>
+                                Test
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label form-label-master">
+                                <strong>Subject:</strong>
+                            </label>
+                            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                                <span id="EmailSubjectText1"></span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-master">
+                                <strong>Message:</strong>
+                            </label>
+                            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 100px;">
+                                <div id="EmailBody1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* <!-- Medical Check Upcoming -->
+                <div class="">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="bi bi-calendar-event"></i>
+                            Medical Check Upcoming Email Trigger
+                        </h6>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="SendEmail('MedicalCheck_Upcoming')">
+                                <i class="bi bi-send"></i>
+                                Send Email
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="IDForEditEmailBtn2" onclick="EmailContent('MedicalCheck_Upcoming');">
+                                <i class="bi bi-pencil"></i>
+                                Edit
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" id="IDForTestEmailBtn2" onclick="TestMail('MedicalCheck_Upcoming');">
+                                <i class="bi bi-envelope-check"></i>
+                                Test
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label form-label-master">
+                                <strong>Subject:</strong>
+                            </label>
+                            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+                                <span id="EmailSubjectText2"></span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label form-label-master">
+                                <strong>Message:</strong>
+                            </label>
+                            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 100px;">
+                                <div id="EmailBody2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div> *@
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Email Content Modal -->
+<div class="modal fade" id="EditModalId" tabindex="-1" aria-labelledby="EditModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="EditModalLabel">
+                    <i class="bi bi-envelope-paper"></i>
+                    <span id="EditTitle"></span>
+                </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" title="Placeholders Info" onclick="OpenPlaceModal();" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-info-circle"></i>
+                        Placeholders
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body modal-body-master">
+                <div class="row mb-3">
+                    <div class="col-sm-12">
+                        <div class="row align-items-center">
+                            <label class="col-sm-12 col-md-2 form-label form-label-master text-center">
+                                <strong>Email Subject</strong>
+                            </label>
+                            <div class="col-sm-12 col-md-10">
+                                <input type="text" class="form-control form-control-master" placeholder="Enter Subject here..." id="EmailSubject" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="card">
+                            <div class="card-body p-0">
+                                <textarea name="editor1" id="IDofEditor"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer modal-footer-master">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i>
+                    Cancel
+                </button>
+                <button class="btn btn-primary" onclick="SaveEmailContent();">
+                    <i class="bi bi-check-lg"></i>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Placeholders Info Modal -->
+<div class="modal fade" id="PlaceholdersInfoModal" tabindex="-1" aria-labelledby="PlaceholdersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="PlaceholdersModalLabel">
+                    <i class="bi bi-info-circle"></i>
+                    Placeholders Info
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master">
+                <div class="table-responsive" style="max-height: 400px;">
+                    <table class="table table-striped table-glass glass-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-center" width="40%">Placeholders</th>
+                                <th class="text-center" width="60%">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="text-center"><code>$$PlantCode$$</code></td>
+                                <td>Plant Code</td>
+                            </tr>
+                            <tr>
+                                <td class="text-center"><code>$$PlantName$$</code></td>
+                                <td>Plant Name</td>
+                            </tr>
+                            <tr>
+                                <td class="text-center"><code>$$CategoryName$$</code></td>
+                                <td>Category Name</td>
+                            </tr>
+                            <tr>
+                                <td class="text-center"><code>$$ScheduledMonth$$</code></td>
+                                <td>Scheduled Month</td>
+                            </tr>
+                            <tr>
+                                <td class="text-center"><code>$$AnualRule$$</code></td>
+                                <td>How many times in a year</td>
+                            </tr>
+                            <tr>
+                                <td class="text-center"><code>$$YearFrequency$$</code></td>
+                                <td>Frequency in a Year</td>
+                            </tr>
+                            <tr>
+                                <td class="text-center"><code>$$ApplicationLink$$</code></td>
+                                <td>Application Link/URL to open</td>
+                            </tr>
+                            <tr>
+                                <td class="text-center"><code>$$ReminderNumber$$</code></td>
+                                <td>Reminder Number</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Mail Modal -->
+<div class="modal fade" id="TestMailModalId" tabindex="-1" aria-labelledby="TestMailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="TestMailModalLabel">
+                    <i class="bi bi-envelope-check"></i>
+                    Test Mail
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master">
+                <div class="row mb-3">
+                    <div class="col-sm-12">
+                        <div class="form-group">
+                            <label class="form-label form-label-master">
+                                TO Email Address
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control form-control-master" placeholder="Enter TO Email Address here..." id="TOAddress" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-sm-12">
+                        <div class="form-group">
+                            <label class="form-label form-label-master">CC Email Address</label>
+                            <input type="text" class="form-control form-control-master" placeholder="Enter CC Email Address here..." id="CCAddress" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer modal-footer-master">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i>
+                    Cancel
+                </button>
+                <button class="btn btn-primary" onclick="SendTestMail();">
+                    <i class="bi bi-send"></i>
+                    Send Mail
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Keep your original includes / paths to match your project -->
+<script src="~/lib/ckeditor/ckeditor.js"></script>
+
+@Html.AntiForgeryToken()
+
+@section Scripts {
+<script>
+    // ===== CKEDITOR INIT (same as legacy) =====
+    var ckEditor = CKEDITOR.replace('editor1', {
+        bodyClass: 'document-editor',
+        contentsCss: ['@Url.Content("~/lib/ckeditor/contents.css")','@Url.Content("~/lib/ckeditor/mystyles.css")'],
+        height: 300,
+        extraAllowedContent: 'span',
+    });
+    ckEditor.config.removePlugins = 'lite,autogrow,elementspath,resize';
+
+    CKEDITOR.disableAutoInLine = true;
+    CKEDITOR.config.allowedContent = true;
+    CKEDITOR.config.enterMode = CKEDITOR.ENTER_BR;
+
+    CKEDITOR.on('paste', function (evt) {
+        var filter = new CKEDITOR.filter('p b'),
+            fragment = CKEDITOR.htmlParser.fragment.fromHtml(evt.data.dataValue),
+            writer = new CKEDITOR.htmlParser.basicWriter();
+        filter.applyTo(fragment);
+        fragment.writeHtml(writer);
+        evt.data.dataValue = writer.getHtml();
+    });
+
+    function antiforgery() { return $('input[name="__RequestVerificationToken"]').val(); }
+    
+    // Enhanced Alert System (from Plant Master reference)
+    function showAlert(type, message, title = null) {
+        const alertContainer = document.getElementById('alertContainer');
+        const alertId = 'alert-' + Date.now();
+
+        const iconMap = {
+            success: 'bi-check-circle',
+            warning: 'bi-exclamation-triangle',
+            danger: 'bi-x-circle',
+            info: 'bi-info-circle'
+        };
+
+        const icon = iconMap[type] || 'bi-info-circle';
+        const alertTitle = title || type.charAt(0).toUpperCase() + type.slice(1);
+
+        const alertHtml = `
+            <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert"
+                 style="border: none; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; font-weight: 500; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);">
+                <div class="d-flex align-items-start">
+                    <i class="bi ${icon} me-3 flex-shrink-0" style="font-size: 18px;"></i>
+                    <div class="flex-grow-1">
+                        <strong class="d-block mb-1">${alertTitle}</strong>
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            </div>
+        `;
+
+        alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            const alertElement = document.getElementById(alertId);
+            if (alertElement) {
+                const alert = bootstrap.Alert.getOrCreateInstance(alertElement);
+                alert.close();
+            }
+        }, 5000);
+    }
+    
+    // ===== EDIT BUTTON (enable the SMTP fields) =====
+    $('#IDForEditBtn').click(function () {
+        try {
+            // enable SMTP inputs
+                $("#IdForAppLink, #IdForSmtpDisplayName, #IdForSmtpHost, #IdForSmtpPort, #IdForSmtpUsername, #IdForSmtpPassword, #IdForReminder1Days, #IdForReminder2Days, #IdForReminder3Days").prop('disabled', false);
+            
+            $("#IdForSaveBtn2").show();
+            $("#IdForCancelBtn2").show();
+            $("#IDForEditBtn").hide();
+
+            // disable template edit/test buttons while editing SMTP
+            try {
+                $("#IDForEditEmailBtn1").prop('disabled', true);
+                $("#IDForTestEmailBtn1").prop('disabled', true);
+            } catch (error) { }
+        } catch (error) { }
+    });
+
+    // ===== LOAD SMTP + TEMPLATES ON PAGE READY =====
+    $(function () {
+        loadSmtpConfig();
+        loadEmailCards();
+    });
+
+    function loadSmtpConfig() {
+        var actionUrl = '@Url.Action("GetEmailConfig", "EmailConfig")';
+        $.ajax({
+            type: "GET",
+            url: actionUrl,
+            success: function (response) {
+                console.log(response);
+                $("#IdForAppLink").val(response.config_AppLink || '');
+                $("#IdForSmtpDisplayName").val(response.config_SmtpDisplayName || '');
+                $("#IdForSmtpHost").val(response.config_SmtpHost || '');
+                $("#IdForSmtpPort").val(response.config_SmtpPort || '');
+                $("#IdForSmtpUsername").val(response.config_SmtpUsername || '');
+                $("#IdForSmtpPassword").val(response.config_SmtpPassword || '');
+
+
+                            $("#IdForReminder1Days").val(response.reminder1Days || '');
+                            $("#IdForReminder2Days").val(response.reminder2Days || '');
+                                        $("#IdForReminder3Days").val(response.reminder3Days || '');
+            }
+        });
+    }
+
+    function SaveConfigDetails() {
+        var payload = {
+            Config_AppLink: $("#IdForAppLink").val(),
+            Config_SmtpDisplayName: $("#IdForSmtpDisplayName").val(),
+            Config_SmtpHost: $("#IdForSmtpHost").val(),
+            Config_SmtpPort: $("#IdForSmtpPort").val(),
+            Config_SmtpUsername: $("#IdForSmtpUsername").val(),
+            Config_SmtpPassword: $("#IdForSmtpPassword").val(),
+                        Reminder1Days: $("#IdForReminder1Days").val(),
+                            Reminder2Days: $("#IdForReminder2Days").val(),
+                            Reminder3Days: $("#IdForReminder3Days").val()
+        };
+
+        if ((payload.Config_SmtpDisplayName || '').length === 0 ||
+            (payload.Config_SmtpHost || '').length === 0 ||
+            (payload.Config_SmtpPort || '').length === 0) {
+            showAlert('warning', 'Please fill the required fields!', 'Validation Error');
+            return;
+        }
+
+        var actionUrl = '@Url.Action("SaveEmailConfig", "EmailConfig")';
+        $.ajax({
+            type: "POST",
+            url: actionUrl,
+            headers: { "RequestVerificationToken": antiforgery() },
+            data: payload,
+            success: function (response) {
+                if (response === "success") {
+                    showAlert('success', 'SMTP settings saved successfully.', 'Success');
+                            $("#IdForAppLink, #IdForSmtpDisplayName, #IdForSmtpHost, #IdForSmtpPort, #IdForSmtpUsername, #IdForSmtpPassword, #IdForReminder1Days, #IdForReminder2Days, #IdForReminder3Days").prop('disabled', true);
+
+                    $("#IdForSaveBtn2").hide();
+                    $("#IdForCancelBtn2").hide();
+                    $("#IDForEditBtn").show();
+
+                    $("#IDForEditEmailBtn1,#IDForTestEmailBtn1").prop('disabled', false);
+                } else {
+                    showAlert('danger', response, 'Save Error');
+                }
+            }
+        });
+    }
+
+    function loadEmailCards() {
+        var actionUrl = '@Url.Action("GetEmailDetails", "EmailConfig")';
+        $.ajax({
+            type: "GET",
+            url: actionUrl,
+            dataType: "json",
+            success: function (response) {
+                $.each($(response), function (index, value) {
+                    if (value.type == "MedicalCheck_Pending") {
+                        $("#EmailSubjectText1").html(value.subject);
+                        document.getElementById("EmailBody1").innerHTML = value.emailBody;
+                    }
+                    // else if (value.type == "MedicalCheck_Upcoming") {
+                    //     $("#EmailSubjectText2").html(value.subject);
+                    //     document.getElementById("EmailBody2").innerHTML = value.emailBody;
+                    // }
+                });
+            }
+        });
+    }
+
+    // ===== EDIT TEMPLATE (2 types only) =====
+    function EmailContent(Type) {
+        var Title = "";
+        if (Type == "MedicalCheck_Pending") {
+            Title = "Medical Check Pending Email Trigger";
+        }
+        else if (Type == "MedicalCheck_Upcoming") {
+            Title = "Medical Check Upcoming Email Trigger";
+        }
+
+        $("#EmailTypeHidden").val(Type);
+        $("#EditTitle").html(Title);
+        
+        // Use Bootstrap 5 modal syntax
+        var modal = new bootstrap.Modal(document.getElementById('EditModalId'));
+        modal.show();
+
+        var actionUrl = '@Url.Action("GetEmailBodyContent", "EmailConfig")';
+        $.ajax({
+            type: "POST",
+            url: actionUrl,
+            data: { Type: Type },
+            success: function (response) {
+                $("#EmailSubject").val(response[0]);
+                CKEDITOR.instances.IDofEditor.setData(response[1]);
+            }
+        });
+    }
+
+    function SaveEmailContent() {
+        var Type = $("#EmailTypeHidden").val();
+        var Subject = $("#EmailSubject").val();
+        var content = CKEDITOR.instances.IDofEditor.getData();
+
+        var actionUrl = '@Url.Action("SaveEmailContent", "EmailConfig")';
+        $.ajax({
+            type: "POST",
+            url: actionUrl,
+            headers: { "RequestVerificationToken": antiforgery() },
+            data: { Type: Type, Subject: Subject, content: content },
+            success: function (response) {
+                if (response == "success") {
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('EditModalId'));
+                    modal.hide();
+                    showAlert('success', 'Email Body Configuration saved successfully.', 'Success');
+                    loadEmailCards();
+                }
+                else {
+                    showAlert('danger', response, 'Save Error');
+                }
+            }
+        });
+    }
+
+    // ===== TEST MAIL =====
+    function TestMail(Type) {
+        $("#EmailTypeHidden").val(Type);
+        var modal = new bootstrap.Modal(document.getElementById('TestMailModalId'));
+        modal.show();
+    }
+
+    function SendTestMail() {
+        var Type = $("#EmailTypeHidden").val();
+        var TO = $("#TOAddress").val().trim();
+        var CC = $("#CCAddress").val().trim();
+        var actionUrl = '@Url.Action("SendTestMail", "EmailConfig")';
+        
+        if (TO.length > 0) {
+            $.ajax({
+                type: "POST",
+                url: actionUrl,
+                data: { Type: Type, TO: TO, CC: CC },
+                success: function (response) {
+                    if (response == "success") {
+                        var modal = bootstrap.Modal.getInstance(document.getElementById('TestMailModalId'));
+                        modal.hide();
+                        showAlert('success', 'Test Mail sent successfully.', 'Success');
+                    }
+                    else {
+                        showAlert('danger', response, 'Send Error');
+                    }
+                },
+            });
+        }
+        else {
+            showAlert('warning', 'Please enter TO Email Address!', 'Validation Error');
+        }
+    }
+
+    function OpenPlaceModal() {
+        var modal = new bootstrap.Modal(document.getElementById('PlaceholdersInfoModal'));
+        modal.show();
+    }
+
+    function SendEmail(emailType) {
+        $.ajax({
+            url: '@Url.Action("SendEmail", "EmailConfig")',
+            type: 'POST',
+            data: { emailType: emailType },
+            success: function (response) {
+                if (response.success) {
+                    showAlert('success', 'Email sent successfully.', 'Success');
+                } else {
+                    showAlert('danger', response.message, 'Error');
+                }
+            },
+            error: function () {
+                showAlert('danger', 'Error occurred while sending email.', 'Error');
+            }
+        });
+    }
+</script>
+}

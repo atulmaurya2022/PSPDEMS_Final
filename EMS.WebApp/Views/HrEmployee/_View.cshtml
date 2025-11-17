@@ -1,0 +1,186 @@
+﻿@model EMS.WebApp.Data.HrEmployee
+
+<!-- Employee Basic Information -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Employee ID
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <span class="badge bg-info" style="font-size: 12px;">@Model.emp_id</span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Employee Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong class="text-primary">@Model.emp_name</strong>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Date of Birth
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (Model.emp_DOB.HasValue)
+            {
+                <strong>@Model.emp_DOB.Value.ToString("dd-MMM-yyyy")</strong>
+            }
+            else
+            {
+                <em class="text-muted">Not specified</em>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Employee Details Row 1 -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Gender
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @{
+                string genderDisplay = Model.emp_Gender == "M" ? "Male" :
+                Model.emp_Gender == "F" ? "Female" :
+                Model.emp_Gender == "O" ? "Other" : "Not specified";
+                string genderColor = Model.emp_Gender == "M" ? "text-primary" :
+                Model.emp_Gender == "F" ? "text-danger" : "text-warning";
+            }
+            <span class="@genderColor"><strong>@genderDisplay</strong></span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Grade
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <span class="badge bg-secondary">@(Model.emp_Grade ?? "Not specified")</span>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Department
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong>@(Model.org_department?.dept_name ?? "Not assigned")</strong>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Details Row 2 -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Plant
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong>@(Model.org_plant?.plant_name ?? "Not assigned")</strong>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Employee Category
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong>@(Model.org_employee_category?.emp_category_name ?? "Not assigned")</strong>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Blood Group
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (!string.IsNullOrEmpty(Model.emp_blood_Group))
+            {
+                <span class="badge bg-danger">@Model.emp_blood_Group</span>
+            }
+            else
+            {
+                <em class="text-muted">Not specified</em>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Employee Details Row 3 -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            Marital Status
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @{
+                string maritalStatus = Model.marital_status == true ? "Married" :
+                Model.marital_status == false ? "Single" : "Not specified";
+                string maritalColor = Model.marital_status == true ? "text-success" :
+                Model.marital_status == false ? "text-info" : "text-muted";
+            }
+            <span class="@maritalColor"><strong>@maritalStatus</strong></span>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <!-- Empty space for layout consistency -->
+    </div>
+</div>
+
+@if (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue)
+{
+    <div class="audit-section">
+        <h6>
+            Audit Information
+        </h6>
+
+        @if (Model.CreatedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Created By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Created On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.ModifiedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Modified By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Modified On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="modal-footer modal-footer-master">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        Close
+    </button>
+</div>

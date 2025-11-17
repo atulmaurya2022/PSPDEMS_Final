@@ -1,0 +1,355 @@
+﻿@model EMS.WebApp.Data.SysRole
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Warning</strong>
+                @ViewBag.Error
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form asp-action="@(Model.role_id == 0 ? "Create" : "Edit")" method="post" id="sysRoleForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="role_id" type="hidden" />
+    <input asp-for="CreatedBy" type="hidden" />
+    <input asp-for="CreatedOn" type="hidden" />
+
+    <!-- Display general validation message -->
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-x-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Validation Error</strong>
+                Please correct the errors below and try again.
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- Role Name Row -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label asp-for="role_name" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.role_name)
+                <span class="text-danger">*</span>
+            </label>
+            <input asp-for="role_name" class="form-control form-control-master" id="roleNameInput" maxlength="40" placeholder="Enter role name (e.g., Administrator, Manager)" />
+            <div class="char-counter-container">
+                <span asp-validation-for="role_name" class="field-validation-error" id="roleNameValidation"></span>
+                <small class="char-counter" id="roleNameCharCount">0/40</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Description Row -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label asp-for="role_desc" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.role_desc)
+            </label>
+            <textarea asp-for="role_desc" class="form-control form-control-master" rows="3" id="roleDescTextarea" maxlength="250" placeholder="Enter role description (optional)"></textarea>
+            <div class="char-counter-container">
+                <span asp-validation-for="role_desc" class="field-validation-error" id="roleDescValidation"></span>
+                <small class="char-counter" id="descCharCount">0/250</small>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.role_id > 0 && (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue))
+    {
+        <div class="audit-section">
+            <h6>
+                <i class="bi bi-clock-history"></i>
+                Audit Information
+            </h6>
+
+            @if (Model.CreatedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Created By</label>
+                        <input class="form-control" value="@(Model.CreatedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Created On</label>
+                        <input class="form-control" value="@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ModifiedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Modified By</label>
+                        <input class="form-control" value="@(Model.ModifiedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Modified On</label>
+                        <input class="form-control" value="@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="modal-footer modal-footer-master">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            @(Model.role_id == 0 ? "Save Role" : "Update Role")
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+  @*   <script type="text/javascript">
+        $(document).ready(function() {
+            // Form elements
+            const form = $('#sysRoleForm');
+            const submitBtn = $('#submitBtn');
+            const roleNameInput = $('#roleNameInput');
+            const roleDescTextarea = $('#roleDescTextarea');
+            const roleId = $('#role_id').val();
+
+            // Character count elements
+            const roleNameCharCount = $('#roleNameCharCount');
+            const descCharCount = $('#descCharCount');
+
+            // Validation flags
+            let isCheckingName = false;
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Security patterns to check for
+            const dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            // Function to check for dangerous input
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Enhanced character count functions
+            function updateCharCount(input, countElement, maxLength) {
+                const currentLength = input.val().length;
+                countElement.text(`${currentLength}/${maxLength}`);
+
+                // Remove previous classes
+                countElement.removeClass('text-warning text-danger');
+
+                // Calculate thresholds
+                const warningThreshold = Math.floor(maxLength * 0.8);
+
+                if (currentLength >= maxLength) {
+                    countElement.addClass('text-danger');
+                } else if (currentLength >= warningThreshold) {
+                    countElement.addClass('text-warning');
+                }
+            }
+
+            // Enhanced validation functions
+            function validateRoleName() {
+                const roleName = roleNameInput.val().trim();
+                const validationSpan = $('#roleNameValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                roleNameInput.removeClass('is-invalid is-valid');
+
+                if (!roleName) {
+                    showFieldError(validationSpan, roleNameInput, 'Role Name is required.');
+                    isValid = false;
+                } else if (roleName.length < 2) {
+                    showFieldError(validationSpan, roleNameInput, 'Role Name must be at least 2 characters.');
+                    isValid = false;
+                } else if (roleName.length > 40) {
+                    showFieldError(validationSpan, roleNameInput, 'Role Name cannot exceed 40 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(roleName)) {
+                    showFieldError(validationSpan, roleNameInput, 'Role Name contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\s\-_\.]+$/.test(roleName)) {
+                    showFieldError(validationSpan, roleNameInput, 'Role Name can only contain letters, numbers, spaces, hyphens, underscores, and dots.');
+                    isValid = false;
+                } else {
+                    roleNameInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateDescription() {
+                const description = roleDescTextarea.val();
+                const validationSpan = $('#roleDescValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                roleDescTextarea.removeClass('is-invalid is-valid');
+
+                if (description && description.length > 250) {
+                    showFieldError(validationSpan, roleDescTextarea, 'Description cannot exceed 250 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(description)) {
+                    showFieldError(validationSpan, roleDescTextarea, 'Description contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (description) {
+                    roleDescTextarea.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            // Real-time validation for role name uniqueness
+            function checkRoleNameUniqueness() {
+                const roleName = roleNameInput.val().trim();
+                const validationSpan = $('#roleNameValidation');
+
+                if (!roleName || !validateRoleName()) {
+                    updateSubmitButton();
+                    return;
+                }
+
+                if (isCheckingName) return;
+
+                isCheckingName = true;
+                submitBtn.prop('disabled', true);
+
+                $.post('@Url.Action("CheckRoleNameExists")', {
+                    roleName: roleName,
+                    roleId: roleId || null
+                })
+                .done(function(response) {
+                    if (response.exists) {
+                        showFieldError(validationSpan, roleNameInput, 'A role with this name already exists. Please choose a different name.');
+                        submitBtn.prop('disabled', true);
+                    } else {
+                        if (validateRoleName()) {
+                            validationSpan.text('').removeClass('field-validation-error').hide();
+                            roleNameInput.removeClass('is-invalid').addClass('is-valid');
+                        }
+                        updateSubmitButton();
+                    }
+                })
+                .fail(function() {
+                    console.log('Error checking role name uniqueness');
+                    updateSubmitButton();
+                })
+                .always(function() {
+                    isCheckingName = false;
+                });
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0 ||
+                                isCheckingName;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Real-time character counting and validation
+            roleNameInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), roleNameCharCount, 40);
+                    validateRoleName();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            roleDescTextarea.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), descCharCount, 250);
+                    validateDescription();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            // Debounced role name uniqueness check
+            let nameCheckTimeout;
+            roleNameInput.on('input keyup', function() {
+                clearTimeout(nameCheckTimeout);
+                nameCheckTimeout = setTimeout(checkRoleNameUniqueness, 500);
+            });
+
+            // Initialize on page load
+            updateCharCount(roleNameInput, roleNameCharCount, 40);
+            updateCharCount(roleDescTextarea, descCharCount, 250);
+            validateRoleName();
+            validateDescription();
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateRoleName() || !validateDescription() || isCheckingName) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Double-check for dangerous input before submission
+                const roleName = roleNameInput.val().trim();
+                const description = roleDescTextarea.val();
+
+                if (containsDangerousInput(roleName) || containsDangerousInput(description)) {
+                    e.preventDefault();
+                    alert('Invalid input detected. Please remove any script tags or unsafe characters.');
+                    return false;
+                }
+            });
+
+            // Prevent pasting of dangerous content
+            function handleDangerousPaste(input, inputName) {
+                input.on('paste', function(e) {
+                    setTimeout(function() {
+                        const pastedContent = input.val();
+                        if (containsDangerousInput(pastedContent)) {
+                            input.val('');
+                            alert('Pasted content in ' + inputName + ' contains unsafe characters and has been removed.');
+                        }
+                    }, 10);
+                });
+            }
+
+            handleDangerousPaste(roleNameInput, 'Role Name');
+            handleDangerousPaste(roleDescTextarea, 'Description');
+        });
+    </script> *@
+}

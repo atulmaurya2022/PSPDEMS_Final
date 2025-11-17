@@ -1,0 +1,267 @@
+﻿@model EMS.WebApp.Data.SysAttachScreenRole
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Warning</strong>
+                @ViewBag.Error
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form asp-action="@(Model.uid == 0 ? "Create" : "Edit")" method="post" id="attachScreenRoleForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="uid" type="hidden" />
+    <input asp-for="CreatedBy" type="hidden" />
+    <input asp-for="CreatedOn" type="hidden" />
+
+    <!-- Display general validation message -->
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-x-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Validation Error</strong>
+                Please correct the errors below and try again.
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- Role Selection Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label asp-for="role_uid" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.role_uid)
+                <span class="text-danger">*</span>
+            </label>
+            <select asp-for="role_uid" class="form-control form-control-master" id="roleSelect" asp-items="ViewBag.SysRoleList">
+                <option value="">-- Select Role --</option>
+            </select>
+            <span asp-validation-for="role_uid" class="field-validation-error" id="roleValidation"></span>
+            <small class="form-text text-info">
+                <i class="bi bi-info-circle"></i>
+                Select the role to assign screen permissions
+            </small>
+        </div>
+    </div>
+
+    <!-- Screen Selection Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label asp-for="screen_uids" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.screen_uids)
+                <span class="text-danger">*</span>
+            </label>
+            <select asp-for="screen_uids" asp-items="ViewBag.SysScreenList" class="form-control form-control-master" id="screenSelect" multiple size="8"></select>
+            <span asp-validation-for="screen_uids" class="field-validation-error" id="screenValidation"></span>
+            <small class="form-text text-info">
+                <i class="bi bi-info-circle"></i>
+                Hold Ctrl (Cmd on Mac) to select multiple screens. <span id="selectedCount" class="fw-bold text-primary">0 screens selected</span>
+            </small>
+        </div>
+    </div>
+
+    @if (Model.uid > 0 && (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue))
+    {
+        <div class="audit-section">
+            <h6>
+                <i class="bi bi-clock-history"></i>
+                Audit Information
+            </h6>
+
+            @if (Model.CreatedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Created By</label>
+                        <input class="form-control" value="@(Model.CreatedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Created On</label>
+                        <input class="form-control" value="@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ModifiedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Modified By</label>
+                        <input class="form-control" value="@(Model.ModifiedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Modified On</label>
+                        <input class="form-control" value="@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="modal-footer modal-footer-master">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            @(Model.uid == 0 ? "Save Mapping" : "Update Mapping")
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+   @*  <script type="text/javascript">
+        $(document).ready(function() {
+            // Form elements
+            const form = $('#attachScreenRoleForm');
+            const submitBtn = $('#submitBtn');
+            const roleSelect = $('#roleSelect');
+            const screenSelect = $('#screenSelect');
+            const selectedCount = $('#selectedCount');
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Enhanced validation functions
+            function validateRole() {
+                const roleId = roleSelect.val();
+                const validationSpan = $('#roleValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                roleSelect.removeClass('is-invalid is-valid');
+
+                if (!roleId) {
+                    showFieldError(validationSpan, roleSelect, 'Role selection is required.');
+                    isValid = false;
+                } else {
+                    roleSelect.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateScreens() {
+                const selectedScreens = screenSelect.val();
+                const validationSpan = $('#screenValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                screenSelect.removeClass('is-invalid is-valid');
+
+                if (!selectedScreens || selectedScreens.length === 0) {
+                    showFieldError(validationSpan, screenSelect, 'At least one screen must be selected.');
+                    isValid = false;
+                } else {
+                    screenSelect.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            function updateSelectedCount() {
+                const selectedScreens = screenSelect.val();
+                const count = selectedScreens ? selectedScreens.length : 0;
+                selectedCount.text(`${count} screen${count !== 1 ? 's' : ''} selected`);
+
+                // Update color based on selection
+                selectedCount.removeClass('text-primary text-success text-warning');
+                if (count === 0) {
+                    selectedCount.addClass('text-primary');
+                } else if (count <= 5) {
+                    selectedCount.addClass('text-success');
+                } else {
+                    selectedCount.addClass('text-warning');
+                }
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Event handlers
+            roleSelect.on('change', function() {
+                validateRole();
+                updateSubmitButton();
+            });
+
+            screenSelect.on('change', function() {
+                validateScreens();
+                updateSelectedCount();
+                updateSubmitButton();
+            });
+
+            // Initialize on page load
+            validateRole();
+            validateScreens();
+            updateSelectedCount();
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateRole() || !validateScreens()) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Show loading state on submit
+                submitBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div> Saving...');
+            });
+
+            // Enhanced multi-select styling
+            screenSelect.on('focus', function() {
+                $(this).closest('.col-md-12').addClass('multi-select-focused');
+            }).on('blur', function() {
+                $(this).closest('.col-md-12').removeClass('multi-select-focused');
+            });
+
+            // Keyboard shortcuts for better UX
+            screenSelect.on('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.which) {
+                        case 65: // Ctrl+A - Select All
+                            e.preventDefault();
+                            $(this).find('option').prop('selected', true);
+                            $(this).trigger('change');
+                            break;
+                        case 68: // Ctrl+D - Deselect All
+                            e.preventDefault();
+                            $(this).find('option').prop('selected', false);
+                            $(this).trigger('change');
+                            break;
+                    }
+                }
+            });
+
+            // Add keyboard shortcut hints
+            screenSelect.attr('title', 'Ctrl+A: Select All, Ctrl+D: Deselect All');
+        });
+    </script> *@
+}

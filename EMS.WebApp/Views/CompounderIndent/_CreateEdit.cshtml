@@ -1,0 +1,2528 @@
+﻿@model EMS.WebApp.Data.CompounderIndent
+@{
+    bool isEdit = Model.IndentId > 0;
+    bool isCompounderInventory = ViewBag.IsCompounderInventoryMode == true; // Compounder Inventory context
+}
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning">
+        @ViewBag.Error
+    </div>
+}
+
+@if (ViewBag.Success != null)
+{
+    <div class="alert alert-success">
+        @ViewBag.Success
+    </div>
+}
+
+<form asp-action="@(Model.IndentId == 0 ? "Create" : "Edit")" method="post" id="compounderIndentForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="IndentId" type="hidden" />
+    @if (isEdit)
+    {
+        <input asp-for="CreatedDate" type="hidden" />
+        <input asp-for="CreatedBy" type="hidden" />
+    }
+
+    <!-- Hidden field to store medicines data -->
+    <input type="hidden" id="medicinesData" name="medicinesJson" />
+    <!-- Hidden field to store action type -->
+    <input type="hidden" id="actionType" name="actionType" value="submit" />
+
+    <!-- Auto-save status indicator -->
+    <div id="autoSaveStatus" class="alert alert-info" style="display:none;">
+        <i class="bi bi-info-circle me-1"></i>
+        <span id="autoSaveMessage">Saving as draft...</span>
+    </div>
+
+    <!-- Show status info for Compounder Inventory -->
+    @if (isCompounderInventory && isEdit)
+    {
+        <div class="alert alert-info mb-3">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Compounder Inventory Management</strong> - This indent is @Model.Status.ToLower().
+            @if (Model.Status == "Pending")
+            {
+                <span>You can manage batches and edit details. This indent is awaiting doctor approval.</span>
+            }
+            else if (Model.Status == "Approved")
+            {
+                <span>You can manage batches and update inventory details for this approved indent.</span>
+            }
+        </div>
+    }
+
+    <!-- Indent header info -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-4 col-lg-3">
+            <label asp-for="IndentType" class="form-label">Indent Type <span class="text-danger">*</span></label>
+            @if (isCompounderInventory)
+            {
+                <select asp-for="IndentType" class="form-select glass-input" id="indentTypeSelect" required disabled>
+                    <option value="">Select Indent Type</option>
+                    @if (ViewBag.IndentTypeList != null)
+                    {
+                        @foreach (var option in (List<SelectListItem>)ViewBag.IndentTypeList)
+                        {
+                            @if (option.Value == Model.IndentType)
+                            {
+                                <option value="@option.Value" selected>@option.Text</option>
+                            }
+                            else
+                            {
+                                <option value="@option.Value">@option.Text</option>
+                            }
+                        }
+                    }
+                </select>
+                <!-- Hidden field to preserve the value for disabled dropdown -->
+                <input type="hidden" asp-for="IndentType" />
+            }
+            else
+            {
+                <select asp-for="IndentType" class="form-select glass-input" id="indentTypeSelect" required>
+                    <option value="">Select Indent Type</option>
+                    @if (ViewBag.IndentTypeList != null)
+                    {
+                        @foreach (var option in (List<SelectListItem>)ViewBag.IndentTypeList)
+                        {
+                            @if (option.Value == Model.IndentType)
+                            {
+                                <option value="@option.Value" selected>@option.Text</option>
+                            }
+                            else
+                            {
+                                <option value="@option.Value">@option.Text</option>
+                            }
+                        }
+                    }
+                </select>
+            }
+            <div class="d-flex justify-content-between mt-1">
+                <span asp-validation-for="IndentType" class="text-danger" id="indentTypeValidation"></span>
+                <small class="text-muted">
+                    <span id="indentTypeCharCount">0</span>/50 characters
+                </small>
+            </div>
+        </div>
+
+        <div class="col-md-4 col-lg-3">
+            <label asp-for="IndentDate" class="form-label">Indent Raised Date <span class="text-danger">*</span></label>
+            @if (isCompounderInventory)
+            {
+                <input asp-for="IndentDate" type="date" class="form-control glass-input" required readonly />
+            }
+            else
+            {
+                <input asp-for="IndentDate" type="date" class="form-control glass-input" id="indentDateInput" max=@DateTime.Today.ToString("yyyy-MM-dd") required />
+            }
+            <span asp-validation-for="IndentDate" class="text-danger" id="indentDateValidation"></span>
+        </div>
+
+        <div class="col-md-4 col-lg-2">
+            <label class="form-label">Indent ID</label>
+            <input type="text" class="form-control glass-input" readonly value="@(isEdit? Model.IndentId.ToString() : "AUTO")" />
+        </div>
+
+        @if (isEdit)
+        {
+            <div class="col-md-4 col-lg-2">
+                <label asp-for="Status" class="form-label">Status</label>
+                @if (isCompounderInventory)
+                {
+                    <select asp-for="Status" class="form-select glass-input" id="statusSelect" disabled>
+                        @if (Model.Status == "Pending")
+                        {
+                            <option value="Pending" selected>Pending</option>
+                        }
+                        else
+                        {
+                            <option value="Pending">Pending</option>
+                        }
+                        @if (Model.Status == "Approved")
+                        {
+                            <option value="Approved" selected>Approved</option>
+                        }
+                        else
+                        {
+                            <option value="Approved">Approved</option>
+                        }
+                        @if (Model.Status == "Rejected")
+                        {
+                            <option value="Rejected" selected>Rejected</option>
+                        }
+                        else
+                        {
+                            <option value="Rejected">Rejected</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <select asp-for="Status" class="form-select glass-input" id="statusSelect">
+                        @if (Model.Status == "Pending")
+                        {
+                            <option value="Pending" selected>Pending</option>
+                        }
+                        else
+                        {
+                            <option value="Pending">Pending</option>
+                        }
+                        @if (Model.Status == "Approved")
+                        {
+                            <option value="Approved" selected>Approved</option>
+                        }
+                        else
+                        {
+                            <option value="Approved">Approved</option>
+                        }
+                        @if (Model.Status == "Rejected")
+                        {
+                            <option value="Rejected" selected>Rejected</option>
+                        }
+                        else
+                        {
+                            <option value="Rejected">Rejected</option>
+                        }
+                    </select>
+                }
+            </div>
+        }
+    </div>
+    <small class="text-muted d-block mt-1">
+        <i class="bi bi-info-circle me-1"></i>
+        Only medicines with available stock in the store are displayed in the dropdown.
+    </small>
+    <!-- Comments Section (if editing) -->
+    @if (isEdit)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-12">
+                <label asp-for="Comments" class="form-label">Comments</label>
+                @if (isCompounderInventory)
+                {
+                    <textarea asp-for="Comments" class="form-control glass-input" id="commentsTextarea" rows="3" maxlength="500" placeholder="Enter comments (optional)" readonly>@Model.Comments</textarea>
+                }
+                else
+                {
+                    <textarea asp-for="Comments" class="form-control glass-input" id="commentsTextarea" rows="3" maxlength="500" placeholder="Enter comments (optional)">@Model.Comments</textarea>
+                }
+                <div class="d-flex justify-content-between mt-1">
+                    <span asp-validation-for="Comments" class="text-danger" id="commentsValidation"></span>
+                    <small class="text-muted">
+                        <span id="commentsCharCount">0</span>/500 characters
+                    </small>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Medicine validation messages -->
+    <div id="medicineValidationMessage" class="alert alert-warning" style="display:none;"></div>
+
+    <!-- Medicines table -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Medicines</h6>
+        @if (!isCompounderInventory)
+        {
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddMed">
+                <i class="bi bi-plus-lg"></i> Add Medicine
+            </button>
+        }
+    </div>
+
+    <div class="table-responsive mb-3">
+        <table id="tblMedIndent" class="table table-striped table-glass glass-table w-100 align-middle">
+            <thead>
+                <tr>
+                    <th style="width:40px">Sl.</th>
+                    <th style="width:160px">Medicine Name</th>
+                    <th style="width:120px">Company Name</th>
+                    <th style="width:100px">Vendor Code</th>
+                    <th style="width:80px">Raised Qty</th>
+                    <th style="width:80px">Issued Qty</th>
+                    <th style="width:80px">Pending Qty</th>
+                    <th style="width:120px">Available Stock in Store</th>
+                    <th style="width:90px">Action</th>
+                </tr>
+            </thead>
+            <tbody id="medicineTableBody">
+                <tr>
+                    <td colspan="9" class="text-center text-muted">No medicines added yet.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        @if (!isCompounderInventory)
+        {
+            @if (Model.IndentId == 0 || Model.IndentType == "Draft Indent")
+            {
+                <!-- Show both Save and Submit for new items or drafts -->
+                <button type="submit" class="btn btn-outline-primary" id="saveBtn">
+                    <i class="bi bi-floppy me-1"></i>Save as Draft
+                </button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="bi bi-check-circle me-1"></i>@(Model.IndentId == 0 ? "Submit" : "Submit Final")
+                </button>
+            }
+            else
+            {
+                <!-- Show only Submit for non-draft items -->
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="bi bi-check-circle me-1"></i>Update
+                </button>
+            }
+        }
+        else
+        {
+            <!-- Show appropriate buttons for Compounder Inventory based on status -->
+        }
+    </div>
+</form>
+
+<!-- Enhanced Batch Edit Modal for Compounder Inventory with Early Expiry Validation -->
+<div id="compounderBatchEditModal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-boxes me-2"></i>Edit Batches for <span id="compounderModalMedName" class="text-primary"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Medicine Name:</strong></label>
+                            <span id="compounderModalMedicineDisplay" class="form-control-plaintext"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Requested Quantity:</strong></label>
+                            <span id="compounderModalReqQty" class="form-control-plaintext text-info fw-bold"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Validation Alert with FIFO Policy -->
+                <div class="alert alert-info" role="alert">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Important Guidelines - FIFO Policy:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>First-In-First-Out (FIFO):</strong> Always select medicines with the earliest expiry dates first (marked with ⭐ EARLIEST)</li>
+                        <li>The system will show a prompt if you select a later-expiring batch when earlier ones are available</li>
+                        <li>Each batch's issued quantity cannot exceed the <strong>requested quantity</strong></li>
+                        <li>Each batch's issued quantity cannot exceed the <strong>available stock in store</strong></li>
+                        <li>The total of all batches' issued quantities cannot exceed the requested quantity</li>
+                        <li><strong>Expiry Indicators:</strong> ⭐ EARLIEST | ⚠️ EXPIRES SOON (≤30 days) | 📅 NEAR EXPIRY (≤90 days)</li>
+                        <li><strong>Note:</strong> Batch editing is available for both pending and approved indents</li>
+                    </ul>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Batch Information:</strong></label>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped" id="compounderBatchTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 25%">
+                                    Batch No <span class="text-danger">*</span>
+                                    <small class="text-muted d-block">(Select earliest expiry first)</small>
+                                </th>
+                                <th style="width: 15%">Available Stock in Store</th>
+                                <th style="width: 20%">Expiry Date <span class="text-danger">*</span></th>
+                                <th style="width: 20%">Issued Qty <span class="text-danger">*</span></th>
+                                <th style="width: 15%">Vendor Code</th>
+                                <th style="width: 10%">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Enhanced Summary Information -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <div class="row text-center">
+                                    <div class="col-md-3">
+                                        <small class="text-muted">Requested</small>
+                                        <div class="fw-bold text-info" id="compounderRequestedQuantitySummary">
+                                            <span id="compounderModalReqQtyDisplay">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted">Total Issued</small>
+                                        <div class="fw-bold text-primary" id="compounderTotalReceivedSummary">0</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted">Remaining</small>
+                                        <div class="fw-bold text-secondary" id="compounderRemainingQuantitySummary">0</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <small class="text-muted">Status</small>
+                                        <div class="fw-bold" id="compounderOverallStockStatus">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-success mt-3" onclick="addCompounderBatchRow()">
+                    <i class="bi bi-plus-circle me-1"></i>Add Batch
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="saveCompounderBatches()">
+                    <i class="bi bi-check-circle me-1"></i>Save Batches
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeCompounderBatchModal()">
+                    <i class="bi bi-x-circle me-1"></i>Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<link href="~/css/select2.min.css" rel="stylesheet" />
+<link href="~/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<script src="~/js/select2.min.js"></script>
+<!-- CSS Styles -->
+<style>
+    /* Select2 custom styling */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+        padding-left: 0;
+        line-height: calc(1.5em + 0.5rem);
+    }
+
+    .select2-container--bootstrap-5 .select2-dropdown {
+        font-size: 0.875rem;
+    }
+
+    .select2-container--bootstrap-5 .select2-results__option {
+        padding: 0.375rem 0.75rem;
+    }
+
+    .select2-container {
+        width: 100% !important;
+    }
+
+    .expiry-warning {
+        color: #856404 !important;
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        display: inline-block;
+        margin-top: 2px;
+    }
+
+    .expiry-error {
+        color: #721c24 !important;
+        background-color: #f8d7da;
+        border: 1px solid #f1aeb5;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 0.75rem;
+        display: inline-block;
+        margin-top: 2px;
+    }
+
+    .expiry-status-expired {
+        color: #dc3545 !important;
+        font-weight: bold;
+    }
+
+    .expiry-status-warning {
+        color: #fd7e14 !important;
+        font-weight: bold;
+    }
+
+    .expiry-status-good {
+        color: #198754 !important;
+    }
+
+    .expiry-date-validation {
+        font-size: 0.75rem;
+        margin-top: 2px;
+    }
+
+    .store-total-info {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 2px;
+    }
+
+    .store-total-badge {
+        background-color: #e9ecef;
+        color: #495057;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.7rem;
+    }
+
+    .batch-dropdown {
+        margin-bottom: 5px;
+    }
+
+    .status-pending {
+        background-color: #fff3cd;
+        border-color: #ffeaa7;
+        color: #856404;
+    }
+
+    .status-approved {
+        background-color: #d1edff;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+
+    .stock-invalid {
+        border-color: #dc3545 !important;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+    }
+
+    .stock-validation-feedback {
+        margin-top: 0.25rem;
+        font-size: 0.875em;
+        color: #dc3545;
+    }
+
+    .available-stock-display .badge {
+        font-size: 0.8em;
+        padding: 0.4em 0.6em;
+    }
+
+    .raised-qty-input.stock-invalid {
+        background-color: #fff5f5 !important;
+    }
+
+    .editing-row .raised-qty-input:focus {
+        border-color: #80bdff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .editing-row .raised-qty-input.stock-invalid:focus {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+
+    /* Enhanced batch selection styling */
+    .batch-dropdown option {
+        padding: 5px;
+        font-family: monospace;
+    }
+
+    .batch-expiry-earliest {
+        background-color: #d4edda !important;
+        font-weight: bold !important;
+        color: #155724 !important;
+    }
+
+    .batch-expiry-warning {
+        background-color: #fff3cd !important;
+        color: #856404 !important;
+    }
+
+    .batch-expiry-danger {
+        background-color: #f8d7da !important;
+        color: #721c24 !important;
+    }
+
+    .expiry-indicator {
+        font-size: 0.8em;
+        padding: 2px 4px;
+        border-radius: 3px;
+        margin-left: 5px;
+        font-weight: bold;
+    }
+
+    .early-expiry-modal {
+        z-index: 9999;
+    }
+
+    .early-expiry-dialog {
+        max-width: 600px;
+    }
+
+    .batch-comparison-table {
+        font-size: 0.9em;
+    }
+
+        .batch-comparison-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+    .earliest-batch-row {
+        background-color: #d4edda;
+    }
+
+    .selected-batch-row {
+        background-color: #fff3cd;
+    }
+</style>
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<!-- JavaScript Section -->
+<script>
+    $(document).ready(function() {
+        // Remove any existing alerts at the start
+        $('.alert-danger, .alert-info, .compounder-readonly-alert, .compounder-inventory-info').remove();
+
+        // Get user role information
+        $.get('@Url.Action("GetCurrentUserRole", "CompounderIndent")')
+            .done(function(response) {
+                if (response && response.role) {
+                    const userRole = response.role.toLowerCase();
+                    const isStoreUser = userRole.includes('store');
+                    const isCompounderUser = userRole.includes('compounder');
+                    const isCompounderInventory = @(isCompounderInventory ? "true" : "false");
+
+                    // If store user is trying to edit non-inventory, show error and disable form
+                    if (isStoreUser && !isCompounderInventory) {
+                        showFormError('Access denied. Store users can only manage Compounder Inventory.');
+                        disableForm();
+                        return;
+                    }
+
+                    // If compounder user is trying to edit Compounder Inventory, show error and disable form
+                    if (isCompounderUser && isCompounderInventory) {
+                        showFormError('Access denied. Compounder users cannot edit Compounder Inventory.');
+                        disableForm();
+                        return;
+                    }
+
+                    // Set readonly state for compounder users on inventory forms
+                    if (isCompounderUser && isCompounderInventory) {
+                        setInventoryReadOnlyMode();
+                    }
+                }
+            })
+            .fail(function() {
+                console.log('Could not verify user permissions');
+            });
+    });
+
+    function showFormError(message) {
+        // Remove any existing error alerts before adding new one
+        $('.alert-danger, .alert-info, .compounder-readonly-alert, .compounder-inventory-info').remove();
+
+        $('#compounderIndentForm').before(`
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>${message}
+            </div>
+        `);
+    }
+
+    function disableForm() {
+        $('#compounderIndentForm input, #compounderIndentForm select, #compounderIndentForm textarea, #compounderIndentForm button').prop('disabled', true);
+        $('#btnAddMed, #saveBtn, #submitBtn').hide();
+    }
+
+    function setInventoryReadOnlyMode() {
+        // For compounder users viewing inventory, disable all editing capabilities
+        $('#compounderIndentForm input:not([readonly]), #compounderIndentForm select:not([disabled]), #compounderIndentForm textarea').prop('readonly', true);
+        $('#btnAddMed, #saveBtn, #submitBtn').hide();
+
+        // Also disable any edit buttons in the medicine table
+        $(document).on('click', '.edit-medicine-inline, .edit-medicine-with-reason', function(e) {
+            e.preventDefault();
+            alert('Access denied. Compounder users cannot edit Compounder Inventory.');
+            return false;
+        });
+
+        // Show read-only message (check if not already exists)
+        if ($('.compounder-readonly-alert').length === 0) {
+            $('#compounderIndentForm').before(`
+                <div class="alert alert-info compounder-readonly-alert">
+                    <i class="bi bi-info-circle me-2"></i>You are viewing this in read-only mode. Compounder users cannot edit Compounder Inventory.
+                </div>
+            `);
+        }
+    }
+</script>
+
+<!-- Main JavaScript -->
+<script>
+    $(document).ready(function() {
+        const isEdit = @(isEdit ? "true" : "false");
+        const isCompounderInventory = @(isCompounderInventory ? "true" : "false");
+        let indentId = @Model.IndentId;
+        let rowCounter = 1;
+        let allMedicines = []; // This will hold all medicines (existing + new)
+        let hasUnsavedChanges = false;
+        let isAutoSaving = false;
+        let formDataChangeTimeout;
+
+        // Security patterns to check for
+        const dangerousPatterns = [
+            /<script[^>]*>.*?<\/script>/gi,
+            /javascript:/gi,
+            /vbscript:/gi,
+            /on\w+\s*=/gi,
+            /<iframe/gi,
+            /<object/gi,
+            /<embed/gi,
+            /<form/gi,
+            /eval\s*\(/gi,
+            /expression\s*\(/gi
+        ];
+
+        // Function to check for dangerous input
+        function containsDangerousInput(text) {
+            if (!text) return false;
+            return dangerousPatterns.some(pattern => pattern.test(text));
+        }
+
+        // Initialize everything
+        setTimeout(function() {
+            initializeForm();
+            updateIndentTypeCharCount();
+            if (isEdit) {
+                updateCommentsCharCount();
+            }
+            if (!(isCompounderInventory && isEdit)) {
+                validateIndentType();
+                validateIndentDate();
+                if (isEdit) {
+                    validateComments();
+                }
+            }
+            updateSubmitButtons();
+        }, 200);
+
+        // Character count functions
+        function updateIndentTypeCharCount() {
+            const currentLength = $('#indentTypeSelect option:selected').text().length;
+            $('#indentTypeCharCount').text(currentLength);
+        }
+
+        function updateCommentsCharCount() {
+            const currentLength = $('#commentsTextarea').val().length;
+            const charCountElement = $('#commentsCharCount');
+            charCountElement.text(currentLength);
+            charCountElement.removeClass('text-warning text-danger');
+            if (currentLength > 400 && currentLength < 500) {
+                charCountElement.addClass('text-warning');
+            } else if (currentLength >= 500) {
+                charCountElement.addClass('text-danger');
+            }
+        }
+
+        // Validation functions
+        function validateIndentType() {
+            const indentType = $('#indentTypeSelect').val();
+            const validationSpan = $('#indentTypeValidation');
+            let isValid = true;
+
+            validationSpan.text('').removeClass('field-validation-error').hide();
+            $('#indentTypeSelect').removeClass('is-invalid');
+
+            if (isCompounderInventory && isEdit && indentType) {
+                return true;
+            }
+
+            if (!indentType) {
+                validationSpan.text('Indent Type is required.')
+                             .addClass('field-validation-error text-danger')
+                             .show();
+                $('#indentTypeSelect').addClass('is-invalid');
+                isValid = false;
+            } else if (containsDangerousInput(indentType)) {
+                validationSpan.text('Indent Type contains invalid characters.')
+                             .addClass('field-validation-error text-danger')
+                             .show();
+                $('#indentTypeSelect').addClass('is-invalid');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        function validateIndentDate() {
+            const indentDate = $('#indentDateInput').val();
+            const validationSpan = $('#indentDateValidation');
+            let isValid = true;
+
+            validationSpan.text('').removeClass('field-validation-error').hide();
+            $('#indentDateInput').removeClass('is-invalid');
+
+            if (isCompounderInventory && isEdit && indentDate) {
+                return true;
+            }
+
+            if (!indentDate) {
+                validationSpan.text('Indent Date is required.')
+                             .addClass('field-validation-error text-danger')
+                             .show();
+                $('#indentDateInput').addClass('is-invalid');
+                isValid = false;
+            } else {
+                const selectedDate = new Date(indentDate);
+                const today = new Date();
+                const maxDate = new Date();
+                maxDate.setFullYear(today.getFullYear() + 1);
+
+                if (selectedDate > maxDate) {
+                    validationSpan.text('Indent Date cannot be more than 1 year in the future.')
+                                 .addClass('field-validation-error text-danger')
+                                 .show();
+                    $('#indentDateInput').addClass('is-invalid');
+                    isValid = false;
+                }
+            }
+
+            return isValid;
+        }
+
+        function validateComments() {
+            const comments = $('#commentsTextarea').val();
+            const validationSpan = $('#commentsValidation');
+            let isValid = true;
+
+            validationSpan.text('').removeClass('field-validation-error').hide();
+            $('#commentsTextarea').removeClass('is-invalid');
+
+            if (comments && comments.length > 500) {
+                validationSpan.text('Comments cannot exceed 500 characters.')
+                             .addClass('field-validation-error text-danger')
+                             .show();
+                $('#commentsTextarea').addClass('is-invalid');
+                isValid = false;
+            } else if (containsDangerousInput(comments)) {
+                validationSpan.text('Comments contain invalid characters.')
+                             .addClass('field-validation-error text-danger')
+                             .show();
+                $('#commentsTextarea').addClass('is-invalid');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        function updateSubmitButtons() {
+            // Allow form submission for Compounder Inventory
+            if (isCompounderInventory) {
+                const hasErrors = $('.field-validation-error:visible').length > 0 || $('.is-invalid').length > 0;
+                $('#submitBtn').prop('disabled', hasErrors || isAutoSaving);
+                return;
+            }
+
+            const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                            $('.is-invalid').length > 0 ||
+                            $('.stock-invalid').length > 0 ||
+                            isAutoSaving;
+            $('#saveBtn, #submitBtn').prop('disabled', hasErrors);
+        }
+
+        function initializeForm() {
+            if (isEdit && isCompounderInventory) {
+                $('.field-validation-error').hide();
+                $('.is-invalid').removeClass('is-invalid');
+                $('#indentTypeSelect').prop('disabled', true);
+                $('input[name="IndentDate"]').prop('readonly', true);
+                $('#statusSelect').prop('disabled', true);
+                $('#commentsTextarea').prop('readonly', true);
+
+                // Don't hide submit button for Compounder Inventory - allow updates for both pending and approved
+                // Only hide save button as it's not relevant for inventory management
+                $('#saveBtn').hide();
+
+                if ($('.compounder-inventory-info').length === 0 && $('.compounder-readonly-alert').length === 0) {
+                    $('#compounderIndentForm').prepend(`
+                        <div class="alert alert-info compounder-inventory-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            You are managing Compounder Inventory. You can edit medicine details and manage batches for both pending and approved indents.
+                        </div>
+                    `);
+                }
+            }
+
+            // Initialize Select2 on any existing medicine dropdowns
+            initializeSelect2Dropdowns();
+        }
+
+        // Function to initialize Select2 on medicine dropdowns
+        function initializeSelect2Dropdowns() {
+            $('.medicine-dropdown').each(function() {
+                if (!$(this).hasClass('select2-hidden-accessible')) {
+                    $(this).select2({
+                        theme: 'bootstrap-5',
+                        placeholder: 'Select Medicine',
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('#compounderIndentForm')
+                    });
+                }
+            });
+        }
+
+        // Event handlers
+        $('#indentTypeSelect').on('change', function() {
+            updateIndentTypeCharCount();
+            validateIndentType();
+            updateSubmitButtons();
+        });
+
+        $('#indentDateInput').on('change', function() {
+            validateIndentDate();
+            updateSubmitButtons();
+        });
+
+        $('#commentsTextarea').on('input keyup paste', function() {
+            updateCommentsCharCount();
+            validateComments();
+            updateSubmitButtons();
+        });
+
+        // Medicine options
+        let medicineOptionsHtml = '<option value="">Select Medicine</option>';
+        @if (ViewBag.MedicineList != null)
+        {
+                @foreach (var medicine in (SelectList)ViewBag.MedicineList)
+                {
+                        <text>medicineOptionsHtml += '<option value="@medicine.Value">@medicine.Text</option>';</text>
+                }
+        }
+
+        // Add Medicine Button Click
+        $('#btnAddMed').click(function() {
+            if (!isCompounderInventory) {
+                if (!validateIndentType() || !validateIndentDate() || !validateComments()) {
+                    showValidationMessage('Please fix form validation errors before adding medicines.', 'warning');
+                    return;
+                }
+                addNewMedicineRow();
+            }
+        });
+
+        // Handle Save vs Submit button clicks
+        $('#saveBtn').click(function(e) {
+            $('#actionType').val('save');
+            hasUnsavedChanges = false;
+        });
+
+        $('#submitBtn').click(function(e) {
+            $('#actionType').val('submit');
+            hasUnsavedChanges = false;
+        });
+
+        function addNewMedicineRow() {
+            $('#medicineTableBody tr:contains("No medicines added yet")').remove();
+            const nextSlNo = $('#medicineTableBody tr').length + 1;
+            const newRowId = 'newRow' + Date.now();
+
+            const newRow = `
+                <tr id="${newRowId}" class="editing-row">
+                    <td>${nextSlNo}</td>
+                    <td>
+                        <select class="form-select form-select-sm glass-input medicine-dropdown" required>
+                            ${medicineOptionsHtml}
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input company-input" readonly />
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input vendor-input" placeholder="Enter vendor code (optional)" maxlength="50" />
+                        <div class="invalid-feedback"></div>
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input raised-qty-input" type="number" min="1" max="99999" placeholder="Raised Qty" required />
+                        <div class="invalid-feedback"></div>
+                        <div class="stock-validation-feedback text-danger" style="font-size: 0.75rem; display: none;"></div>
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input received-qty-input" type="number" min="0" max="99999" placeholder="Issued Qty" value="0" readonly />
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input pending-qty-display" readonly placeholder="Pending Qty" />
+                    </td>
+                    <td>
+                        <div class="available-stock-display text-center" data-stock-value="0">-</div>
+                    </td>
+                    <td>
+                        <button class="btn btn-action-delete delete cancel-medicine" type="button" title="Delete">
+                            <i class="bi bi-trash fs-6"></i>
+                        </button>
+                    </td>
+                </tr>`;
+
+            $('#medicineTableBody').append(newRow);
+
+            // Initialize Select2 on the newly added medicine dropdown
+            $(`#${newRowId} .medicine-dropdown`).select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select Medicine',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#compounderIndentForm')
+            });
+
+            rowCounter++;
+        }
+
+        // Medicine dropdown change - with stock validation
+        $(document).on('change', '.medicine-dropdown', function() {
+            const row = $(this).closest('tr');
+            const medItemId = $(this).val();
+            const companyInput = row.find('.company-input');
+            const availableStockDisplay = row.find('.available-stock-display');
+            const raisedQtyInput = row.find('.raised-qty-input');
+
+            if (medItemId) {
+                companyInput.val('Loading...');
+                availableStockDisplay.html('<i class="bi bi-hourglass-split text-muted"></i>');
+
+                const medicineDetailsUrl = '@Url.Action("GetMedicineDetails", "CompounderIndent")';
+                $.get(medicineDetailsUrl, { medItemId: medItemId })
+                    .done(function(result) {
+                        if (result.success) {
+                            companyInput.val(result.data.companyName);
+
+                            // Store and display stock information
+                            const stockValue = result.data.totalReceivedFromStore || 0;
+                            availableStockDisplay.attr('data-stock-value', stockValue);
+                            availableStockDisplay.html(`<span class="badge ${stockValue > 0 ? 'bg-success' : 'bg-warning'}">${stockValue}</span>`);
+
+                            // Validate existing raised quantity against stock
+                            validateRaisedQuantityAgainstStock(row);
+
+                            // Set max attribute on raised quantity input
+                            raisedQtyInput.attr('max', stockValue);
+                            if (stockValue === 0) {
+                                raisedQtyInput.attr('placeholder', 'No stock available');
+                                showFieldError(raisedQtyInput, 'No stock available in store for this medicine');
+                            } else {
+                                raisedQtyInput.attr('placeholder', `Max: ${stockValue}`);
+                            }
+                        } else {
+                            companyInput.val('Not Defined');
+                            availableStockDisplay.attr('data-stock-value', '0');
+                            availableStockDisplay.html('<span class="badge bg-secondary">0</span>');
+                            raisedQtyInput.attr('max', '0');
+                            raisedQtyInput.attr('placeholder', 'No stock available');
+                            showFieldError(raisedQtyInput, 'Medicine details not found');
+                        }
+                    })
+                    .fail(function() {
+                        companyInput.val('Not Defined');
+                        availableStockDisplay.attr('data-stock-value', '0');
+                        availableStockDisplay.html('<span class="badge bg-danger">Error</span>');
+                        raisedQtyInput.attr('max', '0');
+                        raisedQtyInput.attr('placeholder', 'Error loading stock');
+                        showFieldError(raisedQtyInput, 'Error loading stock information');
+                    });
+            } else {
+                companyInput.val('');
+                availableStockDisplay.attr('data-stock-value', '0');
+                availableStockDisplay.text('-');
+                raisedQtyInput.attr('max', '99999');
+                raisedQtyInput.attr('placeholder', 'Raised Qty');
+                clearRowValidation(row);
+            }
+        });
+
+        // Real-time validation for raised quantity against available stock
+        $(document).on('input change keyup', '.raised-qty-input', function() {
+            const row = $(this).closest('tr');
+            validateRaisedQuantityAgainstStock(row);
+
+            // Auto-calculate pending quantity
+            const raisedQty = parseInt(row.find('.raised-qty-input').val()) || 0;
+            const receivedQty = parseInt(row.find('.received-qty-input').val()) || 0;
+            const pendingQty = raisedQty - receivedQty;
+            row.find('.pending-qty-display').val(pendingQty >= 0 ? pendingQty : 0);
+
+            // Update submit button state
+            updateSubmitButtons();
+        });
+
+        // Auto-calculate pending quantity
+        $(document).on('change keyup', '.received-qty-input', function() {
+            const row = $(this).closest('tr');
+            const raisedQty = parseInt(row.find('.raised-qty-input').val()) || 0;
+            const receivedQty = parseInt(row.find('.received-qty-input').val()) || 0;
+            const pendingQty = raisedQty - receivedQty;
+            row.find('.pending-qty-display').val(pendingQty >= 0 ? pendingQty : 0);
+        });
+
+        // Function to validate raised quantity against available stock
+        function validateRaisedQuantityAgainstStock(row) {
+            const raisedQtyInput = row.find('.raised-qty-input');
+            const availableStockDisplay = row.find('.available-stock-display');
+            const stockValue = parseInt(availableStockDisplay.attr('data-stock-value')) || 0;
+            const raisedQty = parseInt(raisedQtyInput.val()) || 0;
+
+            // Clear previous stock validation
+            raisedQtyInput.removeClass('stock-invalid');
+            row.find('.stock-validation-feedback').hide();
+
+            if (raisedQty > 0 && stockValue >= 0) {
+                if (raisedQty > stockValue) {
+                    raisedQtyInput.addClass('is-invalid stock-invalid');
+                    const message = stockValue === 0
+                        ? 'No stock available in store for this medicine'
+                        : `Raised quantity (${raisedQty}) cannot exceed available stock in store (${stockValue})`;
+
+                    row.find('.stock-validation-feedback').text(message).show();
+                    return false;
+                } else {
+                    raisedQtyInput.removeClass('is-invalid stock-invalid');
+                    row.find('.stock-validation-feedback').hide();
+                    return true;
+                }
+            }
+            return true;
+        }
+
+        // Auto-add medicine when fields are filled - with stock validation
+        $(document).on('change blur', '.editing-row .medicine-dropdown, .editing-row .raised-qty-input', function() {
+            if (isCompounderInventory) return;
+
+            const row = $(this).closest('tr');
+            const medicineSelect = row.find('.medicine-dropdown');
+            const raisedQtyInput = row.find('.raised-qty-input');
+            const medItemId = medicineSelect.val();
+            const raisedQuantity = parseInt(raisedQtyInput.val());
+
+            if (medItemId && raisedQuantity > 0) {
+                // Only add if stock validation passes
+                if (validateRaisedQuantityAgainstStock(row)) {
+                    addMedicineToList(row);
+                }
+            }
+        });
+
+        function addMedicineToList(row) {
+            if (validateMedicineRow(row)) {
+                const medicineData = extractMedicineData(row);
+                allMedicines.push(medicineData);
+                convertToDisplayRow(row, medicineData);
+                updateRowNumbers();
+                hasUnsavedChanges = true;
+                showValidationMessage('Medicine added successfully!', 'success');
+            }
+        }
+
+        // validateMedicineRow with stock validation
+        function validateMedicineRow(row) {
+            let isValid = true;
+            clearRowValidation(row);
+
+            const medicineSelect = row.find('.medicine-dropdown');
+            const raisedQtyInput = row.find('.raised-qty-input');
+            const availableStockDisplay = row.find('.available-stock-display');
+            const medItemId = medicineSelect.val();
+            const raisedQuantity = parseInt(raisedQtyInput.val());
+            const stockValue = parseInt(availableStockDisplay.attr('data-stock-value')) || 0;
+
+            if (!medItemId || medItemId === '') {
+                showFieldError(medicineSelect, 'Please select a medicine');
+                isValid = false;
+            } else {
+                if (allMedicines.some(m => m.medItemId == medItemId)) {
+                    showFieldError(medicineSelect, 'This medicine is already added');
+                    isValid = false;
+                }
+            }
+
+            if (!raisedQuantity || raisedQuantity <= 0) {
+                showFieldError(raisedQtyInput, 'Please enter valid raised quantity');
+                isValid = false;
+            } else {
+                // Stock validation
+                if (stockValue === 0) {
+                    showFieldError(raisedQtyInput, 'No stock available in store for this medicine');
+                    isValid = false;
+                } else if (raisedQuantity > stockValue) {
+                    showFieldError(raisedQtyInput, `Raised quantity (${raisedQuantity}) cannot exceed available stock in store (${stockValue})`);
+                    isValid = false;
+                }
+            }
+
+            return isValid;
+        }
+
+        function showFieldError(field, message) {
+            field.addClass('is-invalid');
+            field.siblings('.invalid-feedback').text(message);
+        }
+
+        function clearRowValidation(row) {
+            row.find('.is-invalid').removeClass('is-invalid stock-invalid');
+            row.find('.invalid-feedback').text('');
+            row.find('.stock-validation-feedback').hide();
+        }
+
+        function extractMedicineData(row) {
+            const medicineSelect = row.find('.medicine-dropdown');
+            const vendorInput = row.find('.vendor-input');
+            const raisedQtyInput = row.find('.raised-qty-input');
+            const receivedQtyInput = row.find('.received-qty-input');
+            const availableStockDisplay = row.find('.available-stock-display');
+
+            const medItemId = medicineSelect.val();
+            const medItemName = medicineSelect.find('option:selected').text();
+            const vendorCode = vendorInput.val().trim() || null;
+            const raisedQuantity = parseInt(raisedQtyInput.val());
+            const receivedQuantity = parseInt(receivedQtyInput.val()) || 0;
+
+            // Extract stock value from badge or text content
+            let availableStockValue = parseInt(availableStockDisplay.attr('data-stock-value')) || 0;
+
+            const companyName = row.find('.company-input').val();
+
+            return {
+                tempId: (Date.now() + Math.random()).toString(),
+                medItemId: parseInt(medItemId),
+                medItemName: medItemName,
+                companyName: companyName,
+                vendorCode: vendorCode,
+                raisedQuantity: raisedQuantity,
+                receivedQuantity: receivedQuantity,
+                unitPrice: null,
+                totalAmount: null,
+                batchNo: null,
+                expiryDate: null,
+                availableStock: null,
+                totalReceivedFromStore: availableStockValue,
+                isNew: true
+            };
+        }
+
+        function convertToDisplayRow(row, medicineData) {
+            const pendingQty = medicineData.raisedQuantity - medicineData.receivedQuantity;
+            let actionButtons = '';
+
+            if (isCompounderInventory) {
+                actionButtons = `
+                    <button class="btn btn-action-view view view-medicine-item me-1" data-id="${medicineData.tempId}" title="View Details">
+                        <i class="bi bi-eye fs-6"></i>
+                    </button>`;
+
+                // Always show Edit Batches button for Compounder Inventory (both pending and approved indents)
+                actionButtons += `
+                    <button type="button"
+                            class="btn btn-sm btn-primary"
+                            onclick="openCompounderBatchModal(${medicineData.tempId}, '${medicineData.medItemName}', ${medicineData.raisedQuantity})">
+                        Edit Batches
+                    </button>`;
+            } else {
+                actionButtons = `
+                    <button class="btn btn-action-edit edit edit-medicine me-1" data-temp-id="${medicineData.tempId}" type="button" title="Edit">
+                        <i class="bi bi-pencil fs-6"></i>
+                    </button>
+                    <button class="btn btn-action-delete delete delete-medicine" data-temp-id="${medicineData.tempId}" type="button" title="Delete">
+                        <i class="bi bi-trash fs-6"></i>
+                    </button>`;
+            }
+
+            // Add stock validation indicator
+            const stockIndicator = medicineData.raisedQuantity <= medicineData.totalReceivedFromStore
+                ? '<i class="bi bi-check-circle text-success" title="Stock sufficient"></i>'
+                : '<i class="bi bi-exclamation-triangle text-warning" title="Stock insufficient"></i>';
+
+            let tableCells = `
+                <td>${row.find('td:first').text()}</td>
+                <td>${medicineData.medItemName}</td>
+                <td>${medicineData.companyName}</td>
+                <td>${medicineData.vendorCode || '-'}</td>
+                <td>${medicineData.raisedQuantity} ${stockIndicator}</td>
+                <td>${medicineData.receivedQuantity}</td>
+                <td>${pendingQty}</td>
+                <td>
+                    <div>${medicineData.totalReceivedFromStore || 0}</div>
+                </td>
+                <td>${actionButtons}</td>`;
+
+            let tableRow = `<tr data-temp-id="${medicineData.tempId}">${tableCells}</tr>`;
+            row.replaceWith(tableRow);
+        }
+
+        // Cancel medicine
+        $(document).on('click', '.cancel-medicine', function() {
+            var $row = $(this).closest('tr');
+
+            // Destroy Select2 instance before removing the row
+            var $select = $row.find('.medicine-dropdown');
+            if ($select.hasClass('select2-hidden-accessible')) {
+                $select.select2('destroy');
+            }
+
+            $row.remove();
+            updateRowNumbers();
+
+            if ($('#medicineTableBody tr').length === 0) {
+                $('#medicineTableBody').append(`<tr><td colspan="9" class="text-center text-muted">No medicines added yet.</td></tr>`);
+            }
+        });
+
+        // Edit medicine - to handle stock validation
+        $(document).on('click', '.edit-medicine', function() {
+            if (isCompounderInventory) return;
+
+            const tempId = $(this).data('temp-id');
+            const medicineData = allMedicines.find(m => m.tempId == tempId);
+
+            if (medicineData) {
+                allMedicines = allMedicines.filter(m => m.tempId != tempId);
+                convertToEditingRow($(this).closest('tr'), medicineData);
+                hasUnsavedChanges = true;
+            }
+        });
+
+        // Delete medicine
+        //$(document).on('click', '.delete-medicine', function() {
+
+        $(document)
+                .off('click.medicineDelete') // <-- namespace for the handler
+                .on('click.medicineDelete', '.delete-medicine', function (e) {
+
+                e.preventDefault();
+                e.stopPropagation();
+                var $btn = $(this);
+                  // re-entry guard
+                  if ($btn.data('busy')) return;
+                  $btn.data('busy', true);
+
+            if (isCompounderInventory) return;
+
+             // Disable the button to prevent multiple clicks
+                $btn.prop('disabled', true);
+
+
+            if (window.confirm('Are you sure you want to remove this medicine?')) {
+                const tempId = $(this).data('temp-id');
+                var $row = $(this).closest('tr');
+
+                // Destroy Select2 instance if exists
+                var $select = $row.find('.medicine-dropdown');
+                if ($select.length > 0 && $select.hasClass('select2-hidden-accessible')) {
+                    $select.select2('destroy');
+                }
+
+                allMedicines = allMedicines.filter(m => m.tempId != tempId);
+                $row.remove();
+                updateRowNumbers();
+                hasUnsavedChanges = true;
+
+                if ($('#medicineTableBody tr').length === 0) {
+                    $('#medicineTableBody').append(`<tr><td colspan="9" class="text-center text-muted">No medicines added yet.</td></tr>`);
+                }
+
+                showValidationMessage('Medicine removed successfully!', 'success');
+            }
+
+             // Re-enable the button after the confirmation
+                 $btn.prop('disabled', false).data('busy', false);
+        });
+
+        function convertToEditingRow(row, medicineData) {
+            const pendingQty = medicineData.raisedQuantity - medicineData.receivedQuantity;
+
+            let editingCells = `
+                <td>${row.find('td:first').text()}</td>
+                <td>
+                    <select class="form-select form-select-sm glass-input medicine-dropdown" required>
+                        ${medicineOptionsHtml}
+                    </select>
+                    <div class="invalid-feedback"></div>
+                </td>
+                <td>
+                    <input class="form-control form-control-sm glass-input company-input" readonly value="${medicineData.companyName}" />
+                </td>
+                <td>
+                    <input class="form-control form-control-sm glass-input vendor-input" placeholder="Enter vendor code (optional)" value="${medicineData.vendorCode || ''}" maxlength="50" />
+                    <div class="invalid-feedback"></div>
+                </td>
+                <td>
+                    <input class="form-control form-control-sm glass-input raised-qty-input" type="number" min="1" max="${medicineData.totalReceivedFromStore || 99999}" placeholder="Enter raised qty" value="${medicineData.raisedQuantity}" required />
+                    <div class="invalid-feedback"></div>
+                    <div class="stock-validation-feedback text-danger" style="font-size: 0.75rem; display: none;"></div>
+                </td>
+                <td>
+                    <input class="form-control form-control-sm glass-input received-qty-input" type="number" min="0" max="99999" placeholder="Received Qty" value="${medicineData.receivedQuantity}" />
+                </td>
+                <td>
+                    <input class="form-control form-control-sm glass-input pending-qty-display" readonly value="${pendingQty}" />
+                </td>
+                <td>
+                    <div class="available-stock-display text-center border rounded" data-stock-value="${medicineData.totalReceivedFromStore || 0}">
+                        <span class="badge ${medicineData.totalReceivedFromStore > 0 ? 'bg-success' : 'bg-warning'}">${medicineData.totalReceivedFromStore || 0}</span>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-action-delete delete cancel-medicine" type="button" title="Delete">
+                        <i class="bi bi-trash fs-6"></i>
+                    </button>
+                </td>`;
+
+            const editingRow = `<tr class="editing-row">${editingCells}</tr>`;
+            const newRow = $(editingRow);
+            row.replaceWith(newRow);
+            newRow.find('.medicine-dropdown').val(medicineData.medItemId);
+
+            // Initialize Select2 on the medicine dropdown in edit mode
+            newRow.find('.medicine-dropdown').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select Medicine',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#compounderIndentForm')
+            });
+
+            // Validate the existing quantity against stock
+            validateRaisedQuantityAgainstStock(newRow);
+        }
+
+        function updateRowNumbers() {
+            $('#medicineTableBody tr').each(function(index) {
+                if (!$(this).find('td:first').hasClass('text-center')) {
+                    $(this).find('td:first').text(index + 1);
+                }
+            });
+        }
+
+        function showValidationMessage(message, type = 'warning') {
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-warning';
+            $('#medicineValidationMessage')
+                .removeClass('alert-warning alert-success')
+                .addClass(alertClass)
+                .text(message)
+                .show();
+
+            setTimeout(function() {
+                $('#medicineValidationMessage').fadeOut();
+            }, 3000);
+        }
+
+        // Load existing medicines - with stock validation indicators
+        function loadExistingMedicines() {
+            if (!isEdit || allMedicines.length > 0) return;
+
+            const getMedicineItemsUrl = '@Url.Action("GetMedicineItems", "CompounderIndent")';
+            $.get(getMedicineItemsUrl, { indentId: indentId })
+                .done(function(result) {
+                    if (result.success && result.data.length > 0) {
+                        $('#medicineTableBody').empty();
+                        allMedicines = [];
+
+                        $.each(result.data, function(index, item) {
+                            const medicineData = {
+                                tempId: item.indentItemId.toString(),
+                                indentItemId: item.indentItemId,
+                                medItemId: item.medItemId,
+                                medItemName: item.medItemName,
+                                companyName: item.companyName,
+                                vendorCode: item.vendorCode,
+                                raisedQuantity: item.raisedQuantity,
+                                receivedQuantity: item.receivedQuantity,
+                                unitPrice: item.unitPrice,
+                                totalAmount: item.totalAmount,
+                                batchNo: item.batchNo,
+                                expiryDate: item.expiryDate,
+                                availableStock: item.availableStock,
+                                totalReceivedFromStore: item.totalReceivedFromStore || 0,
+                                isNew: false
+                            };
+
+                            allMedicines.push(medicineData);
+
+                            let actionButtons = '';
+                            if (isCompounderInventory) {
+                                // Always show Edit Batches button for Compounder Inventory
+                                actionButtons = `
+                                    <button type="button"
+                                            class="btn btn-sm btn-primary"
+                                            onclick="openCompounderBatchModal(${medicineData.indentItemId}, '${medicineData.medItemName}', ${medicineData.raisedQuantity})">
+                                        Edit Batches
+                                    </button>`;
+
+                                // Show completion status if fully received
+                                if (item.pendingQuantity === 0) {
+                                    actionButtons = `
+                                        <span class="text-success me-2">
+                                            <i class="bi bi-check-circle me-1"></i>Completed
+                                        </span>` + actionButtons;
+                                }
+                            } else {
+                                actionButtons = `
+                                    <button class="btn btn-action-edit edit edit-medicine me-1" data-temp-id="${medicineData.tempId}" type="button" title="Edit">
+                                        <i class="bi bi-pencil fs-6"></i>
+                                    </button>
+                                    <button class="btn btn-action-delete delete delete-medicine" data-temp-id="${medicineData.tempId}" type="button" title="Delete">
+                                        <i class="bi bi-trash fs-6"></i>
+                                    </button>`;
+                            }
+
+                            // Add stock validation indicator
+                            const stockIndicator = medicineData.raisedQuantity <= medicineData.totalReceivedFromStore
+                                ? '<i class="bi bi-check-circle text-success" title="Stock sufficient"></i>'
+                                : '<i class="bi bi-exclamation-triangle text-warning" title="Raised quantity exceeds available stock"></i>';
+
+                            let tableCells = `
+                                <td>${index + 1}</td>
+                                <td>${medicineData.medItemName}</td>
+                                <td>${medicineData.companyName}</td>
+                                <td>${medicineData.vendorCode || '-'}</td>
+                                <td>${medicineData.raisedQuantity} ${stockIndicator}</td>
+                                <td>${medicineData.receivedQuantity}</td>
+                                <td>${item.pendingQuantity}</td>
+                                <td>
+                                    <div>${medicineData.totalReceivedFromStore}</div>
+                                </td>
+                                <td>${actionButtons}</td>`;
+
+                            let tableRow = `<tr data-temp-id="${medicineData.tempId}">${tableCells}</tr>`;
+                            $('#medicineTableBody').append(tableRow);
+                        });
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.error('Failed to load existing medicines:', status, error);
+                    showValidationMessage('Failed to load existing medicines.', 'warning');
+                });
+        }
+
+        // Form submission - with stock validation check
+        $('#compounderIndentForm').on('submit', function(e) {
+            e.preventDefault();
+
+            // Allow form submission for Compounder Inventory
+            if (!isCompounderInventory) {
+                if (!validateIndentType() || !validateIndentDate() || !validateComments()) {
+                    showValidationMessage('Please fix all validation errors before submitting.', 'warning');
+                    updateSubmitButtons();
+                    return false;
+                }
+
+                // Check for any stock validation errors
+                if ($('.stock-invalid').length > 0) {
+                    showValidationMessage('Please fix all stock validation errors before submitting.', 'warning');
+                    updateSubmitButtons();
+                    return false;
+                }
+            }
+
+            $('#medicineValidationMessage').hide();
+
+            const jsonData = JSON.stringify(allMedicines);
+            $('#medicinesData').val(jsonData);
+
+            const actionType = $('#actionType').val();
+            const form = $(this);
+
+            $('#saveBtn, #submitBtn').prop('disabled', true);
+
+            $.post(form.attr('action'), form.serialize())
+            .done(function(res) {
+                if (res.success) {
+                    hasUnsavedChanges = false;
+
+                    if (actionType.toLowerCase() === 'save') {
+                        showValidationMessage(res.message || 'Compounder Indent saved successfully!', 'success');
+
+                        if (typeof tbl !== 'undefined' && tbl.ajax) {
+                            tbl.ajax.reload();
+                        }
+
+                        if (form.attr('action').includes('Create') && res.indentId) {
+                            const editUrl = '@Url.Action("Edit", "CompounderIndent")' + '/' + res.indentId;
+                            form.attr('action', editUrl);
+                            $('input[name="IndentId"]').val(res.indentId);
+                            indentId = res.indentId;
+                            $('input[readonly][value="AUTO"]').val(res.indentId);
+                        }
+                    } else {
+                        $('#modalCompounderIndent').modal('hide');
+
+                        if (typeof tbl !== 'undefined' && tbl.ajax) {
+                            tbl.ajax.reload();
+                        }
+
+                        const isCreate = form.attr('action').includes('Create');
+                        if (isCreate && res.redirectToEdit) {
+                            if (typeof showMessage === 'function') {
+                                showMessage('Compounder Indent submitted successfully! <a href="#" class="edit-link" data-id="' + res.indentId + '">Click here to add medicines</a>', 'success');
+                            }
+                        } else {
+                            if (typeof showMessage === 'function') {
+                                // Show appropriate success message for Compounder Inventory
+                                let message = res.message;
+                                if (!message) {
+                                    if (isCompounderInventory) {
+                                        message = 'Compounder Inventory updated successfully!';
+                                    } else {
+                                        message = isCreate ? 'Compounder Indent submitted successfully!' : 'Compounder Indent updated successfully!';
+                                    }
+                                }
+                                showMessage(message, 'success');
+                            }
+                        }
+                    }
+                } else if (typeof res === 'string') {
+                    $('#modalBody').html(res);
+                } else {
+                    if (typeof showMessage === 'function') {
+                        showMessage(res.message || 'An error occurred while processing the request.', 'error');
+                    }
+                }
+            })
+            .fail(function(xhr, status, error) {
+                console.error('AJAX request failed:', status, error);
+                if (typeof showMessage === 'function') {
+                    showMessage('Network error occurred. Please try again.', 'error');
+                }
+            })
+            .always(function() {
+                $('#saveBtn, #submitBtn').prop('disabled', false);
+            });
+
+            return false;
+        });
+
+        // Initialize
+        loadExistingMedicines();
+
+        // Make functions globally available for the batch modal
+        window.updateCompounderMedicineTableRow = updateCompounderMedicineTableRow;
+        window.updateCompounderAllMedicinesArray = updateCompounderAllMedicinesArray;
+
+        function updateCompounderMedicineTableRow(indentItemId, totalReceived, batchData) {
+            console.log('Updating compounder medicine table row for indentItemId:', indentItemId);
+
+            var targetRow = null;
+            targetRow = $(`#medicineTableBody tr[data-temp-id="${indentItemId}"]`);
+
+            if (targetRow.length === 0) {
+                $(`#medicineTableBody tr`).each(function() {
+                    var $row = $(this);
+                    var editButton = $row.find('button[onclick*="openCompounderBatchModal"]');
+                    if (editButton.length > 0) {
+                        var onclickAttr = editButton.attr('onclick');
+                        if (onclickAttr && onclickAttr.includes(`openCompounderBatchModal(${indentItemId},`)) {
+                            targetRow = $row;
+                            return false;
+                        }
+                    }
+                });
+            }
+
+            if (targetRow && targetRow.length > 0) {
+                console.log('Found target row, updating...');
+
+                var raisedQtyText = targetRow.find('td:eq(4)').text().trim();
+                var raisedQty = parseInt(raisedQtyText) || 0;
+                var pendingQty = Math.max(0, raisedQty - totalReceived);
+
+                var pendingBadgeClass = pendingQty > 0 ? 'bg-warning' : 'bg-success';
+                targetRow.find('td:eq(6)').html(`<span class="badge ${pendingBadgeClass}">${pendingQty}</span>`);
+
+                var actionCell = targetRow.find('td:last');
+                var medName = targetRow.find('td:eq(1)').text().trim();
+
+                // Always show Edit Batches button for Compounder Inventory
+                var statusIndicator = '';
+                if (pendingQty === 0) {
+                    statusIndicator = `
+                        <span class="text-success me-2">
+                            <i class="bi bi-check-circle me-1"></i>Completed
+                        </span>`;
+                }
+
+                actionCell.html(`
+                    ${statusIndicator}
+                    <button type="button"
+                            class="btn btn-sm btn-primary"
+                            onclick="openCompounderBatchModal(${indentItemId}, '${medName}', ${raisedQty})">
+                        Edit Batches
+                    </button>
+                `);
+
+                targetRow.addClass('table-success');
+                setTimeout(() => {
+                    targetRow.removeClass('table-success');
+                }, 2000);
+
+                console.log('Compounder medicine table row updated successfully', {
+                    indentItemId,
+                    totalReceived,
+                    pendingQty,
+                    batchCount: batchData.length
+                });
+            } else {
+                console.warn('Could not find compounder medicine table row to update for indentItemId:', indentItemId);
+            }
+        }
+
+        function updateCompounderAllMedicinesArray(indentItemId, totalReceived, batchData) {
+            console.log('Updating compounder allMedicines array for indentItemId:', indentItemId);
+
+            if (typeof allMedicines !== 'undefined' && Array.isArray(allMedicines)) {
+                var medicineIndex = allMedicines.findIndex(med =>
+                    med.tempId == indentItemId || med.indentItemId == indentItemId
+                );
+
+                if (medicineIndex >= 0) {
+                    allMedicines[medicineIndex].receivedQuantity = totalReceived;
+
+                    if (batchData && batchData.length > 0) {
+                        allMedicines[medicineIndex].batches = batchData;
+                        allMedicines[medicineIndex].batchCount = batchData.length;
+                    }
+
+                    hasUnsavedChanges = true;
+
+                    console.log('Updated compounder allMedicines array for medicine:', allMedicines[medicineIndex]);
+                } else {
+                    console.warn('Could not find medicine in compounder allMedicines array for indentItemId:', indentItemId);
+                }
+            }
+        }
+    });
+</script>
+
+<!-- COMPLETE ENHANCED Compounder Batch Edit Modal Script with Early Expiry Validation -->
+<script>
+    (function($) {
+        'use strict';
+
+        window.CompounderIndentBatch = window.CompounderIndentBatch || {
+            currentIndentItemId: null,
+            currentMedItemId: null,
+            batchRows: [],
+            requestedQuantity: 0,
+            availableStoreBatches: [],
+
+            openBatchModal: function(indentItemId, medName, reqQty) {
+                this.currentIndentItemId = indentItemId;
+                this.requestedQuantity = reqQty;
+                document.getElementById('compounderModalMedName').innerText = medName;
+                document.getElementById('compounderModalMedicineDisplay').innerText = medName;
+                document.getElementById('compounderModalReqQty').innerText = reqQty;
+                this.batchRows = [];
+
+                this.getMedicineIdForIndentItem(indentItemId, (medItemId) => {
+                    if (medItemId) {
+                        this.currentMedItemId = medItemId;
+                        this.loadAvailableStoreBatches(medItemId, () => {
+                            this.loadExistingBatches(indentItemId);
+                        });
+                    } else {
+                        this.loadExistingBatches(indentItemId);
+                    }
+                });
+            },
+
+            loadAvailableStoreBatches: function(medItemId, callback, forceRefresh = false) {
+                this.currentMedItemId = medItemId;
+
+                if (forceRefresh) {
+                    this.availableStoreBatches = [];
+                }
+
+                console.log(`Loading available store batches for medItemId: ${medItemId}, forceRefresh: ${forceRefresh}`);
+
+                $.get('@Url.Action("GetAvailableStoreBatchesForMedicine", "CompounderIndent")',
+                      {
+                        medItemId: medItemId,
+                        _t: Date.now()
+                      },
+                      (res) => {
+                    if (res.success) {
+                        this.availableStoreBatches = res.data || [];
+                        console.log('Loaded available store batches:', this.availableStoreBatches);
+                        this.refreshBatchDropdownOptions();
+                    } else {
+                        console.error('Failed to load store batches:', res.message);
+                    }
+
+                    if (callback) callback();
+                }).fail((xhr, status, error) => {
+                    console.error('Error loading store batches:', error);
+                    if (callback) callback();
+                });
+            },
+
+            // ENHANCED: refreshBatchDropdownOptions with expiry indicators
+            refreshBatchDropdownOptions: function() {
+                var batchDropdownOptions = '<option value="">Select Batch</option>';
+                var availableBatchNumbers = new Set();
+
+                // Sort available batches by expiry date (earliest first)
+                var sortedBatches = [...this.availableStoreBatches].sort((a, b) =>
+                    new Date(a.expiryDate) - new Date(b.expiryDate)
+                );
+
+                // Add currently available store batches with expiry indicators
+                sortedBatches.forEach((batch, index) => {
+                    const stockInfo = batch.availableStock > 0 ? ` (Stock: ${batch.availableStock})` : ' (No Stock)';
+
+                    // Add expiry indicator
+                    const expiryDate = new Date(batch.expiryDate);
+                    const daysDiff = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+                    let expiryIndicator = '';
+
+                    if (index === 0 && batch.availableStock > 0) {
+                        expiryIndicator = ' ⭐ EARLIEST'; // Star for earliest expiry
+                    } else if (daysDiff <= 30) {
+                        expiryIndicator = ' ⚠️ EXPIRES SOON';
+                    } else if (daysDiff <= 90) {
+                        expiryIndicator = ' 📅 NEAR EXPIRY';
+                    }
+
+                    const displayText = `${batch.batchNo}${stockInfo}${expiryIndicator}`;
+                    batchDropdownOptions += `<option value="${batch.batchNo}">${displayText}</option>`;
+                    availableBatchNumbers.add(batch.batchNo);
+                });
+
+                // Add existing batches that might not be in current store batches (consumed batches)
+                this.batchRows.forEach(batch => {
+                    if (batch.batchNo && !availableBatchNumbers.has(batch.batchNo)) {
+                        batchDropdownOptions += `<option value="${batch.batchNo}">${batch.batchNo} (Consumed)</option>`;
+                        availableBatchNumbers.add(batch.batchNo);
+                    }
+                });
+
+                // Update all batch dropdowns and preserve selections
+                $('#compounderBatchTable tbody .batch-dropdown').each(function() {
+                    var currentValue = $(this).val();
+                    $(this).html(batchDropdownOptions);
+
+                    // Always restore selection if the batch exists
+                    if (currentValue && availableBatchNumbers.has(currentValue)) {
+                        $(this).val(currentValue);
+                    }
+                });
+            },
+
+            loadExistingBatches: function(indentItemId) {
+                $.get('@Url.Action("GetBatchesForMedicine", "CompounderIndent")',
+                      {
+                        indentItemId: indentItemId,
+                        _t: Date.now()
+                      },
+                      (res) => {
+                    if (res.success) {
+                        this.batchRows = res.data || [];
+
+                        // Store original quantities for existing batches
+                        this.batchRows.forEach(batch => {
+                            if (batch.batchId) {
+                                batch.originalReceivedQuantity = batch.receivedQuantity;
+                                batch.isExistingBatch = true;
+                                console.log(`Existing batch ${batch.batchNo}: original quantity = ${batch.originalReceivedQuantity}`);
+                            }
+                        });
+
+                        this.populateStoreStockForExistingBatches();
+                        this.renderBatchRows();
+                        this.updateSummary();
+                        $('#compounderBatchEditModal').modal('show');
+                    } else {
+                        console.error('Failed to load batches:', res.message);
+                        alert('Failed to load batch data. Please try again.');
+                    }
+                }).fail((xhr, status, error) => {
+                    console.error('Error loading batches:', error);
+                    alert('Network error while loading batch data. Please try again.');
+                });
+            },
+
+            // Enhanced populateStoreStockForExistingBatches to handle consumed batches
+            populateStoreStockForExistingBatches: function() {
+                this.batchRows.forEach(batch => {
+                    if (batch.batchNo) {
+                        if (this.availableStoreBatches.length > 0) {
+                            const storeBatch = this.availableStoreBatches.find(sb => sb.batchNo === batch.batchNo);
+                            if (storeBatch) {
+                                // Batch found in current store inventory
+                                batch.storeAvailableStock = storeBatch.availableStock || 0;
+                                batch.isFromStore = true;
+
+                                if (!batch.expiryDate && storeBatch.expiryDate) {
+                                    batch.expiryDate = storeBatch.expiryDate;
+                                }
+                                if (!batch.vendorCode && storeBatch.vendorCode) {
+                                    batch.vendorCode = storeBatch.vendorCode;
+                                }
+                            } else {
+                                // Batch not found in current store inventory (fully consumed)
+                                batch.storeAvailableStock = 0;
+                                batch.isFromStore = false;
+                                console.log(`Batch ${batch.batchNo} not found in current store inventory - marking as consumed`);
+                            }
+                        } else {
+                            batch.storeAvailableStock = 0;
+                            batch.isFromStore = false;
+                        }
+                    }
+                });
+            },
+
+            // CLEAN: renderBatchRows with simple batch number dropdowns
+            renderBatchRows: function() {
+                var tbody = $('#compounderBatchTable tbody');
+                tbody.empty();
+
+                if (this.batchRows.length === 0) {
+                    tbody.append(`
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-3">
+                                <i class="bi bi-box me-2"></i>No batches added yet. Click "Add Batch" to start.
+                            </td>
+                        </tr>
+                    `);
+                    return;
+                }
+
+                var today = new Date().toISOString().split('T')[0];
+
+
+                this.batchRows.forEach((row, i) => {
+                    var expiryDateValue = row.expiryDate ? row.expiryDate.substr(0,10) : '';
+                    var receivedQty = row.receivedQuantity || 0;
+                    var storeAvailableStock = row.storeAvailableStock || 0;
+
+                    var maxAllowedQty = Math.min(this.requestedQuantity, storeAvailableStock);
+
+                    // CLEAN: Build dropdown options with only batch numbers
+                    var batchDropdownOptions = '<option value="">Select Batch</option>';
+                    var availableBatchNumbers = new Set();
+
+                    // Sort available batches by expiry date (earliest first)
+                    var sortedAvailableBatches = [...this.availableStoreBatches].sort((a, b) =>
+                        new Date(a.expiryDate) - new Date(b.expiryDate)
+                    );
+
+                    // Add currently available store batches - ONLY batch numbers
+                    sortedAvailableBatches.forEach((batch, index) => {
+                        const isSelected = row.batchNo === batch.batchNo;
+                        batchDropdownOptions += `<option value="${batch.batchNo}"${isSelected ? ' selected' : ''}>${batch.batchNo}</option>`;
+                        availableBatchNumbers.add(batch.batchNo);
+                    });
+
+                    // Add consumed batches - keep (Consumed) indicator
+                    if (row.batchNo && !availableBatchNumbers.has(row.batchNo)) {
+                        batchDropdownOptions += `<option value="${row.batchNo}" selected>${row.batchNo} (Consumed)</option>`;
+                    }
+
+                     var isNewBatch = !row.batchId; // Check if it's a new batch (newly added)
+
+                    tbody.append(`
+                      <tr data-index="${i}">
+                        <td>
+                            <select class="form-control form-control-sm batch-dropdown"
+                                    data-row-index="${i}"
+                                    onchange="handleBatchSelection(${i}, this.value)"
+                                     ${isNewBatch ? '' : 'disabled'}
+                                    required>
+                                ${batchDropdownOptions}
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   class="form-control form-control-sm store-available-stock"
+                                   value="${storeAvailableStock}"
+                                   placeholder="Store Stock"
+                                    ${isNewBatch ? '' : 'disabled'}
+                                   readonly>
+                        </td>
+                        <td>
+                            <input type="date"
+                                   class="form-control form-control-sm expiry-date-input"
+                                   value="${expiryDateValue}"
+                                   min="${today}"
+                                   onchange="updateCompounderBatchField(${i},'ExpiryDate',this.value); validateCompounderBatchExpiryDate(this);"
+                                    ${isNewBatch ? '' : 'disabled'}
+                                   required>
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input type="number"
+                                   class="form-control form-control-sm received-qty-input"
+                                   value="${receivedQty}"
+                                   min="0"
+                                   max="${row.isExistingBatch ? this.requestedQuantity : maxAllowedQty}"
+                                   placeholder="${row.isExistingBatch ? 'Issued' : 'Max: ' + maxAllowedQty}"
+                                   onchange="updateCompounderBatchField(${i},'ReceivedQuantity',this.value); updateCompounderRowCalculations(${i});"
+                                   oninput="updateCompounderBatchField(${i},'ReceivedQuantity',this.value); updateCompounderRowCalculations(${i});"
+                                    ${isNewBatch ? '' : 'disabled'}
+                                   required>
+                            <div class="invalid-feedback"></div>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   value="${row.vendorCode || ''}"
+                                   placeholder="Vendor code (optional)"
+                                    ${isNewBatch ? '' : 'disabled'}
+                                   onchange="updateCompounderBatchField(${i},'VendorCode',this.value)">
+                        </td>
+                        <td>
+                          <button class="btn btn-action-delete delete"
+                                  onclick="removeCompounderBatchRow(${i},${row.batchId},${row.indentItemId})"
+                                  title="Remove this batch">
+                              <i class="bi bi-trash fs-6"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    `);
+                });
+
+                console.log('Batch rows rendered with clean batch number dropdowns');
+            },
+
+            getMedicineIdForIndentItem: function(indentItemId, callback) {
+                if (typeof allMedicines !== 'undefined' && Array.isArray(allMedicines)) {
+                    const medicine = allMedicines.find(med =>
+                        med.tempId == indentItemId || med.indentItemId == indentItemId
+                    );
+                    if (medicine && medicine.medItemId) {
+                        callback(medicine.medItemId);
+                        return;
+                    }
+                }
+
+                $.get('@Url.Action("GetMedicineItems", "CompounderIndent")',
+                      { indentId: @Model.IndentId },
+                      (res) => {
+                    if (res.success && res.data) {
+                        const item = res.data.find(item => item.indentItemId == indentItemId);
+                        if (item) {
+                            callback(item.medItemId);
+                        } else {
+                            callback(null);
+                        }
+                    } else {
+                        callback(null);
+                    }
+                }).fail(() => {
+                    callback(null);
+                });
+            },
+
+            closeBatchModal: function() {
+                $('#compounderBatchEditModal').modal('hide');
+                this.currentIndentItemId = null;
+                this.currentMedItemId = null;
+                this.batchRows = [];
+                this.requestedQuantity = 0;
+                this.availableStoreBatches = [];
+                $('#compounderModalMedName').text('');
+                $('#compounderModalMedicineDisplay').text('');
+                $('#compounderModalReqQty').text('');
+                $('#compounderBatchTable tbody').empty();
+                this.resetSummary();
+            },
+
+            updateBatchField: function(i, field, value) {
+                if (!this.batchRows[i]) return;
+
+                if (field === 'ReceivedQuantity' || field === 'AvailableStock' || field === 'StoreAvailableStock') {
+                    value = parseInt(value, 10) || 0;
+                }
+
+                this.batchRows[i][field.charAt(0).toLowerCase() + field.slice(1)] = value;
+                this.updateSummary();
+            },
+
+            addBatchRow: function() {
+                if (this.currentMedItemId) {
+                    this.loadAvailableStoreBatches(this.currentMedItemId, () => {
+                        var newBatch = {
+                            batchId: null,
+                            indentItemId: this.currentIndentItemId,
+                            batchNo: '',
+                            expiryDate: '',
+                            receivedQuantity: 0,
+                            originalReceivedQuantity: 0,
+                            availableStock: 0,
+                            storeAvailableStock: 0,
+                            vendorCode: '',
+                            isFromStore: true,
+                            isExistingBatch: false
+                        };
+
+                        this.batchRows.push(newBatch);
+                        this.renderBatchRows();
+                        this.updateSummary();
+                    }, true);
+                }
+            },
+
+            removeBatchRow: function(i,batchId,indentItemId) {
+                if (confirm('Are you sure you want to remove this batch?')) {
+                    // (optional) anti-forgery token
+                    const token = $('input[name="__RequestVerificationToken"]').val();
+
+                    $.ajax({
+                    url: '@Url.Action("DeleteBatch", "CompounderIndent")',
+                    type: 'POST',
+                    data: {
+                        batchId: batchId,
+                        indentItemId: indentItemId,
+                        __RequestVerificationToken: token // if you use antiforgery
+                      },
+                    success: (res) => {
+                        if(res.success){
+                            alert('Save success: ' + (res.message || 'Unknown error'));
+                            this.batchRows.splice(i, 1);
+                            this.renderBatchRows();
+                            this.updateSummary();
+                            closeCompounderBatchModal();
+                        }else{
+                             alert('Save failed: ' + res.message);
+                        }
+
+                        }
+                    });
+                }
+            },
+
+            updateSummary: function() {
+                var totalReceived = this.batchRows.reduce((sum, batch) => sum + (batch.receivedQuantity || 0), 0);
+                var remainingQuantity = this.requestedQuantity - totalReceived;
+
+                $('#compounderModalReqQtyDisplay').text(this.requestedQuantity);
+                $('#compounderTotalReceivedSummary').text(totalReceived);
+                $('#compounderRemainingQuantitySummary').text(remainingQuantity);
+
+                var remainingElement = $('#compounderRemainingQuantitySummary');
+                remainingElement.removeClass('text-success text-warning text-danger text-secondary');
+                if (remainingQuantity < 0) {
+                    remainingElement.addClass('text-danger');
+                } else if (remainingQuantity === 0) {
+                    remainingElement.addClass('text-success');
+                } else {
+                    remainingElement.addClass('text-secondary');
+                }
+
+                var overallStatus = '';
+                var overallClass = '';
+                if (remainingQuantity === 0) {
+                    overallStatus = 'Complete';
+                    overallClass = 'text-success';
+                } else if (remainingQuantity < 0) {
+                    overallStatus = 'Over-issued';
+                    overallClass = 'text-danger';
+                } else {
+                    overallStatus = 'Pending';
+                    overallClass = 'text-warning';
+                }
+
+                $('#compounderOverallStockStatus').text(overallStatus).removeClass('text-danger text-warning text-success').addClass(overallClass);
+            },
+
+            resetSummary: function() {
+                $('#compounderModalReqQtyDisplay').text('0');
+                $('#compounderTotalReceivedSummary').text('0');
+                $('#compounderRemainingQuantitySummary').text('0');
+                $('#compounderOverallStockStatus').text('-').removeClass('text-danger text-warning text-success');
+            },
+
+            // ENHANCED: saveBatches with early expiry validation
+            saveBatches: function() {
+                console.log('Saving batches:', this.batchRows);
+
+                for (var i = 0; i < this.batchRows.length; i++) {
+                    var batch = this.batchRows[i];
+
+                    if (!batch.batchNo || !batch.expiryDate) {
+                        alert(`Please fill all required fields for batch ${i + 1}.`);
+                        return;
+                    }
+
+                    if (batch.receivedQuantity < 0) {
+                        alert(`Issued quantity must be 0 or greater for batch ${i + 1}.`);
+                        return;
+                    }
+
+                    // Determine if this batch needs stock validation
+                    var isNewBatch = !batch.batchId || !batch.isExistingBatch;
+                    var needsStockValidation = isNewBatch;
+                    var quantityDifference = 0;
+
+                    if (!isNewBatch && batch.originalReceivedQuantity !== undefined) {
+                        quantityDifference = batch.receivedQuantity - batch.originalReceivedQuantity;
+                        needsStockValidation = quantityDifference > 0;
+
+                        console.log(`Batch ${i + 1} (${batch.batchNo}):`, {
+                            isNewBatch,
+                            originalQty: batch.originalReceivedQuantity,
+                            currentQty: batch.receivedQuantity,
+                            quantityDifference,
+                            needsStockValidation
+                        });
+                    }
+
+                    // Always validate against requested quantity
+                    if (batch.receivedQuantity > this.requestedQuantity) {
+                        alert(`Issued quantity (${batch.receivedQuantity}) cannot exceed requested quantity (${this.requestedQuantity}) for batch ${i + 1}.`);
+                        return;
+                    }
+
+                    // Only validate against store stock for NEW batches or INCREASED quantities
+                    if (needsStockValidation) {
+                        var storeAvailableStock = batch.storeAvailableStock || 0;
+                        var qtyToValidate = isNewBatch ? batch.receivedQuantity : quantityDifference;
+
+                        console.log(`Validating stock for batch ${i + 1}: qtyToValidate=${qtyToValidate}, storeStock=${storeAvailableStock}`);
+
+                        if (qtyToValidate > storeAvailableStock) {
+                            if (isNewBatch) {
+                                alert(`Issued quantity (${batch.receivedQuantity}) cannot exceed available stock in store (${storeAvailableStock}) for batch ${i + 1}.`);
+                            } else {
+                                alert(`Additional quantity (${quantityDifference}) cannot exceed available stock in store (${storeAvailableStock}) for batch ${i + 1}.`);
+                            }
+                            return;
+                        }
+                    } else {
+                        console.log(`Skipping stock validation for batch ${i + 1} (${batch.batchNo}) - existing batch with unchanged/decreased quantity`);
+                    }
+
+                    // Expiry date validation - ONLY for NEW batches or when expiry date is being changed
+                    var expiryDate = new Date(batch.expiryDate);
+                    var today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    expiryDate.setHours(0, 0, 0, 0);
+
+                    // Skip expiry validation for existing consumed batches (they may have past expiry dates)
+                    var isConsumedBatch = batch.isExistingBatch && batch.storeAvailableStock === 0;
+
+                    if (!isConsumedBatch && expiryDate < today) {
+                        alert(`Batch "${batch.batchNo}" has an expiry date in the past. Please select today's date or a future date.`);
+                        return;
+                    }
+                }
+
+                var totalReceived = this.batchRows.reduce((sum, batch) => sum + (batch.receivedQuantity || 0), 0);
+                if (totalReceived > this.requestedQuantity) {
+                    alert(`Total issued quantity (${totalReceived}) cannot exceed requested quantity (${this.requestedQuantity}).`);
+                    return;
+                }
+
+                var toSend = this.batchRows.map(b => ({
+                    batchId: b.batchId,
+                    indentItemId: b.indentItemId,
+                    batchNo: b.batchNo,
+                    expiryDate: b.expiryDate,
+                    receivedQuantity: b.receivedQuantity,
+                    availableStock: b.receivedQuantity,
+                    vendorCode: b.vendorCode || ''
+                }));
+
+                var saveBtn = document.querySelector('#compounderBatchEditModal .btn-primary');
+                var originalText = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Saving...';
+
+                $.ajax({
+                    url: '@Url.Action("SaveBatchesForMedicine", "CompounderIndent")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(toSend),
+                    success: (res) => {
+                        if (res.success) {
+                            var totalReceived = res.totalReceived || toSend.reduce((sum, batch) => sum + batch.receivedQuantity, 0);
+                            var totalBatches = res.totalBatches || toSend.length;
+
+                            if (window.updateCompounderMedicineTableRow) {
+                                window.updateCompounderMedicineTableRow(this.currentIndentItemId, totalReceived, toSend);
+                            }
+
+                            if (window.updateCompounderAllMedicinesArray) {
+                                window.updateCompounderAllMedicinesArray(this.currentIndentItemId, totalReceived, toSend);
+                            }
+
+                            alert(`Batches saved successfully!\nTotal issued: ${totalReceived}\nFrom ${totalBatches} batch(es).`);
+
+                            if (this.currentMedItemId) {
+                                this.loadAvailableStoreBatches(this.currentMedItemId, null, true);
+                            }
+
+                            this.closeBatchModal();
+                        } else {
+                            alert('Save failed: ' + (res.message || 'Unknown error'));
+                        }
+                    },
+                    error: (xhr, status, error) => {
+                        console.error('Batch save error:', error);
+                        alert('Save failed due to network error. Please try again.');
+                    },
+                    complete: () => {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                    }
+                });
+            }
+        };
+
+        // Make functions globally available
+        window.openCompounderBatchModal = window.CompounderIndentBatch.openBatchModal.bind(window.CompounderIndentBatch);
+        window.closeCompounderBatchModal = window.CompounderIndentBatch.closeBatchModal.bind(window.CompounderIndentBatch);
+        window.renderCompounderBatchRows = window.CompounderIndentBatch.renderBatchRows.bind(window.CompounderIndentBatch);
+        window.updateCompounderBatchField = window.CompounderIndentBatch.updateBatchField.bind(window.CompounderIndentBatch);
+        window.addCompounderBatchRow = window.CompounderIndentBatch.addBatchRow.bind(window.CompounderIndentBatch);
+        window.removeCompounderBatchRow = window.CompounderIndentBatch.removeBatchRow.bind(window.CompounderIndentBatch);
+        window.saveCompounderBatches = window.CompounderIndentBatch.saveBatches.bind(window.CompounderIndentBatch);
+
+        // ENHANCED: Early expiry validation batch selection handler
+        window.handleBatchSelection = function(rowIndex, selectedValue) {
+            var batch = window.CompounderIndentBatch.batchRows[rowIndex];
+            if (!batch) return;
+
+            var $row = $(`tr[data-index="${rowIndex}"]`);
+
+            if (selectedValue === '') {
+                batch.batchNo = '';
+                batch.expiryDate = '';
+                batch.vendorCode = '';
+                batch.storeAvailableStock = 0;
+                batch.isFromStore = false;
+                clearBatchAutoFields(rowIndex);
+            } else {
+                var storeBatch = window.CompounderIndentBatch.availableStoreBatches.find(sb => sb.batchNo === selectedValue);
+                if (storeBatch) {
+                    // NEW: Check if user is selecting early expiry medicine
+                    if (shouldPromptForEarlyExpiry(selectedValue)) {
+                        // Show the early expiry prompt
+                        showEarlyExpiryPrompt(selectedValue, () => {
+                            // User confirmed, proceed with selection
+                            proceedWithBatchSelection(rowIndex, selectedValue, storeBatch, $row);
+                        }, () => {
+                            // User cancelled, reset selection
+                            $row.find('.batch-dropdown').val('');
+                            return;
+                        });
+                    } else {
+                        // No prompt needed, proceed normally
+                        proceedWithBatchSelection(rowIndex, selectedValue, storeBatch, $row);
+                    }
+                } else {
+                    // Handle consumed batch selection - preserve existing data
+                    batch.batchNo = selectedValue;
+                    console.log('Selected consumed batch:', selectedValue);
+                }
+            }
+
+            window.updateCompounderBatchField(rowIndex, 'BatchNo', batch.batchNo);
+        };
+
+        // NEW: Function to check if early expiry prompt should be shown
+        function shouldPromptForEarlyExpiry(selectedBatchNo) {
+            var availableBatches = window.CompounderIndentBatch.availableStoreBatches;
+            var selectedBatch = availableBatches.find(b => b.batchNo === selectedBatchNo);
+
+            if (!selectedBatch) return false;
+
+            // Find the earliest expiry date among available batches with stock
+            var batchesWithStock = availableBatches.filter(b => b.availableStock > 0);
+            if (batchesWithStock.length <= 1) return false; // No choice available
+
+            // Sort by expiry date (earliest first)
+            batchesWithStock.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+            var earliestExpiryBatch = batchesWithStock[0];
+            var selectedBatchDate = new Date(selectedBatch.expiryDate);
+            var earliestBatchDate = new Date(earliestExpiryBatch.expiryDate);
+
+            // Show prompt if user selected a batch that's not the earliest expiry
+            // and there are earlier expiry batches available
+            return selectedBatch.batchNo !== earliestExpiryBatch.batchNo &&
+                   selectedBatchDate > earliestBatchDate &&
+                   earliestExpiryBatch.availableStock > 0;
+        }
+
+        // NEW: Function to show early expiry prompt with enhanced styling
+        function showEarlyExpiryPrompt(selectedBatchNo, onConfirm, onCancel) {
+            var availableBatches = window.CompounderIndentBatch.availableStoreBatches;
+            var batchesWithStock = availableBatches.filter(b => b.availableStock > 0);
+            batchesWithStock.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+            var earliestBatch = batchesWithStock[0];
+            var selectedBatch = availableBatches.find(b => b.batchNo === selectedBatchNo);
+
+            var earliestExpiryDate = new Date(earliestBatch.expiryDate).toLocaleDateString();
+            var selectedExpiryDate = new Date(selectedBatch.expiryDate).toLocaleDateString();
+
+            // Create enhanced modal dialog
+            var modalHtml = `
+                <div class="modal fade early-expiry-modal" id="earlyExpiryModal" tabindex="-1" role="dialog">
+                    <div class="modal-dialog early-expiry-dialog" role="document">
+                        <div class="modal-content">
+                            <div class="modal-header bg-warning text-dark">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>Early Expiry Selection Required
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="alert alert-warning">
+                                    <strong>Please select early expiry medicines per order in list.</strong>
+                                </div>
+
+                            </div>
+
+                    </div>
+                </div>
+                </div>
+            `;
+
+             // Clean any existing instance and append
+                $('#earlyExpiryModal').remove();
+                $('body').append(modalHtml);
+
+                var $modal = $('#earlyExpiryModal');
+                var result = null; // null = default, 'confirm' = proceed, 'cancel' = reset
+                // Default behavior for close/backdrop/Esc is "confirm"
+                result = 'confirm';
+
+                // Make the ❌ behave like confirm
+                $modal.find('.btn-close').on('click', function () {
+                    result = 'confirm';
+                });
+
+
+                // When the modal is fully hidden, fire the appropriate callback once
+                $modal.on('hidden.bs.modal', function () {
+                    // Clean up DOM
+                    $modal.remove();
+
+                    if (result === 'cancel') {
+                        onCancel && onCancel();
+                    } else {
+                        // Treat close, backdrop, Esc, and "Continue" as confirm
+                        onConfirm && onConfirm();
+                    }
+                });
+
+                // Show it
+                var bsModal = new bootstrap.Modal($modal[0], {
+                    backdrop: true,     // clicking backdrop closes
+                    keyboard: true      // Esc closes
+                });
+                bsModal.show();
+        }
+
+        // NEW: Function to proceed with batch selection after validation
+        function proceedWithBatchSelection(rowIndex, selectedValue, storeBatch, $row) {
+            var batch = window.CompounderIndentBatch.batchRows[rowIndex];
+
+            batch.batchNo = storeBatch.batchNo;
+            batch.expiryDate = storeBatch.expiryDate.substr(0, 10);
+            batch.vendorCode = storeBatch.vendorCode;
+            batch.storeAvailableStock = storeBatch.availableStock || 0;
+            batch.isFromStore = true;
+
+            $row.find('input[type="date"]').val(batch.expiryDate);
+            $row.find('input[onchange*="VendorCode"]').val(batch.vendorCode);
+            $row.find('.store-available-stock').val(batch.storeAvailableStock);
+
+            var maxAllowedQty = Math.min(window.CompounderIndentBatch.requestedQuantity, batch.storeAvailableStock);
+            var receivedQtyInput = $row.find('.received-qty-input');
+            receivedQtyInput.attr('max', maxAllowedQty);
+            receivedQtyInput.attr('placeholder', `Max: ${maxAllowedQty}`);
+
+            window.updateCompounderBatchField(rowIndex, 'StoreAvailableStock', batch.storeAvailableStock);
+        }
+
+        window.clearBatchAutoFields = function(rowIndex) {
+            var $row = $(`tr[data-index="${rowIndex}"]`);
+            var batch = window.CompounderIndentBatch.batchRows[rowIndex];
+
+            batch.expiryDate = '';
+            batch.vendorCode = '';
+            batch.storeAvailableStock = 0;
+
+            $row.find('input[type="date"]').val('');
+            $row.find('input[onchange*="VendorCode"]').val('');
+            $row.find('.store-available-stock').val(0);
+            $row.find('.received-qty-input').attr('max', window.CompounderIndentBatch.requestedQuantity);
+
+            window.CompounderIndentBatch.updateSummary();
+        };
+
+        // Enhanced row calculations
+        window.updateCompounderRowCalculations = function(rowIndex) {
+            var batch = window.CompounderIndentBatch.batchRows[rowIndex];
+            if (!batch) return;
+
+            var receivedQty = batch.receivedQuantity || 0;
+            var requestedQty = window.CompounderIndentBatch.requestedQuantity || 0;
+            var storeAvailableStock = batch.storeAvailableStock || 0;
+
+            var receivedInputElement = $(`tr[data-index="${rowIndex}"] .received-qty-input`);
+
+            receivedInputElement.removeClass('is-invalid');
+            receivedInputElement.siblings('.invalid-feedback').text('');
+
+            var validationMessage = '';
+
+            if (receivedQty > requestedQty) {
+                validationMessage = `Issued quantity cannot exceed requested quantity (${requestedQty}).`;
+            } else if (receivedQty > storeAvailableStock && !batch.isExistingBatch) {
+                // Only validate against store stock for new batches
+                validationMessage = `Issued quantity cannot exceed available stock in store (${storeAvailableStock}) for this batch.`;
+            } else if (storeAvailableStock === 0 && receivedQty > 0 && !batch.isExistingBatch) {
+                validationMessage = `No stock available for this batch.`;
+            }
+
+            if (validationMessage) {
+                receivedInputElement.addClass('is-invalid');
+                receivedInputElement.siblings('.invalid-feedback').text(validationMessage);
+            }
+
+            batch.availableStock = receivedQty;
+            window.CompounderIndentBatch.updateSummary();
+        };
+
+        window.validateCompounderBatchExpiryDate = function(inputElement) {
+            var $input = $(inputElement);
+            var expiryDateValue = $input.val();
+
+            if (expiryDateValue) {
+                var expiryDate = new Date(expiryDateValue);
+                var today = new Date();
+                today.setHours(0, 0, 0, 0);
+                expiryDate.setHours(0, 0, 0, 0);
+
+                if (expiryDate < today) {
+                    $input.addClass('is-invalid');
+                    $input.siblings('.invalid-feedback').text('Expiry date cannot be in the past.');
+                    return false;
+                } else {
+                    $input.removeClass('is-invalid');
+                    $input.siblings('.invalid-feedback').text('');
+                    return true;
+                }
+            }
+            return true;
+        };
+
+    })(jQuery);
+</script>

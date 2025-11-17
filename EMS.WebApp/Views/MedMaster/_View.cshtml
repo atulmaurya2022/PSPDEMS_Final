@@ -1,0 +1,152 @@
+﻿@model EMS.WebApp.Data.MedMaster
+
+<!-- Medicine Information Display -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-hash"></i>
+            Medicine ID
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong class="text-primary">@Model.MedItemId</strong>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <label class="form-label form-label-master">
+            <i class="bi bi-capsule-pill"></i>
+            Medicine Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <span class="badge bg-primary" style="font-size: 12px;">@Model.MedItemName</span>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-capsule"></i>
+            Medicine Base
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (Model.MedBase != null && !string.IsNullOrEmpty(Model.MedBase.BaseName))
+            {
+                <span class="badge bg-info" style="font-size: 12px;">@Model.MedBase.BaseName</span>
+            }
+            else
+            {
+                <em class="text-muted">No base assigned</em>
+            }
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-building"></i>
+            Company Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (!string.IsNullOrEmpty(Model.CompanyName))
+            {
+                <span class="badge bg-success" style="font-size: 12px;">@Model.CompanyName</span>
+            }
+            else
+            {
+                <em class="text-muted">No company specified</em>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label class="form-label form-label-master">
+            <i class="bi bi-arrow-repeat"></i>
+            Reorder Limit
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <span class="badge bg-warning text-dark" style="font-size: 14px;">
+                <i class="bi bi-exclamation-triangle"></i>
+                @Model.ReorderLimit units
+            </span>
+            <small class="text-muted ms-2">
+                Reorder when stock falls below this limit
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Medicine Base Description (if available) -->
+@if (Model.MedBase != null && !string.IsNullOrEmpty(Model.MedBase.BaseDesc))
+{
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label class="form-label form-label-master">
+                <i class="bi bi-card-text"></i>
+                Base Description
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 60px; padding: 12px;">
+                @Model.MedBase.BaseDesc
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue)
+{
+    <div class="audit-section">
+        <h6>
+            <i class="bi bi-clock-history"></i>
+            Audit Information
+        </h6>
+
+        @if (Model.CreatedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Created By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Created On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.ModifiedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Modified By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Modified On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="modal-footer modal-footer-master">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        Close
+    </button>
+</div>

@@ -1,0 +1,773 @@
+﻿/* =============================
+   STORE INDENT REPORT - ENHANCED STYLING
+   Professional Batch-Level Indent Design System
+   Add this to your dedicated reporting CSS file
+   ============================= */
+
+/* === Store Indent Summary Grid (6 cards) === */
+.store-indent-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+/* Store Indent specific card color schemes */
+.summary-card[data-category="total-records"] {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.summary-card[data-category="total-batches"] {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+.summary-card[data-category="total-raised"] {
+    background: linear-gradient(135deg, #fef7cd 0%, #fde047 100%);
+}
+
+.summary-card[data-category="total-received"] {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+}
+
+.summary-card[data-category="total-pending"] {
+    background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+}
+
+.summary-card[data-category="date-range-indent"] {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+/* Store Indent specific title colors */
+.summary-card[data-category="total-records"] .summary-title {
+    color: #1e40af;
+}
+
+.summary-card[data-category="total-batches"] .summary-title {
+    color: #0c4a6e;
+}
+
+.summary-card[data-category="total-raised"] .summary-title {
+    color: #a16207;
+}
+
+.summary-card[data-category="total-received"] .summary-title {
+    color: #15803d;
+}
+
+.summary-card[data-category="total-pending"] .summary-title {
+    color: #c2410c;
+}
+
+.summary-card[data-category="date-range-indent"] .summary-title {
+    color: #b91c1c;
+}
+
+/* Store Indent specific icon colors */
+.summary-card[data-category="total-records"] .summary-icon {
+    color: #1e40af;
+}
+
+.summary-card[data-category="total-batches"] .summary-icon {
+    color: #0c4a6e;
+}
+
+.summary-card[data-category="total-raised"] .summary-icon {
+    color: #a16207;
+}
+
+.summary-card[data-category="total-received"] .summary-icon {
+    color: #15803d;
+}
+
+.summary-card[data-category="total-pending"] .summary-icon {
+    color: #c2410c;
+}
+
+.summary-card[data-category="date-range-indent"] .summary-icon {
+    color: #b91c1c;
+}
+
+/* Store Indent specific value colors */
+.summary-card[data-category="total-records"] .summary-value {
+    color: #1d4ed8;
+}
+
+.summary-card[data-category="total-batches"] .summary-value {
+    color: #0369a1;
+}
+
+.summary-card[data-category="total-raised"] .summary-value {
+    color: #d97706;
+}
+
+.summary-card[data-category="total-received"] .summary-value {
+    color: #059669;
+}
+
+.summary-card[data-category="total-pending"] .summary-value {
+    color: #ea580c;
+}
+
+.summary-card[data-category="date-range-indent"] .summary-value {
+    color: #dc2626;
+}
+
+/* === Enhanced Report Title (Red theme for Store Indent) === */
+.report-title h3 {
+    color: #dc2626;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    text-align: right;
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.report-subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0;
+    text-align: right;
+}
+
+/* === Enhanced Store Indent Table Section === */
+.store-indent-table-section {
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 24px;
+}
+
+/* Store Indent table column widths (13 columns) */
+.col-sl {
+    width: 4%;
+    min-width: 50px;
+}
+
+.col-indent-id {
+    width: 6%;
+    min-width: 80px;
+}
+
+.col-indent-date {
+    width: 8%;
+    min-width: 100px;
+}
+
+.col-medicine-name {
+    width: 18%;
+    min-width: 150px;
+}
+
+.col-potency {
+    width: 6%;
+    min-width: 80px;
+}
+
+.col-manufacturer {
+    width: 12%;
+    min-width: 120px;
+}
+
+.col-batch-no {
+    width: 8%;
+    min-width: 90px;
+}
+
+.col-vendor-code {
+    width: 8%;
+    min-width: 80px;
+}
+
+.col-raised-qty,
+.col-received-qty {
+    width: 6%;
+    min-width: 70px;
+}
+
+.col-expiry-date {
+    width: 8%;
+    min-width: 100px;
+}
+
+.col-status {
+    width: 6%;
+    min-width: 80px;
+}
+
+.col-raised-by {
+    width: 8%;
+    min-width: 100px;
+}
+
+/* === Enhanced Table Row Styling for Store Indent === */
+.store-indent-table-row {
+    transition: all 0.2s ease !important;
+}
+
+    .store-indent-table-row:hover {
+        background: var(--bg-primary) !important;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-xs) !important;
+    }
+
+/* Indent status row colors */
+.row-approved {
+    background: rgba(16, 185, 129, 0.05) !important;
+    border-left: 3px solid #10b981;
+}
+
+.row-rejected {
+    background: rgba(239, 68, 68, 0.05) !important;
+    border-left: 3px solid #ef4444;
+}
+
+.row-pending {
+    background: rgba(245, 158, 11, 0.05) !important;
+    border-left: 3px solid #f59e0b;
+}
+
+.row-draft {
+    background: rgba(107, 114, 128, 0.05) !important;
+    border-left: 3px solid #6b7280;
+}
+
+.row-approved:hover {
+    background: rgba(16, 185, 129, 0.1) !important;
+}
+
+.row-rejected:hover {
+    background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.row-pending:hover {
+    background: rgba(245, 158, 11, 0.1) !important;
+}
+
+.row-draft:hover {
+    background: rgba(107, 114, 128, 0.1) !important;
+}
+
+/* === Enhanced Status Badge System === */
+.status-badge {
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 70px;
+    justify-content: center;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.status-badge-approved {
+    background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+    color: #14532d;
+    border: 1px solid #a7f3d0;
+}
+
+.status-badge-rejected {
+    background: linear-gradient(135deg, #fecaca 0%, #f87171 100%);
+    color: #991b1b;
+    border: 1px solid #f9a8a8;
+}
+
+.status-badge-pending {
+    background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+    color: #9a3412;
+    border: 1px solid #fbc995;
+    animation: gentlePulse 3s infinite;
+}
+
+.status-badge-draft {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    color: #475569;
+    border: 1px solid #d1d9e0;
+}
+
+.status-badge-unknown {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+@keyframes gentlePulse {
+    0%, 100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.85;
+    }
+}
+
+/* === Quantity Badges for Store Indent === */
+.quantity-badge.raised {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    color: white;
+}
+
+.quantity-badge.received {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+/* === Status Cell Styling === */
+.status-cell {
+    text-align: center;
+    padding: 8px 4px !important;
+}
+
+/* === Enhanced Table Footer for Store Indent === */
+.store-indent-table-footer th {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-top: 3px solid #dc2626 !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    padding: 16px 8px !important;
+}
+
+/* === Enhanced Filter Control for Approved Only === */
+.custom-checkbox-enhanced .form-check-label-enhanced {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    margin: 0;
+}
+
+    .custom-checkbox-enhanced .form-check-label-enhanced i {
+        color: #10b981; /* Green for approved */
+    }
+
+/* Override hover state for approved filter */
+.custom-checkbox-enhanced:hover {
+    border-color: #10b981;
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.form-check-input-enhanced:checked {
+    background-color: #10b981 !important;
+    border-color: #10b981 !important;
+}
+
+/* === Responsive Design for Store Indent === */
+@media (max-width: 1400px) {
+    .store-indent-summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 1200px) {
+    .filter-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .custom-checkbox-enhanced {
+        min-width: auto;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 992px) {
+    .store-indent-summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    /* Horizontal scroll for table on tablets */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        min-width: 1100px; /* Force horizontal scroll */
+    }
+}
+
+@media (max-width: 768px) {
+    .store-indent-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-card-body {
+        padding: 16px;
+    }
+
+    .summary-value {
+        font-size: 28px;
+    }
+
+    .report-title h3 {
+        font-size: 20px;
+        text-align: center;
+    }
+
+    .report-subtitle {
+        text-align: center;
+    }
+
+    /* Stack table columns on mobile */
+    .table {
+        font-size: 11px;
+    }
+
+        .table th,
+        .table td {
+            padding: 6px 4px !important;
+        }
+
+    .status-badge,
+    .quantity-badge,
+    .batch-badge,
+    .expiry-badge {
+        font-size: 8px;
+        padding: 2px 6px;
+        min-width: auto;
+    }
+}
+
+@media (max-width: 576px) {
+    .controls-row {
+        gap: 12px;
+    }
+
+    .date-range-inputs {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .date-separator {
+        display: none;
+    }
+
+    .medicine-name {
+        font-size: 11px;
+        line-height: 1.3;
+    }
+
+    .status-badge {
+        font-size: 7px;
+        padding: 2px 4px;
+    }
+}
+
+/* === Print Styles for Store Indent Report === */
+@media print {
+    .report-controls-section,
+    .search-controls-section,
+    .action-buttons,
+    .btn,
+    .btn-clear {
+        display: none !important;
+    }
+
+    .dashboard-header {
+        page-break-inside: avoid;
+        margin-bottom: 15px;
+    }
+
+    .store-indent-summary-grid {
+        page-break-inside: avoid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .plant-info-section {
+        page-break-inside: avoid;
+        margin-bottom: 15px;
+    }
+
+    .report-header-section {
+        page-break-inside: avoid;
+        border: 2px solid #000;
+        margin-bottom: 15px;
+    }
+
+    .store-indent-table-section {
+        page-break-inside: avoid;
+    }
+
+    /* Landscape mode for wide table */
+    @page {
+        size: A4 landscape;
+        margin: 0.3in;
+    }
+
+    .table {
+        font-size: 8px !important;
+    }
+
+        .table th,
+        .table td {
+            padding: 2px 1px !important;
+            border: 1px solid #000 !important;
+            font-size: 7px !important;
+        }
+
+        .table thead th {
+            background: #f0f0f0 !important;
+            color: #000 !important;
+            font-size: 7px !important;
+        }
+
+    .status-badge,
+    .quantity-badge,
+    .batch-badge,
+    .expiry-badge,
+    .id-badge {
+        background: #f0f0f0 !important;
+        color: #000 !important;
+        border: 1px solid #000;
+        font-size: 6px !important;
+        padding: 1px 3px !important;
+    }
+
+    .row-approved,
+    .row-rejected,
+    .row-pending,
+    .row-draft {
+        border-left: none !important;
+        background: white !important;
+    }
+
+    .summary-card {
+        border: 1px solid #000;
+        background: white !important;
+    }
+
+    .summary-value {
+        color: #000 !important;
+        font-size: 14px !important;
+    }
+
+    .summary-title,
+    .summary-subtitle {
+        color: #000 !important;
+        font-size: 8px !important;
+    }
+
+    /* Print status indicators */
+    .status-badge-approved::before {
+        content: "✓ ";
+    }
+
+    .status-badge-rejected::before {
+        content: "✗ ";
+    }
+
+    .status-badge-pending::before {
+        content: "⏱ ";
+    }
+
+    .status-badge-draft::before {
+        content: "📝 ";
+    }
+}
+
+/* === Animation Enhancements for Store Indent === */
+.store-indent-fade-in {
+    animation: storeIndentFadeIn 0.5s ease forwards;
+}
+
+@keyframes storeIndentFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* === Status Progression Indicators === */
+.status-progression {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.progression-step {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+    .progression-step.active {
+        background: var(--primary-blue);
+    }
+
+    .progression-step.completed {
+        background: #10b981;
+    }
+
+    .progression-step.failed {
+        background: #ef4444;
+    }
+
+/* === Enhanced Accessibility === */
+.status-badge:focus-visible {
+    outline: 2px solid var(--primary-blue) !important;
+    outline-offset: 2px !important;
+}
+
+.store-indent-table-row:focus-within {
+    outline: 2px solid var(--primary-blue) !important;
+    outline-offset: -2px !important;
+}
+
+/* === Status Summary Tooltips === */
+.status-summary {
+    position: relative;
+    cursor: help;
+}
+
+    .status-summary::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+        z-index: 10;
+    }
+
+    .status-summary:hover::after {
+        opacity: 1;
+        visibility: visible;
+    }
+
+/* === Enhanced Loading Animation === */
+.loading-spinner-store-indent {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--bg-secondary);
+    border-top: 3px solid #dc2626;
+    border-radius: 50%;
+    animation: storeIndentSpinning 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes storeIndentSpinning {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* === Enhanced Status Filter Feedback === */
+.filter-active-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    border: 2px solid white;
+    animation: filterPulse 2s infinite;
+}
+
+@keyframes filterPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.2);
+        opacity: 0.7;
+    }
+}
+
+/* === Batch Level Indicators === */
+.batch-level-indicator {
+    display: inline-block;
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(to bottom, #10b981, #059669);
+    border-radius: 2px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* === Quick Status Filter Buttons === */
+.quick-status-filters {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.quick-filter-btn {
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-color);
+    background: var(--bg-white);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+    .quick-filter-btn:hover {
+        background: var(--primary-gradient-subtle);
+        border-color: var(--primary-blue);
+        color: var(--primary-blue);
+    }
+
+    .quick-filter-btn.active {
+        background: var(--primary-gradient);
+        border-color: transparent;
+        color: white;
+    }
+
+/* === Row Count Indicators === */
+.row-count-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    margin-left: 8px;
+}
+
+    .row-count-badge.has-results {
+        background: var(--primary-gradient-subtle);
+        color: var(--primary-blue);
+    }

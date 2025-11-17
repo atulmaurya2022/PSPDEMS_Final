@@ -1,0 +1,136 @@
+﻿@{
+    ViewData["Title"] = "Near Date Expiry Medicine Report";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+<style>
+    .table tbody tr[data-href] {
+        cursor: pointer;
+    }
+
+        .table tbody tr[data-href]:hover {
+            background-color: rgba(0,0,0,.03);
+        }
+</style>
+
+<div class="container-fluid py-3">
+    <h2 class="mb-3">Near Date Expiry Medicine Report</h2>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <form class="row g-3" id="frm-filter">
+                <div class="col-md-3">
+                    <label class="form-label">Pivot Date</label>
+                    <input type="date" class="form-control" id="pivot" />
+                    <div class="form-text">Choose any date (past or future). Window starts from this date.</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Window</label>
+                    <select class="form-select" id="months">
+                        <option value="1" selected>Next 1 month</option>
+                        <option value="2">Next 2 months</option>
+                        <option value="3">Next 3 months</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Scope</label>
+                    <select class="form-select" id="scope">
+                        <option value="Both" selected>Both (Store + Compounder)</option>
+                        <option value="Store">Store only</option>
+                        <option value="Compounder">Compounder only</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="btn-group">
+                        <button type="button" id="btn-run" class="btn btn-primary">Run</button>
+                        <a id="btn-export" class="btn btn-outline-secondary" href="#">Export CSV</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">Results</div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle" id="tbl">
+                    <thead>
+                        <tr>
+                            <th>Scope</th>
+                            <th>Med ID</th>
+                            <th>Medicine</th>
+                            <th>Batch</th>
+                            <th>Expiry</th>
+                            <th>Days from Pivot</th>
+                            <th>Available</th>
+                            <th>Vendor</th>
+                        </tr>
+                    </thead>
+                    <tbody><tr><td colspan="8" class="text-muted">Select filters and click Run.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const routes = {
+          storeBatchDetails: '/StoreIndent/BatchDetails/',
+          compounderBatchDetails: '/CompounderIndent/BatchDetails/'
+        };
+        function html(s){ return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+        function d(v){ if(!v) return ''; const t=new Date(v); return isNaN(t)?'':t.toLocaleDateString(); }
+        function go(e, href){ const nt=e&&(e.ctrlKey||e.metaKey||e.which===2); if(nt) window.open(href,'_blank'); else window.location.href=href; }
+
+        (function(){
+          // Default pivot = today
+          const today = new Date(); document.getElementById('pivot').valueAsDate = today;
+
+          function run(){
+            const pivot = document.getElementById('pivot').value;
+            const months = document.getElementById('months').value;
+            const scope = document.getElementById('scope').value;
+
+            $('#tbl tbody').html('<tr><td colspan="8" class="text-muted">Loading…</td></tr>');
+
+            $.getJSON('/NearExpiryReport/GetReport', { pivot, months, scope, top: 1000 })
+              .done(rows=>{
+                const $tb = $('#tbl tbody').empty();
+                if(!rows || !rows.length){
+                  $tb.append('<tr><td colspan="8" class="text-muted">No records.</td></tr>');
+                  return;
+                }
+                rows.forEach(r=>{
+                  const href = r.scope === 'Compounder'
+                    ? (routes.compounderBatchDetails + r.batchId)
+                    : (routes.storeBatchDetails + r.batchId);
+                  $tb.append(`<tr data-href="${href}" title="Open batch ${html(r.batchNo)}">
+                    <td>${html(r.scope)}</td>
+                    <td>${r.medItemId}</td>
+                    <td>${html(r.medicineName)}</td>
+                    <td>${html(r.batchNo)}</td>
+                    <td>${d(r.expiryDate)}</td>
+                    <td>${r.daysFromPivot}</td>
+                    <td>${r.availableStock}</td>
+                    <td>${html(r.vendorCode || '')}</td>
+                  </tr>`);
+                });
+              })
+              .fail(()=> $('#tbl tbody').html('<tr><td colspan="8" class="text-danger">Failed to load.</td></tr>'));
+
+            // export link
+            const qs = $.param({ pivot, months, scope });
+            $('#btn-export').attr('href', '/NearExpiryReport/Export?' + qs);
+          }
+
+          $('#btn-run').on('click', function(e){ e.preventDefault(); run(); });
+
+          $('#tbl').on('click','tr[data-href]', function(e){ go(e, this.getAttribute('data-href')); })
+                   .on('mousedown','tr[data-href]', function(e){ if(e.which===2){ go(e,this.getAttribute('data-href')); }});
+
+          // auto-run on page load
+          $(document).ready(run);
+        })();
+    </script>
+}

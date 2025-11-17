@@ -1,0 +1,12 @@
+﻿@{
+    Layout = "_Layout";
+}
+@inject EMS.WebApp.Services.IMenuService MenuService
+@inject IHttpContextAccessor HttpContextAccessor
+@{
+    var userFullName = HttpContextAccessor.HttpContext?.User?.Identity?.Name;
+    if (!string.IsNullOrEmpty(userFullName))
+    {
+        ViewBag.AllowedScreens = await MenuService.GetMenuItemsForUserAsync(userFullName);
+    }
+}

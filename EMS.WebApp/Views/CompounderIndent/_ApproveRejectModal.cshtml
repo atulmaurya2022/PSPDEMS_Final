@@ -1,0 +1,1092 @@
+﻿@model EMS.WebApp.Data.CompounderIndent
+
+<link href="~/css/select2.min.css" rel="stylesheet" />
+<link href="~/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<script src="~/js/select2.min.js"></script>
+
+<style>
+    /* Select2 custom styling for modal */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--single .select2-selection__rendered {
+        padding-left: 0;
+        line-height: calc(1.5em + 0.5rem);
+    }
+
+    .select2-container--bootstrap-5 .select2-dropdown {
+        font-size: 0.875rem;
+        z-index: 9999 !important;
+    }
+
+    .select2-container--bootstrap-5 .select2-results__option {
+        padding: 0.375rem 0.75rem;
+    }
+
+    .select2-container {
+        width: 100% !important;
+    }
+</style>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">Indent ID</label>
+        <input class="form-control rounded-2" value="@Model.IndentId" readonly />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Indent Type</label>
+        <input class="form-control rounded-2" value="@Model.IndentType" readonly />
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">Indent Date</label>
+        <input class="form-control rounded-2" value="@Model.IndentDate.ToString("dd/MM/yyyy")" readonly />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Created By</label>
+        <input class="form-control rounded-2" value="@(Model.CreatedBy ?? "N/A")" readonly />
+    </div>
+</div>
+
+@* Medicines Section *@
+<div class="row mb-3">
+    <div class="col-12">
+        <!-- Medicine validation messages -->
+        <div id="medicineValidationMessage" class="alert alert-warning" style="display:none;"></div>
+
+        <!-- Medicines table -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">Medicines</h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddMed">
+                <i class="bi bi-plus-lg"></i> Add Medicine
+            </button>
+        </div>
+
+        <div class="table-responsive mb-3">
+            <table id="tblMedIndent" class="table table-striped table-glass glass-table w-100 align-middle">
+                <thead>
+                    <tr>
+                        <th style="width:60px">Sl.</th>
+                        <th style="width:220px">Medicine Name</th>
+                        <th>Company Name</th>
+                        <th style="width:120px">Vendor Code</th>
+                        <th style="width:100px">Raised Qty</th>
+                        <th style="width:100px">Issued Qty</th>
+                        <th style="width:100px">Pending Qty</th>
+                        <th style="width:90px">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="medicineTableBody">
+                    @if (Model.CompounderIndentItems?.Any() == true)
+                    {
+                        @for (int i = 0; i < Model.CompounderIndentItems.Count; i++)
+                        {
+                            var item = Model.CompounderIndentItems.ElementAt(i);
+                            <tr data-temp-id="@item.IndentItemId">
+                                <td>@(i + 1)</td>
+                                <td>@item.MedMaster?.MedItemName</td>
+                                <td>@(item.MedMaster?.CompanyName ?? "Not Defined")</td>
+                                <td>@item.VendorCode</td>
+                                <td>@item.RaisedQuantity</td>
+                                <td>@item.ReceivedQuantity</td>
+                                <td>@item.PendingQuantity</td>
+                                <td>
+                                    <button class="btn btn-action-edit edit me-1" data-temp-id="@item.IndentItemId" type="button" title="Edit">
+                                        <i class="bi bi-pencil fs-6"></i>
+                                    </button>
+                                    <button class="btn btn-action-delete delete" data-temp-id="@item.IndentItemId" type="button" title="Delete">
+                                        <i class="bi bi-trash fs-6"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr id="noMedicinesRow">
+                            <td colspan="8" class="text-center text-muted">No medicines added yet.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<form id="approveRejectForm" data-indent-id="@Model.IndentId">
+    <div class="row mb-3">
+        <div class="col-12">
+            <label for="comments" class="form-label">Comments <span class="text-danger">*</span></label>
+            <textarea id="comments" name="comments" class="form-control glass-input" rows="4" maxlength="500"
+                      placeholder="Enter your comments for approval/rejection..." required>@Model.Comments</textarea>
+            <div class="d-flex justify-content-between mt-1">
+                <div class="invalid-feedback"></div>
+                <small class="text-muted">
+                    <span id="commentsCharCount">0</span>/500 characters
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="btnApprove">
+            <i class="bi bi-check-circle me-1"></i>Approve
+        </button>
+        <button type="button" class="btn btn-danger" id="btnReject">
+            <i class="bi bi-x-circle me-1"></i>Reject
+        </button>
+    </div>
+</form>
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        const indentId = @Model.IndentId;
+        let medicineOptionsHtml = '<option value="">Select Medicine</option>';
+
+        // Remove any existing alerts before applying restrictions
+        $('.compounder-readonly-alert, .compounder-inventory-info, .alert-danger').remove();
+
+        // Role-based access control
+        $.get('@Url.Action("GetCurrentUserRole", "CompounderIndent")')
+            .done(function(response) {
+                if (response && response.role) {
+                    const userRole = response.role.toLowerCase();
+                    const isStoreUser = userRole.includes('store');
+                    const isCompounderUser = userRole.includes('compounder');
+
+                    // Apply role-based restrictions to medicine editing
+                    applyMedicineEditRestrictions(isStoreUser, isCompounderUser);
+                }
+            })
+            .fail(function() {
+                console.log('Could not determine user role for approve/reject modal');
+            });
+
+        function applyMedicineEditRestrictions(isStoreUser, isCompounderUser) {
+            // Store users should not be in approve/reject modal
+            if (isStoreUser) {
+                $('#btnAddMed').prop('disabled', true).attr('title', 'Access denied - Store users cannot approve/reject indents');
+
+                $('.edit, .delete').each(function() {
+                    $(this).prop('disabled', true).addClass('btn-secondary').removeClass('btn-secondary btn-danger');
+                    $(this).attr('title', 'Access denied - Store users cannot approve/reject indents');
+                    if ($(this).hasClass('edit')) {
+                        $(this).text('View Only');
+                    } else {
+                        $(this).hide();
+                    }
+                });
+
+                // Disable approve/reject buttons
+                $('#btnApprove, #btnReject').prop('disabled', true).attr('title', 'Access denied - Store users cannot approve/reject indents');
+
+                // Show error message (check if not already exists)
+                if ($('.compounder-readonly-alert').length === 0) {
+                    $('#medicineValidationMessage')
+                        .removeClass('alert-warning')
+                        .addClass('alert-danger compounder-readonly-alert')
+                        .text('Access denied. Store users cannot approve or reject indents.')
+                        .show();
+                }
+            }
+
+            // Compounder users should not be in approve/reject modal either, but if they are, restrict medicine editing
+            if (isCompounderUser) {
+                $('#btnAddMed').prop('disabled', true).attr('title', 'Access denied - Compounder users cannot approve/reject indents');
+
+                $('.edit, .delete').each(function() {
+                    $(this).prop('disabled', true).addClass('btn-secondary').removeClass('btn-secondary btn-danger');
+                    $(this).attr('title', 'Access denied - Compounder users cannot approve/reject indents');
+                    if ($(this).hasClass('edit')) {
+                        $(this).text('View Only');
+                    } else {
+                        $(this).hide();
+                    }
+                });
+
+                // Disable approve/reject buttons
+                $('#btnApprove, #btnReject').prop('disabled', true).attr('title', 'Access denied - Compounder users cannot approve/reject indents');
+
+                // Override click events
+                $(document).off('click', '.edit, .delete, .save-medicine-item, .save-medicine-inline');
+                $(document).on('click', '.edit, .delete, .save-medicine-item, .save-medicine-inline', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alert('Access denied. Compounder users cannot approve/reject indents or edit medicines in this context.');
+                    return false;
+                });
+
+                // Show error message (check if not already exists)
+                if ($('.compounder-readonly-alert').length === 0) {
+                    $('#medicineValidationMessage')
+                        .removeClass('alert-warning')
+                        .addClass('alert-danger compounder-readonly-alert')
+                        .text('Access denied. Compounder users cannot approve or reject indents.')
+                        .show();
+                }
+            }
+        }
+
+        // Security patterns to check for (similar to StoreIndent)
+        const dangerousPatterns = [
+            /<script[^>]*>.*?<\/script>/gi,
+            /javascript:/gi,
+            /vbscript:/gi,
+            /on\w+\s*=/gi,
+            /<iframe/gi,
+            /<object/gi,
+            /<embed/gi,
+            /<form/gi,
+            /eval\s*\(/gi,
+            /expression\s*\(/gi
+        ];
+
+        // Function to check for dangerous input
+        function containsDangerousInput(text) {
+            if (!text) return false;
+            return dangerousPatterns.some(pattern => pattern.test(text));
+        }
+
+        // Function to validate vendor code
+        function validateVendorCode(vendorCode) {
+            if (!vendorCode) return true;
+            // Vendor code should only contain alphanumeric characters, hyphens, and underscores
+            return /^[a-zA-Z0-9\-_]+$/.test(vendorCode);
+        }
+
+        // Function to validate batch number
+        function validateBatchNo(batchNo) {
+            if (!batchNo) return true;
+            // Batch number should only contain alphanumeric characters, hyphens, underscores, and dots
+            return /^[a-zA-Z0-9\-_\.]+$/.test(batchNo);
+        }
+
+        // Character count functions
+        function updateCommentsCharCount() {
+            const currentLength = $('#comments').val().length;
+            const charCountElement = $('#commentsCharCount');
+            charCountElement.text(currentLength);
+            charCountElement.removeClass('text-warning text-danger');
+            if (currentLength > 400 && currentLength < 500) {
+                charCountElement.addClass('text-warning');
+            } else if (currentLength >= 500) {
+                charCountElement.addClass('text-danger');
+            }
+        }
+
+        // Validation functions
+        function validateComments() {
+            const comments = $('#comments').val().trim();
+            const commentsField = $('#comments');
+            const validationDiv = commentsField.siblings('.invalid-feedback');
+
+            commentsField.removeClass('is-invalid');
+            validationDiv.text('');
+
+            if (!comments) {
+                commentsField.addClass('is-invalid');
+                validationDiv.text('Comments are required.');
+                return false;
+            } else if (comments.length < 2) {
+                commentsField.addClass('is-invalid');
+                validationDiv.text('Please provide detailed comments (minimum 2 characters).');
+                return false;
+            } else if (comments.length > 500) {
+                commentsField.addClass('is-invalid');
+                validationDiv.text('Comments cannot exceed 500 characters.');
+                return false;
+            } else if (containsDangerousInput(comments)) {
+                commentsField.addClass('is-invalid');
+                validationDiv.text('Comments contain invalid characters. Script tags and unsafe characters are not allowed.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function updateSubmitButtons() {
+            const hasErrors = $('.is-invalid').length > 0;
+            $('#btnApprove, #btnReject').prop('disabled', hasErrors);
+        }
+
+        // Event handlers for validation
+        $('#comments').on('input keyup paste', function() {
+            updateCommentsCharCount();
+            validateComments();
+            updateSubmitButtons();
+        });
+
+        // Prevent pasting of dangerous content
+        $('#comments').on('paste', function(e) {
+            setTimeout(function() {
+                const pastedContent = $('#comments').val();
+                if (containsDangerousInput(pastedContent)) {
+                    $('#comments').val('');
+                    alert('Pasted content contains unsafe characters and has been removed.');
+                }
+            }, 10);
+        });
+
+        // Load medicine options
+        loadMedicineOptions();
+
+        function loadMedicineOptions() {
+            // Build medicine options from ViewBag (if available) or load via AJAX
+            @if (ViewBag.MedicineList != null)
+            {
+                                            @foreach (var medicine in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.MedicineList)
+                                            {
+                                                                            <text>medicineOptionsHtml += '<option value="@medicine.Value">@medicine.Text</option>';</text>
+                                            }
+            }
+        }
+
+        // Add Medicine Button Click
+        $('#btnAddMed').click(function() {
+            addNewMedicineRow();
+        });
+
+        function addNewMedicineRow() {
+            // Remove "no medicines" message if it exists
+            $('#noMedicinesRow').remove();
+
+            const newRowId = 'newRow' + Date.now();
+            const newRow = `
+                <tr id="${newRowId}" class="editing-row">
+                    <td>${getNextSlNo()}</td>
+                    <td>
+                        <select class="form-select form-select-sm glass-input medicine-dropdown" required>
+                            ${medicineOptionsHtml}
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input company-input" readonly />
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input vendor-input" placeholder="Enter vendor code"  maxlength="50" />
+                        <div class="invalid-feedback"></div>
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input raised-qty-input" type="number" min="1" max="99999" placeholder="Raised Qty" required />
+                        <div class="invalid-feedback"></div>
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input received-qty-input" type="number" min="0" max="99999" placeholder="Received Qty" value="0" />
+                    </td>
+                    <td>
+                        <input class="form-control form-control-sm glass-input pending-qty-display" readonly placeholder="Pending Qty" />
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-success save-medicine-item me-1" type="button" title="Save">
+                            <i class="bi bi-save"></i>
+                        </button>
+                        <button class="btn btn-sm btn-secondary cancel-medicine-add" type="button" title="Cancel">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </td>
+                </tr>`;
+
+            $('#medicineTableBody').append(newRow);
+
+            // Initialize Select2 on the newly added medicine dropdown
+            $(`#${newRowId} .medicine-dropdown`).select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select Medicine',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#modalCompounderIndent')
+            });
+
+            // Add real-time validation for the new row
+            const newRowElement = $(`#${newRowId}`);
+
+            // Vendor code validation
+            newRowElement.find('.vendor-input').on('input', function() {
+                const vendorCode = $(this).val();
+                const isValid = validateVendorCode(vendorCode);
+
+                if (vendorCode && !isValid) {
+                    $(this).addClass('is-invalid');
+                    $(this).siblings('.invalid-feedback').text('Vendor code can only contain letters, numbers, hyphens, and underscores.');
+                } else {
+                    $(this).removeClass('is-invalid');
+                    $(this).siblings('.invalid-feedback').text('');
+                }
+            });
+        }
+
+        function getNextSlNo() {
+            return $('#medicineTableBody tr:not(.editing-row)').length + 1;
+        }
+
+        // Medicine dropdown change - Get company name
+        $(document).on('change', '.medicine-dropdown', function() {
+            const row = $(this).closest('tr');
+            const medItemId = $(this).val();
+            const companyInput = row.find('.company-input');
+
+            if (medItemId) {
+                companyInput.val('Loading...');
+
+                $.get('@Url.Action("GetMedicineDetails", "CompounderIndent")', { medItemId: medItemId })
+                    .done(function(result) {
+                        if (result.success) {
+                            companyInput.val(result.data.companyName);
+                        } else {
+                            companyInput.val('Not Defined');
+                        }
+                    })
+                    .fail(function() {
+                        companyInput.val('Not Defined');
+                    });
+            } else {
+                companyInput.val('');
+            }
+        });
+
+        // Auto-calculate pending quantity
+        $(document).on('change keyup', '.raised-qty-input, .received-qty-input', function() {
+            const row = $(this).closest('tr');
+            const raisedQty = parseInt(row.find('.raised-qty-input').val()) || 0;
+            const receivedQty = parseInt(row.find('.received-qty-input').val()) || 0;
+            const pendingQty = raisedQty - receivedQty;
+
+            row.find('.pending-qty-display').val(pendingQty >= 0 ? pendingQty : 0);
+        });
+
+        // Save new medicine item
+        $(document).on('click', '.save-medicine-item', function() {
+            const row = $(this).closest('tr');
+            const medicineSelect = row.find('.medicine-dropdown');
+            const vendorInput = row.find('.vendor-input');
+            const raisedQtyInput = row.find('.raised-qty-input');
+            const receivedQtyInput = row.find('.received-qty-input');
+
+            const medItemId = medicineSelect.val();
+            const vendorCode = vendorInput.val().trim();
+            const raisedQuantity = parseInt(raisedQtyInput.val());
+            const receivedQuantity = parseInt(receivedQtyInput.val()) || 0;
+
+            // Validate
+            if (!validateMedicineRow(row)) {
+                return;
+            }
+
+            // Disable button to prevent double submission
+            $(this).prop('disabled', true);
+
+            // Save via AJAX
+            $.post('@Url.Action("AddMedicineItem", "CompounderIndent")', {
+                indentId: indentId,
+                medItemId: medItemId,
+                vendorCode: vendorCode,
+                raisedQuantity: raisedQuantity,
+                receivedQuantity: receivedQuantity
+            })
+            .done(function(response) {
+                if (response.success) {
+                    // Convert editing row to display row
+                    const medicineText = medicineSelect.find('option:selected').text();
+                    const companyName = row.find('.company-input').val();
+                    const pendingQty = raisedQuantity - receivedQuantity;
+
+                    // Destroy Select2 instance before replacing the row
+                    if (medicineSelect.hasClass('select2-hidden-accessible')) {
+                        medicineSelect.select2('destroy');
+                    }
+
+                    const displayRow = `
+                        <tr data-temp-id="${response.itemId}">
+                            <td>${row.find('td:first').text()}</td>
+                            <td>${medicineText}</td>
+                            <td>${companyName}</td>
+                            <td>${vendorCode}</td>
+                            <td>${raisedQuantity}</td>
+                            <td>${receivedQuantity}</td>
+                            <td>${pendingQty}</td>
+                            <td>
+                                <button class="btn btn-action-edit edit me-1" data-temp-id="${response.itemId}" type="button" title="Edit">
+                                    <i class="bi bi-pencil fs-6"></i>
+                                </button>
+                                <button class="btn btn-action-delete delete" data-temp-id="${response.itemId}" type="button" title="Delete">
+                                    <i class="bi bi-trash fs-6"></i>
+                                </button>
+                            </td>
+                        </tr>`;
+
+                    row.replaceWith(displayRow);
+                    updateRowNumbers();
+                    showValidationMessage(response.message, 'success');
+
+                    // Reload main table if available
+                    if (typeof tbl !== 'undefined' && tbl.ajax) {
+                        tbl.ajax.reload();
+                    }
+                } else {
+                    showValidationMessage(response.message, 'warning');
+                    $(this).prop('disabled', false);
+                }
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Add medicine item request failed:', status, error);
+                showValidationMessage('Network error occurred. Please try again.', 'warning');
+                $(this).prop('disabled', false);
+            });
+        });
+
+        // Cancel adding new medicine
+        $(document).on('click', '.cancel-medicine-add', function() {
+            const row = $(this).closest('tr');
+
+            // Destroy Select2 instance before removing the row
+            var $select = row.find('.medicine-dropdown');
+            if ($select.hasClass('select2-hidden-accessible')) {
+                $select.select2('destroy');
+            }
+
+            row.remove();
+            updateRowNumbers();
+
+            // If no rows left, show "no medicines" message
+            if ($('#medicineTableBody tr').length === 0) {
+                $('#medicineTableBody').append(`<tr id="noMedicinesRow"><td colspan="8" class="text-center text-muted">No medicines added yet.</td></tr>`);
+            }
+        });
+
+        // Delete medicine item (using the correct class name)
+        $(document).on('click', '.delete', function() {
+            if (!confirm('Are you sure you want to delete this medicine item?')) {
+                return;
+            }
+
+            const itemId = $(this).data('temp-id');
+            const row = $(this).closest('tr');
+
+            $(this).prop('disabled', true);
+
+            $.post('@Url.Action("DeleteMedicineItem", "CompounderIndent")', {
+                indentItemId: itemId
+            })
+            .done(function(response) {
+                if (response.success) {
+                    // Destroy Select2 instance if exists
+                    var $select = row.find('.medicine-dropdown, .edit-medicine-dropdown');
+                    if ($select.length > 0 && $select.hasClass('select2-hidden-accessible')) {
+                        $select.select2('destroy');
+                    }
+
+                    row.remove();
+                    updateRowNumbers();
+                    showValidationMessage(response.message, 'success');
+
+                    // If no rows left, show "no medicines" message
+                    if ($('#medicineTableBody tr').length === 0) {
+                        $('#medicineTableBody').append(`<tr id="noMedicinesRow"><td colspan="8" class="text-center text-muted">No medicines added yet.</td></tr>`);
+                    }
+
+                    // Reload main table if available
+                    if (typeof tbl !== 'undefined' && tbl.ajax) {
+                        tbl.ajax.reload();
+                    }
+                } else {
+                    showValidationMessage(response.message, 'warning');
+                    $(this).prop('disabled', false);
+                }
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Delete medicine item request failed:', status, error);
+                showValidationMessage('Network error occurred. Please try again.', 'warning');
+                $(this).prop('disabled', false);
+            });
+        });
+
+        // Handle edit medicine item inline (using the correct class name)
+        $(document).on('click', '.edit', function() {
+            const itemId = $(this).data('temp-id');
+            const row = $(this).closest('tr');
+
+            convertRowToEditMode(row, itemId);
+        });
+
+        function convertRowToEditMode(row, itemId) {
+            const currentMedicineName = row.find('td:eq(1)').text().trim();
+            const currentCompanyName = row.find('td:eq(2)').text().trim();
+            const currentVendorCode = row.find('td:eq(3)').text().trim();
+            const currentRaisedQty = parseInt(row.find('td:eq(4)').text()) || 0;
+            const currentReceivedQty = parseInt(row.find('td:eq(5)').text()) || 0;
+
+            // Store original row content
+            row.data('original-content', row.html());
+
+            // Replace medicine name with dropdown
+            row.find('td:eq(1)').html(`
+                <select class="form-select form-select-sm glass-input edit-medicine-dropdown" required>
+                    ${medicineOptionsHtml}
+                </select>
+                <div class="invalid-feedback"></div>
+            `);
+
+            // Replace company name with readonly input (will be auto-populated)
+            row.find('td:eq(2)').html(`
+                <input class="form-control form-control-sm glass-input edit-company-input" readonly value="${currentCompanyName}" />
+            `);
+
+            // Replace vendor code with input
+            row.find('td:eq(3)').html(`
+                <input class="form-control form-control-sm glass-input edit-vendor-input"
+                       value="${currentVendorCode}" placeholder="Enter vendor code" maxlength="50" />
+                <div class="invalid-feedback"></div>
+            `);
+
+            // Replace raised quantity with input
+            row.find('td:eq(4)').html(`
+                <input type="number" class="form-control form-control-sm glass-input edit-raised-qty-input"
+                       value="${currentRaisedQty}" min="1" max="99999" placeholder="Raised Qty" required />
+                <div class="invalid-feedback"></div>
+            `);
+
+            // Replace received quantity with input
+            row.find('td:eq(5)').html(`
+                <input type="number" class="form-control form-control-sm glass-input edit-received-qty-input"
+                       value="${currentReceivedQty}" min="0" max="99999" placeholder="Received Qty" />
+            `);
+
+            // Replace pending quantity with readonly input (calculated)
+            row.find('td:eq(6)').html(`
+                <input class="form-control form-control-sm glass-input edit-pending-qty-display" readonly placeholder="Pending Qty" />
+            `);
+
+            // Replace action button with save/cancel
+            row.find('td:eq(7)').html(`
+                <button class="btn btn-sm btn-success save-medicine-inline me-1" data-temp-id="${itemId}" title="Save Changes">
+                    <i class="bi bi-save"></i>
+                </button>
+                <button class="btn btn-sm btn-secondary cancel-medicine-inline" title="Cancel">
+                    <i class="bi bi-x"></i>
+                </button>
+            `);
+
+            // Set the selected medicine in dropdown and trigger change to load company
+            const medicineSelect = row.find('.edit-medicine-dropdown');
+            // Find the medicine option that matches the current medicine name
+            medicineSelect.find('option').each(function() {
+                if ($(this).text().trim() === currentMedicineName) {
+                    medicineSelect.val($(this).val());
+                    return false; // break the loop
+                }
+            });
+
+            // Initialize Select2 on the edit medicine dropdown
+            medicineSelect.select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select Medicine',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#modalCompounderIndent')
+            });
+
+            // Auto-calculate pending quantity
+            updatePendingQuantityInEditMode(row);
+
+            // Add event listeners for auto-calculation and company name loading
+            row.find('.edit-raised-qty-input, .edit-received-qty-input').on('input', function() {
+                updatePendingQuantityInEditMode(row);
+            });
+
+            // Handle medicine dropdown change
+            row.find('.edit-medicine-dropdown').on('change', function() {
+                const medItemId = $(this).val();
+                const companyInput = row.find('.edit-company-input');
+
+                if (medItemId) {
+                    companyInput.val('Loading...');
+
+                    $.get('@Url.Action("GetMedicineDetails", "CompounderIndent")', { medItemId: medItemId })
+                        .done(function(result) {
+                            if (result.success) {
+                                companyInput.val(result.data.companyName);
+                            } else {
+                                companyInput.val('Not Defined');
+                            }
+                        })
+                        .fail(function() {
+                            companyInput.val('Not Defined');
+                        });
+                } else {
+                    companyInput.val('');
+                }
+            });
+
+            // Add validation for vendor code in edit mode
+            row.find('.edit-vendor-input').on('input', function() {
+                const vendorCode = $(this).val();
+                const isValid = validateVendorCode(vendorCode);
+
+                if (vendorCode && !isValid) {
+                    $(this).addClass('is-invalid');
+                    $(this).siblings('.invalid-feedback').text('Vendor code can only contain letters, numbers, hyphens, and underscores.');
+                } else {
+                    $(this).removeClass('is-invalid');
+                    $(this).siblings('.invalid-feedback').text('');
+                }
+            });
+        }
+
+        function updatePendingQuantityInEditMode(row) {
+            const raisedQty = parseInt(row.find('.edit-raised-qty-input').val()) || 0;
+            const receivedQty = parseInt(row.find('.edit-received-qty-input').val()) || 0;
+            const pendingQty = Math.max(0, raisedQty - receivedQty);
+
+            // Update pending quantity display
+            row.find('.edit-pending-qty-display').val(pendingQty);
+        }
+
+        // Save medicine item inline
+        $(document).on('click', '.save-medicine-inline', function() {
+            const itemId = $(this).data('temp-id');
+            const row = $(this).closest('tr');
+
+            // Get all the edited values
+            const medicineSelect = row.find('.edit-medicine-dropdown');
+            const vendorInput = row.find('.edit-vendor-input');
+            const raisedQtyInput = row.find('.edit-raised-qty-input');
+            const receivedQtyInput = row.find('.edit-received-qty-input');
+
+            const medItemId = medicineSelect.val();
+            const vendorCode = vendorInput.val().trim();
+            const raisedQuantity = parseInt(raisedQtyInput.val()) || 0;
+            const receivedQuantity = parseInt(receivedQtyInput.val()) || 0;
+
+            // Validate all fields
+            if (!validateEditMedicineRow(row)) {
+                return;
+            }
+
+            // Validate received quantity doesn't exceed raised quantity
+            if (receivedQuantity > raisedQuantity) {
+                alert('Received quantity cannot exceed raised quantity.');
+                return;
+            }
+
+            // Disable button to prevent double submission
+            $(this).prop('disabled', true);
+
+            // Update via AJAX with all fields
+            $.post('@Url.Action("UpdateMedicineItem", "CompounderIndent")', {
+                indentItemId: itemId,
+                medItemId: medItemId,
+                vendorCode: vendorCode,
+                raisedQuantity: raisedQuantity,
+                receivedQuantity: receivedQuantity,
+                unitPrice: null // No unit price in approve/reject modal
+            })
+            .done(function(response) {
+                if (response.success) {
+                    // Get the updated medicine name and company name for display
+                    const medicineName = medicineSelect.find('option:selected').text();
+                    const companyName = row.find('.edit-company-input').val();
+
+                    // Destroy Select2 instance before updating row content
+                    if (medicineSelect.hasClass('select2-hidden-accessible')) {
+                        medicineSelect.select2('destroy');
+                    }
+
+                    // Update row with new values (convert back to display mode)
+                    row.find('td:eq(1)').text(medicineName);
+                    row.find('td:eq(2)').text(companyName);
+                    row.find('td:eq(3)').text(vendorCode);
+                    row.find('td:eq(4)').text(raisedQuantity);
+                    row.find('td:eq(5)').text(receivedQuantity);
+                    row.find('td:eq(6)').html(`
+                        <span class="badge ${response.data.pendingQuantity > 0 ? 'bg-warning' : 'bg-success'}">
+                            ${response.data.pendingQuantity}
+                        </span>
+                    `);
+
+                    // Restore action button based on pending quantity
+                    if (response.data.pendingQuantity > 0) {
+                        row.find('td:eq(7)').html(`
+                            <button class="btn btn-action-edit edit me-1" data-temp-id="${itemId}" type="button" title="Edit">
+                                <i class="bi bi-pencil fs-6"></i>
+                            </button>
+                            <button class="btn btn-action-delete delete" data-temp-id="${itemId}" type="button" title="Delete">
+                                <i class="bi bi-trash fs-6"></i>
+                            </button>
+                        `);
+                    } else {
+                        row.find('td:eq(7)').html(`
+                            <button class="btn btn-sm btn-warning edit-with-reason" data-temp-id="${itemId}" type="button" title="Edit with Reason">
+                                Edit with Reason
+                            </button>
+                        `);
+                    }
+
+                    // Remove the stored original content
+                    row.removeData('original-content');
+
+                    // Show success message
+                    showValidationMessage(response.message, 'success');
+
+                    // Reload main table if available
+                    if (typeof tbl !== 'undefined' && tbl.ajax) {
+                        tbl.ajax.reload();
+                    }
+                } else {
+                    alert(response.message || 'Failed to update medicine item.');
+                    // Re-enable button
+                    $(this).prop('disabled', false);
+                }
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Update medicine item request failed:', status, error);
+                alert('Network error occurred. Please try again.');
+                // Re-enable button
+                $(this).prop('disabled', false);
+            });
+        });
+
+        // Cancel medicine item inline edit
+        $(document).on('click', '.cancel-medicine-inline', function() {
+            const row = $(this).closest('tr');
+            const originalContent = row.data('original-content');
+
+            // Destroy Select2 instance before restoring original content
+            var $select = row.find('.edit-medicine-dropdown');
+            if ($select.length > 0 && $select.hasClass('select2-hidden-accessible')) {
+                $select.select2('destroy');
+            }
+
+            if (originalContent) {
+                row.html(originalContent);
+                row.removeData('original-content');
+            }
+        });
+
+        function validateEditMedicineRow(row) {
+            let isValid = true;
+            clearEditRowValidation(row);
+
+            const medicineSelect = row.find('.edit-medicine-dropdown');
+            const vendorInput = row.find('.edit-vendor-input');
+            const raisedQtyInput = row.find('.edit-raised-qty-input');
+
+            const medItemId = medicineSelect.val();
+            const vendorCode = vendorInput.val().trim();
+            const raisedQuantity = parseInt(raisedQtyInput.val());
+
+            // Validate medicine selection
+            if (!medItemId || medItemId === '') {
+                showEditFieldError(medicineSelect, 'Please select a medicine');
+                isValid = false;
+            }
+
+            // Validate vendor code
+            if (vendorCode && !validateVendorCode(vendorCode)) {
+                showEditFieldError(vendorInput, 'Vendor code can only contain letters, numbers, hyphens, and underscores');
+                isValid = false;
+            }
+
+
+
+            // Validate raised quantity
+            if (!raisedQuantity || raisedQuantity <= 0) {
+                showEditFieldError(raisedQtyInput, 'Please enter valid raised quantity');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        function showEditFieldError(field, message) {
+            field.addClass('is-invalid');
+            field.siblings('.invalid-feedback').text(message);
+        }
+
+        function clearEditRowValidation(row) {
+            row.find('.is-invalid').removeClass('is-invalid');
+            row.find('.invalid-feedback').text('');
+        }
+
+        function validateMedicineRow(row) {
+            let isValid = true;
+            clearRowValidation(row);
+
+            const medicineSelect = row.find('.medicine-dropdown');
+            const vendorInput = row.find('.vendor-input');
+            const raisedQtyInput = row.find('.raised-qty-input');
+
+            const medItemId = medicineSelect.val();
+            const vendorCode = vendorInput.val().trim();
+            const raisedQuantity = parseInt(raisedQtyInput.val());
+
+            // Validate medicine selection
+            if (!medItemId || medItemId === '') {
+                showFieldError(medicineSelect, 'Please select a medicine');
+                isValid = false;
+            }
+
+            // Validate vendor code
+            if (vendorCode && !validateVendorCode(vendorCode)) {
+                showFieldError(vendorInput, 'Vendor code can only contain letters, numbers, hyphens, and underscores');
+                isValid = false;
+            }
+
+
+
+            // if (!vendorCode || vendorCode === '') {
+            //     showFieldError(vendorInput, 'Please enter vendor code');
+            //     isValid = false;
+            // } else if (!validateVendorCode(vendorCode)) {
+            //     showFieldError(vendorInput, 'Vendor code can only contain letters, numbers, hyphens, and underscores');
+            //     isValid = false;
+            // }
+
+            // Validate raised quantity
+            if (!raisedQuantity || raisedQuantity <= 0) {
+                showFieldError(raisedQtyInput, 'Please enter valid raised quantity');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        function showFieldError(field, message) {
+            field.addClass('is-invalid');
+            field.siblings('.invalid-feedback').text(message);
+        }
+
+        function clearRowValidation(row) {
+            row.find('.is-invalid').removeClass('is-invalid');
+            row.find('.invalid-feedback').text('');
+        }
+
+        function updateRowNumbers() {
+            $('#medicineTableBody tr:not(.editing-row)').each(function(index) {
+                if (!$(this).find('td:first').hasClass('text-center')) {
+                    $(this).find('td:first').text(index + 1);
+                }
+            });
+        }
+
+        function showValidationMessage(message, type = 'warning') {
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-warning';
+            $('#medicineValidationMessage')
+                .removeClass('alert-warning alert-success alert-danger')
+                .addClass(alertClass)
+                .text(message)
+                .show();
+
+            // Auto hide after 3 seconds
+            setTimeout(function() {
+                $('#medicineValidationMessage').fadeOut();
+            }, 3000);
+        }
+
+        // Approve/Reject functionality (existing code with enhanced validation)
+        $('#btnApprove, #btnReject').click(function() {
+            const action = $(this).attr('id') === 'btnApprove' ? 'approve' : 'reject';
+            const comments = $('#comments').val().trim();
+            const indentId = $('#approveRejectForm').data('indent-id');
+
+            // Clear previous validation
+            $('#comments').removeClass('is-invalid');
+            $('.invalid-feedback').text('');
+
+            // Validate comments using the enhanced validation function
+            if (!validateComments()) {
+                return;
+            }
+
+            // Confirm action
+            const actionText = action === 'approve' ? 'approve' : 'reject';
+            const confirmMessage = `Are you sure you want to ${actionText} this Compounder Indent?`;
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            // Disable buttons to prevent double submission
+            $('#btnApprove, #btnReject').prop('disabled', true);
+
+            // Submit the action
+            const submitUrl = '@Url.Action("UpdateStatus", "CompounderIndent")';
+
+            $.post(submitUrl, {
+                indentId: indentId,
+                status: action === 'approve' ? 'Approved' : 'Rejected',
+                comments: comments
+            })
+            .done(function(response) {
+                if (response.success) {
+                    $('#modalCompounderIndent').modal('hide');
+
+                    // Show success message
+                    if (typeof showMessage === 'function') {
+                        showMessage(`Compounder Indent ${actionText}d successfully!`, 'success');
+                    }
+
+                    // Reload the table
+                    if (typeof tbl !== 'undefined' && tbl.ajax) {
+                        tbl.ajax.reload();
+                    }
+                } else {
+                    alert(response.message || `Failed to ${actionText} the indent.`);
+                }
+            })
+            .fail(function() {
+                alert(`Network error occurred while trying to ${actionText} the indent.`);
+            })
+            .always(function() {
+                // Re-enable buttons
+                $('#btnApprove, #btnReject').prop('disabled', false);
+            });
+        });
+
+        // Handle edit with reason button (for fully received items)
+        $(document).on('click', '.edit-with-reason', function() {
+            const itemId = $(this).data('temp-id');
+            const row = $(this).closest('tr');
+
+            // Extract current item data from the row
+            const itemData = {
+                indentItemId: itemId,
+                medicineName: row.find('td:eq(1)').text().trim(),
+                companyName: row.find('td:eq(2)').text().trim(),
+                vendorCode: row.find('td:eq(3)').text().trim(),
+                raisedQuantity: parseInt(row.find('td:eq(4)').text()) || 0,
+                receivedQuantity: parseInt(row.find('td:eq(5)').text()) || 0,
+                unitPrice: null,
+                batchNo: null,
+                expiryDate: null,
+                availableStock: null
+            };
+
+            // Show edit with reason modal
+            showEditWithReasonModal(itemData);
+        });
+
+        // Refresh medicine table function for edit with reason modal
+        window.refreshMedicineTable = function() {
+            // Reload the approve/reject modal to show updated data
+            location.reload();
+        };
+
+        // Initialize everything
+        updateCommentsCharCount();
+        validateComments();
+        updateSubmitButtons();
+    });
+</script>
+
+@* Include Edit with Reason Modal *@
+@await Html.PartialAsync("_EditWithReasonModal")

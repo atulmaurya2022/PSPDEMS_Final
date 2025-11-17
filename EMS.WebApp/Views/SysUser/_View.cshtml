@@ -1,0 +1,183 @@
+﻿@model EMS.WebApp.Data.SysUser
+
+<!-- User Information Display -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-hash"></i>
+            User ID
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong class="text-primary">@Model.user_id</strong>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-person-workspace"></i>
+            Active Directory ID
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (!string.IsNullOrEmpty(Model.adid))
+            {
+                <span class="badge bg-info" style="font-size: 12px;">@Model.adid</span>
+            }
+            else
+            {
+                <em class="text-muted">Not Specified</em>
+            }
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-person"></i>
+            Full Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong>@Model.full_name</strong>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <label class="form-label form-label-master">
+            <i class="bi bi-envelope"></i>
+            Email Address
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <a href="mailto:@Model.email" class="text-decoration-none">@Model.email</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label form-label-master">
+            <i class="bi bi-toggle-on"></i>
+            User Status
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (Model.is_active)
+            {
+                <span class="badge bg-success">
+                    <i class="bi bi-check-circle"></i>
+                    Active
+                </span>
+            }
+            else
+            {
+                <span class="badge bg-danger">
+                    <i class="bi bi-x-circle"></i>
+                    Not Active
+                </span>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-person-badge"></i>
+            Role Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (Model.SysRole != null)
+            {
+                <span class="badge bg-success" style="font-size: 12px;">@Model.SysRole.role_name</span>
+            }
+            else
+            {
+                <em class="text-muted">No Role Assigned</em>
+            }
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label form-label-master">
+            <i class="bi bi-building"></i>
+            Plant Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            @if (Model.OrgPlant != null)
+            {
+                <span class="badge bg-primary" style="font-size: 12px;">@Model.OrgPlant.plant_name</span>
+            }
+            else
+            {
+                <em class="text-muted">No Plant Assigned</em>
+            }
+        </div>
+    </div>
+</div>
+
+@if (Model.SysRole != null && !string.IsNullOrEmpty(Model.SysRole.role_desc))
+{
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label class="form-label form-label-master">
+                <i class="bi bi-card-text"></i>
+                Role Description
+            </label>
+            <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 60px; padding: 12px;">
+                @Model.SysRole.role_desc
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue)
+{
+    <div class="audit-section">
+        <h6>
+            <i class="bi bi-clock-history"></i>
+            Audit Information
+        </h6>
+
+        @if (Model.CreatedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Created By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Created On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.ModifiedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Modified By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Modified On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="modal-footer modal-footer-master">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        Close
+    </button>
+</div>

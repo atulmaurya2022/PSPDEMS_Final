@@ -1,0 +1,599 @@
+﻿@{
+    ViewData["Title"] = "Screen Role Mapping";
+}
+
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+
+<div class="master-container">
+    <!-- Alert Container -->
+    <div id="alertContainer"></div>
+
+    <!-- Enhanced Master Header -->
+    <div class="master-header">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="flex-grow-1">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-master">
+                        <li class="breadcrumb-item">Home</li>
+                        <li class="breadcrumb-item active" aria-current="page">Screen Role Mapping</li>
+                    </ol>
+                </nav>
+                <h1 class="master-title">
+                    <i class="bi bi-diagram-3"></i>
+                    Screen Role Mapping
+                </h1>
+                <p class="master-subtitle">Manage role-based screen access permissions</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative">
+                    <input type="text" class="form-control" placeholder="Search mappings..." id="searchBox" style="min-width: 250px; padding-left: 40px !important;" />
+                    <i class="bi bi-search position-absolute" style="left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280;"></i>
+                </div>
+                <button id="btnCreate" class="btn btn-add-master">
+                    <i class="bi bi-plus-lg"></i>
+                    Add Role Mapping
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced DataTable Container -->
+    <div class="master-form">
+        <div class="card-body p-0">
+            <table id="tblAttachScreenRole" class="table table-striped table-glass glass-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Mapping ID</th>
+                        <th>Role Name</th>
+                        <th>Assigned Screens</th>
+                        <th>Screen Count</th>
+                        <th>Created By</th>
+                        <th>Created On</th>
+                        <th style="width:200px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Screen Role Mapping Modal -->
+<div class="modal fade" id="modalAttachScreenRole" tabindex="-1" aria-labelledby="modalScreenRoleLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="modalScreenRoleLabel">
+                    <i class="bi bi-diagram-3"></i>
+                    Screen Role Mapping
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master" id="modalBody">
+                <div class="loading-overlay">
+                    <div class="loading-spinner-master"></div>
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Audit Details Modal -->
+<div class="modal fade" id="modalAuditDetails" tabindex="-1" aria-labelledby="modalAuditLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-master">
+            <div class="modal-header modal-header-master">
+                <h5 class="modal-title modal-title-master" id="modalAuditLabel">
+                    <i class="bi bi-clock-history"></i>
+                    Audit Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-master" id="modalAuditBody">
+                <div class="loading-overlay">
+                    <div class="loading-spinner-master"></div>
+                    Loading audit information...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(function () {
+            // Enhanced Alert System
+            function showAlert(type, message, title = null) {
+                const alertContainer = document.getElementById('alertContainer');
+                const alertId = 'alert-' + Date.now();
+
+                const iconMap = {
+                    success: 'bi-check-circle',
+                    warning: 'bi-exclamation-triangle',
+                    danger: 'bi-x-circle',
+                    info: 'bi-info-circle'
+                };
+
+                const icon = iconMap[type] || 'bi-info-circle';
+                const alertTitle = title || type.charAt(0).toUpperCase() + type.slice(1);
+
+                const alertHtml = `
+                    <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert"
+                         style="border: none; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; font-weight: 500; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);">
+                        <div class="d-flex align-items-start">
+                            <i class="bi ${icon} me-3 flex-shrink-0" style="font-size: 18px;"></i>
+                            <div class="flex-grow-1">
+                                <strong class="d-block mb-1">${alertTitle}</strong>
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+
+                alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+
+                // Auto-dismiss after 5 seconds
+                setTimeout(() => {
+                    const alertElement = document.getElementById(alertId);
+                    if (alertElement) {
+                        const alert = bootstrap.Alert.getOrCreateInstance(alertElement);
+                        alert.close();
+                    }
+                }, 5000);
+            }
+
+            // Modal setup
+            const modalEl = $('#modalAttachScreenRole');
+            const auditModalEl = $('#modalAuditDetails');
+
+            modalEl.appendTo('body');
+            auditModalEl.appendTo('body');
+
+            modalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+            auditModalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+
+            // Function to truncate text with tooltip
+            function truncateText(data, maxLength = 30) {
+                if (!data) return 'N/A';
+                if (data.length > maxLength) {
+                    return `<span title="${data}" data-bs-toggle="tooltip">${data.substring(0, maxLength)}...</span>`;
+                }
+                return data;
+            }
+
+            // Function to format date
+            function formatDate(dateString) {
+                if (!dateString) return 'N/A';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                } catch (e) {
+                    return 'N/A';
+                }
+            }
+
+            // Function to count screens in comma-separated string
+            function getScreenCount(screenNames) {
+                if (!screenNames) return 0;
+                return screenNames.split(',').filter(name => name.trim().length > 0).length;
+            }
+
+            // Enhanced DataTable
+            const tbl = $('#tblAttachScreenRole').DataTable({
+                ajax: {
+                    url: '@Url.Action("LoadData")',
+                    dataSrc: 'data',
+                    error: function(xhr, error, code) {
+                        console.error('DataTable error:', error);
+                        showAlert('danger', 'Failed to load mapping data. Please refresh the page.', 'Loading Error');
+                    }
+                },
+                columns: [
+                    {
+                        data: 'uid',
+                        className: 'text-center',
+                        width: '80px'
+                    },
+                    {
+                        data: 'role_name',
+                        render: function(data) {
+                            return data ? `<span class="badge bg-success" style="font-size: 11px;">${data}</span>` : '<em class="text-muted">No Role</em>';
+                        }
+                    },
+                    {
+                        data: 'screen_names',
+                        title: 'Assigned Screens',
+                        render: function(data) {
+                            return truncateText(data, 40);
+                        }
+                    },
+                    {
+                        data: 'screen_names',
+                        title: 'Screen Count',
+                        className: 'text-center',
+                        render: function(data) {
+                            const count = getScreenCount(data);
+                            let badgeClass = 'bg-secondary';
+                            if (count > 0 && count <= 3) badgeClass = 'bg-success';
+                            else if (count > 3 && count <= 6) badgeClass = 'bg-primary';
+                            else if (count > 6) badgeClass = 'bg-warning';
+
+                            return `<span class="badge ${badgeClass}">${count}</span>`;
+                        }
+                    },
+                    {
+                        data: 'createdBy',
+                        title: 'Created By',
+                        render: function(data) {
+                            return truncateText(data || 'N/A', 20);
+                        }
+                    },
+                    {
+                        data: 'createdOn',
+                        title: 'Created On',
+                        render: function(data) {
+                            return formatDate(data);
+                        }
+                    },
+                    {
+                        data: null,
+                        className: 'text-center',
+                        orderable: false,
+                        render: function(data, type, row) {
+                            const id = row.uid;
+                            const hasAuditData = row.createdOn || row.modifiedOn;
+
+                            let buttons = `
+                                <button class="btn btn-action-view view me-1" data-id="${id}" title="View Details">
+                                    <i class="bi bi-eye fs-6"></i>
+                                </button>
+                                <button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit">
+                                    <i class="bi bi-pencil fs-6"></i>
+                                </button>`;
+
+                            // if (hasAuditData) {
+                            //     buttons += `
+                            //         <button class="btn btn-action-audit audit me-1" data-id="${id}" title="Audit Details">
+                            //             <i class="bi bi-clock-history fs-6"></i>
+                            //         </button>`;
+                            // }
+
+                            buttons += `
+                                <button class="btn btn-action-delete delete" data-id="${id}" title="Delete">
+                                    <i class="bi bi-trash fs-6"></i>
+                                </button>`;
+
+                            return buttons;
+                        }
+                    }
+                ],
+                pageLength: 25,
+                responsive: true,
+                language: {
+                    emptyTable: '<div class="empty-state-master"><i class="bi bi-diagram-3"></i><h6>No Role Mappings Found</h6><p>No screen-role mappings are available. Click "Add Role Mapping" to create your first mapping.</p></div>',
+                    processing: '<div class="loading-spinner-master"></div> Processing...',
+                    loadingRecords: '<div class="loading-spinner-master"></div> Loading...',
+                    zeroRecords: '<div class="empty-state-master"><i class="bi bi-search"></i><h6>No Results Found</h6><p>No role mappings match your search criteria.</p></div>'
+                },
+                drawCallback: function() {
+                    // Initialize tooltips
+                    $('[data-bs-toggle="tooltip"]').tooltip();
+                }
+            });
+
+            // Enhanced search functionality
+            $('#searchBox').on('keyup', function() {
+                tbl.search(this.value).draw();
+            });
+
+                    // === Init function for Create/Edit partial ===
+        window.initOrgPlantForm = function () {
+             // Form elements
+            const form = $('#attachScreenRoleForm');
+            const submitBtn = $('#submitBtn');
+            const roleSelect = $('#roleSelect');
+            const screenSelect = $('#screenSelect');
+            const selectedCount = $('#selectedCount');
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Enhanced validation functions
+            function validateRole() {
+                const roleId = roleSelect.val();
+                const validationSpan = $('#roleValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                roleSelect.removeClass('is-invalid is-valid');
+
+                if (!roleId) {
+                    showFieldError(validationSpan, roleSelect, 'Role selection is required.');
+                    isValid = false;
+                } else {
+                    roleSelect.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateScreens() {
+                const selectedScreens = screenSelect.val();
+                const validationSpan = $('#screenValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                screenSelect.removeClass('is-invalid is-valid');
+
+                if (!selectedScreens || selectedScreens.length === 0) {
+                    showFieldError(validationSpan, screenSelect, 'At least one screen must be selected.');
+                    isValid = false;
+                } else {
+                    screenSelect.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            function updateSelectedCount() {
+                const selectedScreens = screenSelect.val();
+                const count = selectedScreens ? selectedScreens.length : 0;
+                selectedCount.text(`${count} screen${count !== 1 ? 's' : ''} selected`);
+
+                // Update color based on selection
+                selectedCount.removeClass('text-primary text-success text-warning');
+                if (count === 0) {
+                    selectedCount.addClass('text-primary');
+                } else if (count <= 5) {
+                    selectedCount.addClass('text-success');
+                } else {
+                    selectedCount.addClass('text-warning');
+                }
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Event handlers
+            roleSelect.on('change', function() {
+                validateRole();
+                updateSubmitButton();
+            });
+
+            screenSelect.on('change', function() {
+                validateScreens();
+                updateSelectedCount();
+                updateSubmitButton();
+            });
+
+            // Initialize on page load
+            validateRole();
+            validateScreens();
+            updateSelectedCount();
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateRole() || !validateScreens()) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Show loading state on submit
+                submitBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div> Saving...');
+            });
+
+            // Enhanced multi-select styling
+            screenSelect.on('focus', function() {
+                $(this).closest('.col-md-12').addClass('multi-select-focused');
+            }).on('blur', function() {
+                $(this).closest('.col-md-12').removeClass('multi-select-focused');
+            });
+
+            // Keyboard shortcuts for better UX
+            screenSelect.on('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    switch(e.which) {
+                        case 65: // Ctrl+A - Select All
+                            e.preventDefault();
+                            $(this).find('option').prop('selected', true);
+                            $(this).trigger('change');
+                            break;
+                        case 68: // Ctrl+D - Deselect All
+                            e.preventDefault();
+                            $(this).find('option').prop('selected', false);
+                            $(this).trigger('change');
+                            break;
+                    }
+                }
+            });
+
+            // Add keyboard shortcut hints
+            screenSelect.attr('title', 'Ctrl+A: Select All, Ctrl+D: Deselect All');
+        };
+
+
+            // Open Create Modal
+            $('#btnCreate').click(function() {
+                showModalLoading('Add Role Mapping', '<i class="bi bi-plus-lg"></i>');
+
+                $.get('@Url.Action("Create")')
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        window.initOrgPlantForm();   // << init counters + validation here
+
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load create form. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // Open Edit Modal
+            $('#tblAttachScreenRole').on('click', '.edit', function () {
+                const id = $(this).data('id');
+                showModalLoading('Edit Role Mapping', '<i class="bi bi-pencil"></i>');
+
+                $.get(`@Url.Action("Edit")/${id}`)
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        window.initOrgPlantForm();   // << init counters + validation here
+
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load edit form. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // View Modal
+            $('#tblAttachScreenRole').on('click', '.view', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                showModalLoading('View Role Mapping', '<i class="bi bi-eye"></i>');
+
+                $.get(`@Url.Action("Details")/${id}`)
+                    .done(function(html) {
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load mapping details. Please try again.', 'Loading Error');
+                        modalEl.modal('hide');
+                    });
+            });
+
+            // Audit Details Modal
+            $('#tblAttachScreenRole').on('click', '.audit', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                showAuditModalLoading();
+
+                $.get(`@Url.Action("AuditDetails")/${id}`)
+                    .done(function(html) {
+                        $('#modalAuditBody').html(html);
+                        auditModalEl.modal('show');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to load audit details. Please try again.', 'Loading Error');
+                        auditModalEl.modal('hide');
+                    });
+            });
+
+            // Submit Form (Create/Edit)
+            modalEl.on('submit', 'form', function (e) {
+                e.preventDefault();
+                const form = $(this);
+                const submitBtn = form.find('[type="submit"]');
+                const originalText = submitBtn.html();
+
+                // Show loading state
+                submitBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div> Saving...');
+
+                $.post(form.attr('action'), form.serialize())
+                    .done(function(res) {
+                        if (res.success) {
+                            modalEl.modal('hide');
+                            tbl.ajax.reload(null, false);
+                            const isCreate = form.attr('action').includes('Create');
+                            showAlert('success',
+                                isCreate ? 'Role mapping created successfully.' : 'Role mapping updated successfully.',
+                                'Success'
+                            );
+                        } else {
+                            $('#modalBody').html(res);
+                        }
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to save mapping. Please try again.', 'Save Error');
+                    })
+                    .always(function() {
+                        submitBtn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            // Enhanced Delete with confirmation
+            $('#tblAttachScreenRole').on('click', '.delete', function (e) {
+                e.stopPropagation();
+                const id = $(this).data('id');
+                const row = tbl.row($(this).closest('tr')).data();
+                const roleName = row ? row.role_name : 'this mapping';
+
+                if (!confirm(`Are you sure you want to delete the role mapping for "${roleName}"?\n\nThis will remove all screen permissions for this role.\n\nThis action cannot be undone.`)) {
+                    return;
+                }
+
+                const deleteBtn = $(this);
+                const originalText = deleteBtn.html();
+                deleteBtn.prop('disabled', true).html('<div class="loading-spinner-master"></div>');
+
+                $.post('@Url.Action("Delete")', { id: id })
+                    .done(function() {
+                        tbl.ajax.reload(null, false);
+                        showAlert('warning', `Role mapping for "${roleName}" has been deleted.`, 'Deleted');
+                    })
+                    .fail(function() {
+                        showAlert('danger', 'Failed to delete mapping. Please try again.', 'Delete Error');
+                    })
+                    .always(function() {
+                        deleteBtn.prop('disabled', false).html(originalText);
+                    });
+            });
+
+            // Helper functions
+            function showModalLoading(title, icon) {
+                modalEl.find('.modal-title').html(icon + ' ' + title);
+                $('#modalBody').html(`
+                    <div class="loading-overlay">
+                        <div class="loading-spinner-master"></div>
+                        Loading...
+                    </div>
+                `);
+                modalEl.modal('show');
+            }
+
+            function showAuditModalLoading() {
+                $('#modalAuditBody').html(`
+                    <div class="loading-overlay">
+                        <div class="loading-spinner-master"></div>
+                        Loading audit information...
+                    </div>
+                `);
+                auditModalEl.modal('show');
+            }
+
+            // Clear search on page load
+            $('#searchBox').val('');
+        });
+    </script>
+}

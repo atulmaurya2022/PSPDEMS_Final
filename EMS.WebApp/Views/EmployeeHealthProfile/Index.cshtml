@@ -1,0 +1,289 @@
+﻿@model EMS.WebApp.Data.HealthProfileViewModel
+
+@{
+    ViewData["Title"] = "Employee Health Profile";
+}
+<div id="alertContainer"></div>
+
+<!-- NEW: Plant Information Display -->
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="alert alert-info" id="plantInfo" style="display: none;">
+            <i class="fas fa-building"></i> <strong>Current Plant:</strong> <span id="currentPlantName">Loading...</span>
+        </div>
+    </div>
+</div>
+
+<div class="row align-items-end mb-3">
+    <div class="col-md-4">
+        <label for="empIdInput" class="form-label">Emp No.</label> <!-- CHANGED: Updated label -->
+        <input type="text" class="form-control" id="empIdInput" autocomplete="off" placeholder="Emp No." />
+    </div>
+
+    <div class="col-md-4">
+        <label asp-for="ExamDate" class="form-label">Test Date</label>
+        <select asp-for="ExamDate" class="form-select" id="ExamDate">
+            <option value="">-- Select --</option>
+        </select>
+    </div>
+
+    <div class="col-auto">
+        <button class="btn btn-primary" id="loadBtn" style="margin-top: 32px;">Go</button>
+    </div>
+</div>
+
+<div id="healthFormContainer">
+    <!-- Partial view will be injected here -->
+</div>
+
+@section Scripts {
+    <link href="~/lib/datatables/css/datatables.min.css" rel="stylesheet" />
+    <script src="~/js/jquery-ui.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // NEW: Load current plant information
+            loadCurrentPlantInfo();
+
+            $('#loadBtn').on('click', function () {
+                var empId = $('#empIdInput').val(); // CHANGED: Now using empIdInput
+                var examDate = $('#ExamDate').val();
+
+                if (!empId || empId.trim() === '') {
+                    showAlert('error', 'Please enter a valid Employee ID.');
+                    return;
+                }
+
+                // UPDATED: Now need to convert emp_id to emp_uid for backend compatibility
+                loadEmployeeDataByEmpId(empId, examDate);
+            });
+
+            // UPDATED: Function to load employee data by Employee ID
+            function loadEmployeeDataByEmpId(empId, examDate) {
+                // First, we need to get the emp_uid from emp_id
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeUidFromEmpId", "EmployeeHealthProfile")', // You'll need to add this method
+                    type: 'GET',
+                    data: { empId: empId },
+                    success: function (result) {
+                        if (result.success && result.empUid) {
+                            loadEmployeeData(result.empUid, examDate);
+                        } else {
+                            showAlert('error', result.message || 'Employee not found.');
+                        }
+                    },
+                    error: function (xhr) {
+                        showAlert('error', 'Error finding employee. Please try again.');
+                    }
+                });
+            }
+
+            function loadEmployeeData(empNo, examDate) {
+                $.ajax({
+                    url: '@Url.Action("GetEmployeeHealthForm", "EmployeeHealthProfile")',
+                    type: 'GET',
+                    data: { empNo: empNo, examDate: examDate },
+                    success: function (result) {
+                        $('#healthFormContainer').html(result);
+
+                        var empNoVal = $('#EmpNo').val();
+                        var examDateVal = $('#ExamDate').val();
+
+                        $('#displayEmpNo').text(empNoVal);
+                        $('#displayExamDate').text(
+                            examDateVal
+                                ? new Date(examDateVal).toLocaleDateString()
+                                : 'New Entry - ' + new Date().toLocaleDateString()
+                        );
+
+                        $('#basicInfo').show();
+                        loadExamDatesForEmployee(empNo, examDate);
+                    },
+                    error: function (xhr) {
+                        if (xhr.status === 404) {
+                            showAlert('error', xhr.responseText);
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied. You do not have permission to view this employee\'s health profile.');
+                        } else {
+                            $('#healthFormContainer').html('<div class="alert alert-danger">Error loading form. Please try again.</div>');
+                            showAlert('error', 'Error loading form. Please try again.');
+                        }
+                    }
+                });
+            }
+
+            function loadExamDatesForEmployee(empNo, examDate) {
+                $.ajax({
+                    url: '@Url.Action("GetAvailableExamDates", "EmployeeHealthProfile")',
+                    type: 'GET',
+                    data: { empNo: empNo },
+                    success: function (dates) {
+                        var examDateSelect = $('#ExamDate');
+                        examDateSelect.empty();
+                        examDateSelect.append('<option value="">-- Select --</option>');
+
+                        if (dates && dates.length > 0) {
+                            dates.forEach(function (date) {
+                                var formattedDate = new Date(date).toLocaleDateString();
+                                examDateSelect.append('<option value="' + date + '">' + formattedDate + '</option>');
+                            });
+                        }
+
+                        if (examDate) {
+                            examDateSelect.val(examDate);
+                        }
+                    },
+                    error: function () {
+                        showAlert('error', 'Error loading exam dates for employee.');
+                    }
+                });
+            }
+
+            // NEW: Function to load current plant information
+            function loadCurrentPlantInfo() {
+                $.ajax({
+                    url: '@Url.Action("GetCurrentUserPlant", "EmployeeHealthProfile")',
+                    type: 'GET',
+                    success: function (result) {
+                        if (result.success) {
+                            $('#currentPlantName').text(result.plantName);
+                            $('#plantInfo').show();
+                        }
+                    },
+                    error: function () {
+                        console.log('Could not load plant information');
+                    }
+                });
+            }
+
+            $(document).on('click', '#saveBtn', function (e) {
+                e.preventDefault();
+
+                var form = $('#healthForm');
+                if (form.length === 0) {
+                    showAlert('error', 'Form not found.');
+                    return;
+                }
+
+                var formData = form.serializeArray();
+                $('input[name="SelectedWorkAreaIds"]:checked').each(function () {
+                    formData.push({ name: "SelectedWorkAreaIds", value: $(this).val() });
+                });
+                $('input[name="SelectedConditionIds"]:checked').each(function () {
+                    formData.push({ name: "SelectedConditionIds", value: $(this).val() });
+                });
+
+                var actionUrl = '@Url.Action("SaveHealthForm", "EmployeeHealthProfile")';
+
+                $('#saveBtn').prop('disabled', true).text('Saving...');
+
+                $.ajax({
+                    url: actionUrl,
+                    type: 'POST',
+                    data: $.param(formData),
+                    success: function (response) {
+                        $('#saveBtn').prop('disabled', false).text('Save');
+
+                        if (response.success) {
+                            const isCreate = form.attr('action')?.endsWith('Create');
+                            showAlert('success', isCreate ? 'New Employee record created successfully.' : 'Employee record updated successfully.');
+                            $('#loadBtn').click();
+                        } else {
+                            showAlert('error', response.message || 'Save failed. Please check the form data.');
+                        }
+                    },
+                    error: function (xhr) {
+                        $('#saveBtn').prop('disabled', false).text('Save');
+
+                        if (xhr.status === 400) {
+                            $('#healthFormContainer').html(xhr.responseText);
+                            showAlert('error', 'Please correct the validation errors and try again.');
+                        } else if (xhr.status === 403) {
+                            showAlert('error', 'Access denied. You do not have permission to save this employee\'s health profile.');
+                        } else if (xhr.status === 405) {
+                            showAlert('error', 'Method not allowed. Please check the server configuration.');
+                        } else {
+                            showAlert('error', 'An error occurred while saving. Please try again.');
+                        }
+                    }
+                });
+            });
+
+            // UPDATED: Employee ID autocomplete (now searches by emp_id)
+            $("#empIdInput").autocomplete({
+                source: function (request, response) {
+                    $.ajax({
+                        url: '@Url.Action("SearchEmployeeNos", "EmployeeHealthProfile")', // This will now return emp_ids
+                        data: { term: request.term },
+                        success: function (data) {
+                            response(data);
+                        },
+                        error: function () {
+                            response([]);
+                        }
+                    });
+                },
+                minLength: 1,
+                select: function (event, ui) {
+                    setTimeout(function () {
+                        // When an employee ID is selected, trigger load
+                        loadEmployeeDataByEmpId(ui.item.value);
+                    }, 100);
+                }
+            });
+
+            $(document).on('submit', '#healthForm', function (e) {
+                e.preventDefault();
+                $('#saveBtn').click();
+            });
+
+            $(document).on('click', '#cancelBtn', function () {
+                $('#healthFormContainer').empty();
+                $('#basicInfo').hide();
+                $('#ExamDate').empty().append('<option value="">-- New Entry (Current Date) --</option>');
+            });
+
+            $('#empIdInput').on('blur', function () {
+                var empId = $(this).val();
+                if (empId && empId.trim() !== '') {
+                    // When employee ID is entered, try to load exam dates
+                    loadEmployeeDataByEmpId(empId);
+                }
+            });
+
+            // Reset form inside health form container
+            $(document).on('click', '#btnResetForm', function () {
+                const form = $('#healthForm');
+                if (form.length) {
+                    form[0].reset();
+                    form.find('.is-invalid').removeClass('is-invalid');
+                }
+            });
+
+            function cancelForm() {
+                $('#healthFormContainer').empty();
+                $('#basicInfo').hide();
+                $('#ExamDate').empty().append('<option value="">-- New Entry (Current Date) --</option>');
+            }
+
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+                const alertId = 'alert-' + Date.now(); // unique ID for each alert
+                const alertHtml = `
+                    <div id="${alertId}" class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+
+                $('#alertContainer').html(alertHtml);
+
+                // Auto-dismiss after 4 seconds
+                setTimeout(() => {
+                    const alertEl = document.getElementById(alertId);
+                    if (alertEl) {
+                        bootstrap.Alert.getOrCreateInstance(alertEl).close();
+                    }
+                }, 4000);
+            }
+        });
+    </script>
+}

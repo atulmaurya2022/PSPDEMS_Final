@@ -1,0 +1,1101 @@
+﻿@model EMS.WebApp.Data.CompounderIndent
+
+@{
+    bool isCompounderInventoryMode = ViewBag.IsCompounderInventoryMode == true;
+}
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label class="form-label">Indent ID</label>
+        <input class="form-control rounded-2" value="@Model.IndentId" readonly />
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">Indent Type</label>
+        <input class="form-control rounded-2" value="@Model.IndentType" readonly />
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <div class="form-control rounded-2 border-0 d-flex align-items-center">
+            @{
+                var statusClass = Model.Status switch
+                {
+                    "Draft" => "bg-secondary",
+                    "Pending" => "bg-warning",
+                    "Approved" => "bg-success",
+                    "Rejected" => "bg-danger",
+                    _ => "bg-secondary"
+                };
+                var statusIcon = Model.Status switch
+                {
+                    "Draft" => "bi-file-text",
+                    "Pending" => "bi-clock",
+                    "Approved" => "bi-check-circle",
+                    "Rejected" => "bi-x-circle",
+                    _ => "bi-question-circle"
+                };
+            }
+            <span class="badge @statusClass">
+                <i class="@statusIcon me-1"></i>@Model.Status
+            </span>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label class="form-label">Indent Raised Date</label>
+        <input class="form-control rounded-2" value="@Model.IndentDate.ToString("dd/MM/yyyy")" readonly />
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">Created Date</label>
+        <input class="form-control rounded-2" value="@Model.CreatedDate.ToString("dd/MM/yyyy HH:mm")" readonly />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Created By</label>
+        <input class="form-control rounded-2" value="@(Model.CreatedBy ?? "N/A")" readonly />
+    </div>
+</div>
+
+@* Show draft information if status is Draft *@
+@if (Model.Status == "Draft")
+{
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Draft Status:</strong> This indent is still in draft mode. The creator can continue editing and submit it when ready.
+            </div>
+        </div>
+    </div>
+}
+
+@* Show approval/rejection details if status is not Pending or Draft *@
+@if (Model.Status != "Pending" && Model.Status != "Draft")
+{
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label">@(Model.Status == "Approved" ? "Approved By" : "Rejected By")</label>
+            <input class="form-control rounded-2" value="@(Model.ApprovedBy ?? "N/A")" readonly />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">@(Model.Status == "Approved" ? "Approved Date" : "Rejected Date")</label>
+            <input class="form-control rounded-2" value="@(Model.ApprovedDate?.ToString("dd/MM/yyyy HH:mm") ?? "N/A")" readonly />
+        </div>
+        <div class="col-md-4"></div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Comments))
+    {
+        <div class="row mb-3">
+            <div class="col-12">
+                <label class="form-label">@(Model.Status == "Approved" ? "Approval" : "Rejection") Comments</label>
+                <div class="alert @(Model.Status == "Approved" ? "alert-success" : "alert-danger") mb-0">
+                    <i class="bi @(Model.Status == "Approved" ? "bi-check-circle" : "bi-x-circle") me-2"></i>
+                    @Model.Comments
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@if (Model.CompounderIndentItems?.Any() == true)
+{
+    <div class="row mb-3">
+        <div class="col-12">
+            <label class="form-label"><strong>Medicines (@Model.CompounderIndentItems.Count() items)</strong></label>
+            <div class="table-responsive">
+                <table class="table table-striped table-glass glass-table w-100 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px">Sl.</th>
+                            <th style="width:160px">Medicine Name</th>
+                            <th style="width:120px">Company Name</th>
+                            <th style="width:100px">Vendor Code</th>
+                            <th style="width:80px">Raised Qty</th>
+                            <th style="width:80px">Issued Qty</th>
+                            <th style="width:80px">Pending Qty</th>
+                            @if (Model.CompounderIndentItems.Any(i => i.UnitPrice.HasValue))
+                            {
+                                <th style="width:100px">Unit Price</th>
+                                <th style="width:120px">Total Amount</th>
+                            }
+                            @if (isCompounderInventoryMode)
+                            {
+                                @* <th style="width:100px">Batch No</th>
+                                <th style="width:100px">Expiry Date</th> *@
+                                @* <th style="width:140px">Available Stock in Store</th> *@
+                            }
+                            <th style="width:120px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.CompounderIndentItems.Count; i++)
+                        {
+                            var item = Model.CompounderIndentItems.ElementAt(i);
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td>@item.MedMaster?.MedItemName</td>
+                                <td>@(item.MedMaster?.CompanyName ?? "Not Defined")</td>
+                                <td>@item.VendorCode</td>
+                                <td class="text-center">@item.RaisedQuantity</td>
+                                <td class="text-center">@item.ReceivedQuantity</td>
+                                <td class="text-center">
+                                    <span class="badge @(item.PendingQuantity > 0 ? "bg-warning" : "bg-success")">
+                                        @item.PendingQuantity
+                                    </span>
+                                </td>
+                                @if (Model.CompounderIndentItems.Any(i => i.UnitPrice.HasValue))
+                                {
+                                    <td class="text-end">@(item.UnitPrice?.ToString("₹#,##0.00") ?? "-")</td>
+                                    <td class="text-end">@(item.TotalAmount?.ToString("₹#,##0.00") ?? "-")</td>
+                                }
+                                @if (isCompounderInventoryMode)
+                                {
+                                    @* <td class="text-center">@(item.BatchNo ?? "-")</td>
+                                    <td class="text-center">
+                                        @if (item.ExpiryDate.HasValue)
+                                        {
+                                            var daysToExpiry = (item.ExpiryDate.Value - DateTime.Today).Days;
+                                            var expiryClass = daysToExpiry <= 30 ? "text-danger" : daysToExpiry <= 90 ? "text-warning" : "text-success";
+                                            <span class="@expiryClass" title="@(daysToExpiry > 0 ? $"Expires in {daysToExpiry} days" : $"Expired {Math.Abs(daysToExpiry)} days ago")">
+                                                @item.ExpiryDate.Value.ToString("dd/MM/yyyy")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td> *@
+                                    @* <td class="text-center">@item.TotalReceivedFromStore</td> *@
+                                }
+                                <td>
+                                    @* Show action buttons based on pending quantity and status *@
+                                    @if (isCompounderInventoryMode)
+                                    {
+                                        @if (item.ReceivedQuantity > 0)
+                                        {
+                                            <button type="button"
+                                                    class="btn btn-sm btn-info view-compounder-batches-btn"
+                                                    data-indent-item-id="@item.IndentItemId"
+                                                    data-med-name="@item.MedMaster?.MedItemName"
+                                                    data-received-qty="@item.ReceivedQuantity"
+                                                    title="View Batch Details">
+                                                <i class="bi bi-eye"></i> View Batches
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No Batches</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">View Only</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    @if (Model.CompounderIndentItems.Any(i => i.TotalAmount.HasValue) && !isCompounderInventoryMode)
+                    {
+                        <tfoot class="table-secondary">
+                            <tr>
+                                <th colspan="@(Model.CompounderIndentItems.Any(i => i.UnitPrice.HasValue) ? (isCompounderInventoryMode ? "13" : "9") : (isCompounderInventoryMode ? "11" : "7"))" class="text-end">
+                                    <strong>Total Amount:</strong>
+                                </th>
+                                <th class="text-end">
+                                    <strong>@Model.CompounderIndentItems.Sum(i => i.TotalAmount ?? 0).ToString("₹#,##0.00")</strong>
+                                </th>
+                            </tr>
+                        </tfoot>
+                    }
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row mb-3">
+        <div class="col-12">
+            <label class="form-label"><strong>Medicines</strong></label>
+            <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle me-2"></i>No medicines have been added to this indent yet.
+            </div>
+        </div>
+    </div>
+}
+
+<div class="text-end">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>
+
+<!-- Enhanced View Batches Modal for Compounder with Available Stock -->
+<div id="compounderBatchViewModal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-boxes me-2"></i>Batch Details for <span id="compounderViewModalMedName" class="text-primary"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label"><strong>Medicine Name:</strong></label>
+                            <span id="compounderViewModalMedicineDisplay" class="form-control-plaintext"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"><strong>Total Requested Quantity:</strong></label>
+                            <span id="compounderViewModalReceivedQty" class="form-control-plaintext text-success fw-bold"></span>
+                        </div>
+                        @* <div class="col-md-4">
+                            <label class="form-label"><strong>Total From Store:</strong></label>
+                            <span id="compounderViewModalStoreTotal" class="form-control-plaintext text-info fw-bold">0</span>
+                        </div> *@
+                    </div>
+                </div>
+
+                <!-- Enhanced Summary Cards -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center py-2">
+                                <h6 class="card-title mb-1"><i class="bi bi-box-seam me-1"></i>Total Received</h6>
+                                <h4 class="mb-0" id="compounderViewTotalReceived">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center py-2">
+                                <h6 class="card-title mb-1"><i class="bi bi-check-circle me-1"></i>Total Stock Available In Compounder Desk</h6>
+                                <h4 class="mb-0" id="compounderViewTotalAvailable">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center py-2">
+                                <h6 class="card-title mb-1"><i class="bi bi-arrow-down-circle me-1"></i>Consumed Stock</h6>
+                                <h4 class="mb-0" id="compounderViewTotalConsumed">0</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center py-2">
+                                <h6 class="card-title mb-1"><i class="bi bi-graph-up me-1"></i>Stock Status</h6>
+                                <h6 class="mb-0" id="compounderViewOverallStatus">-</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label"><strong>Detailed Batch Information:</strong></label>
+                </div>
+
+                <!-- Loading indicator -->
+                <div id="compounderBatchLoadingIndicator" class="text-center py-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading batches...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading batch details...</p>
+                </div>
+
+                <!-- Enhanced Batch table -->
+                <div id="compounderBatchTableContainer">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped" id="compounderViewBatchTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 8%">Sl.</th>
+                                    <th style="width: 18%">Batch No</th>
+                                    <th style="width: 15%">Expiry Date</th>
+                                    <th style="width: 12%">Issued Qty</th>
+                                    @* <th style="width: 12%">Available Stock in Compounder</th>
+                                    <th style="width: 12%">Consumed</th> *@
+                                    <th style="width: 13%">Stock Status</th>
+                                    <th style="width: 10%">Vendor Code</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compounderViewBatchTableBody">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                            <tfoot class="table-secondary">
+                                <tr>
+                                    <th colspan="3" class="text-end">Totals:</th>
+                                    <th id="compounderFooterTotalReceived" class="text-center fw-bold">0</th>
+                                    @* <th id="compounderFooterTotalAvailable" class="text-center fw-bold">0</th>
+                                    <th id="compounderFooterTotalConsumed" class="text-center fw-bold">0</th>*@
+                                    <th colspan="2"></th> 
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- No batches message -->
+                <div id="compounderNoBatchesMessage" class="alert alert-info text-center" style="display: none;">
+                    <i class="bi bi-info-circle me-2"></i>No batch information available for this medicine.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function($) {
+        'use strict';
+
+        $(document).ready(function() {
+            // Initialize namespace for CompounderView module
+            window.CompounderViewModule = window.CompounderViewModule || {};
+            var module = window.CompounderViewModule;
+
+            module.isCompounderInventoryMode = @(isCompounderInventoryMode ? "true" : "false");
+
+            // Function to validate expiry date - prevents past dates
+            function validateCompounderModalExpiryDate(inputElement) {
+                var $input = $(inputElement);
+                var expiryDateValue = $input.val();
+
+                if (expiryDateValue) {
+                    var expiryDate = new Date(expiryDateValue);
+                    var today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    expiryDate.setHours(0, 0, 0, 0);
+
+                    if (expiryDate < today) {
+                        $input.addClass('is-invalid');
+                        $input.siblings('.invalid-feedback').text('Expiry date cannot be in the past.');
+                        return false;
+                    } else {
+                        $input.removeClass('is-invalid');
+                        $input.siblings('.invalid-feedback').text('');
+                        return true;
+                    }
+                }
+                return true;
+            }
+
+            // Function to validate inline expiry date editing
+            function validateCompounderInlineExpiryDate(inputElement) {
+                var $input = $(inputElement);
+                var expiryDateValue = $input.val();
+
+                if (expiryDateValue) {
+                    var expiryDate = new Date(expiryDateValue);
+                    var today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    expiryDate.setHours(0, 0, 0, 0);
+
+                    if (expiryDate < today) {
+                        $input.addClass('is-invalid');
+                        $input.siblings('.invalid-feedback').text('Expiry date cannot be in the past.');
+                        return false;
+                    } else {
+                        $input.removeClass('is-invalid');
+                        $input.siblings('.invalid-feedback').text('');
+                        return true;
+                    }
+                }
+                return true;
+            }
+
+            // Enhanced View Batches functionality for Compounder
+            $(document).on('click', '.view-compounder-batches-btn', function() {
+                var indentItemId = $(this).data('indent-item-id');
+                var medName = $(this).data('med-name');
+                var receivedQty = $(this).data('received-qty');
+
+                // Get the TotalReceivedFromStore value from the table row
+                var $row = $(this).closest('tr');
+                var totalFromStore = $row.find('.badge.bg-info').text() || '0';
+
+                openCompounderViewBatchModal(indentItemId, medName, receivedQty, totalFromStore);
+            });
+
+            function openCompounderViewBatchModal(indentItemId, medName, receivedQty, totalFromStore) {
+                $('#compounderViewModalMedName').text(medName);
+                $('#compounderViewModalMedicineDisplay').text(medName);
+                $('#compounderViewModalReceivedQty').text(receivedQty);
+                $('#compounderViewModalStoreTotal').text(totalFromStore);
+
+                $('#compounderBatchViewModal').modal('show');
+
+                $('#compounderBatchLoadingIndicator').show();
+                $('#compounderBatchTableContainer').hide();
+                $('#compounderNoBatchesMessage').hide();
+
+                // Reset summary cards
+                resetCompounderSummaryCards();
+
+                $('#compounderViewBatchTableBody').empty();
+                $('#compounderFooterTotalReceived').text('0');
+                $('#compounderFooterTotalAvailable').text('0');
+                $('#compounderFooterTotalConsumed').text('0');
+
+                $.get('@Url.Action("GetBatchesForMedicine", "CompounderIndent")', { indentItemId: indentItemId })
+                    .done(function(response) {
+                        if (response.success) {
+                            var batches = response.data || [];
+                            renderCompounderViewBatchTable(batches);
+                        } else {
+                            showCompounderNoBatchesMessage();
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Failed to load compounder batch data:', status, error);
+                        showCompounderNoBatchesMessage();
+                    })
+                    .always(function() {
+                        $('#compounderBatchLoadingIndicator').hide();
+                    });
+            }
+
+            function resetCompounderSummaryCards() {
+                $('#compounderViewTotalReceived').text('0');
+                $('#compounderViewTotalAvailable').text('0');
+                $('#compounderViewTotalConsumed').text('0');
+                $('#compounderViewOverallStatus').text('-');
+                $('#compounderViewOverallStatus').closest('.card').removeClass('bg-danger bg-warning bg-success').addClass('bg-info');
+            }
+
+            function renderCompounderViewBatchTable(batches) {
+                var tbody = $('#compounderViewBatchTableBody');
+                tbody.empty();
+
+                if (!batches || batches.length === 0) {
+                    showCompounderNoBatchesMessage();
+                    return;
+                }
+
+                var totalReceived = 0;
+                var totalAvailable = 0;
+                var totalConsumed = 0;
+
+                batches.forEach(function(batch, index) {
+                    var expiryDate = batch.expiryDate ?
+                        new Date(batch.expiryDate).toLocaleDateString('en-GB') :
+                        'Not Set';
+
+                    var receivedQty = batch.receivedQuantity || 0;
+                    var availableStock = batch.availableStock || 0;
+                    var consumedStock = receivedQty - availableStock;
+
+                    // Calculate totals
+                    totalReceived += receivedQty;
+                    totalAvailable += availableStock;
+                    totalConsumed += consumedStock;
+
+                    // Determine stock status and styling
+                    var stockStatus = '';
+                    var stockStatusClass = '';
+                    var stockStatusIcon = '';
+
+                    if (availableStock === 0) {
+                        stockStatus = 'Out of Stock';
+                        stockStatusClass = 'badge bg-danger';
+                        stockStatusIcon = '<i class="bi bi-x-circle me-1"></i>';
+                    } else if (availableStock <= (receivedQty * 0.2)) {
+                        stockStatus = 'Low Stock';
+                        stockStatusClass = 'badge bg-warning text-dark';
+                        stockStatusIcon = '<i class="bi bi-exclamation-triangle me-1"></i>';
+                    } else {
+                        stockStatus = 'In Stock';
+                        stockStatusClass = 'badge bg-success';
+                        stockStatusIcon = '<i class="bi bi-check-circle me-1"></i>';
+                    }
+
+                    // Expiry date styling
+                    var isExpiringSoon = batch.expiryDate &&
+                        new Date(batch.expiryDate) <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+                    var isExpired = batch.expiryDate &&
+                        new Date(batch.expiryDate) < new Date();
+
+                    var expiryClass = '';
+                    var expiryIcon = '';
+
+                    if (isExpired) {
+                        expiryClass = 'text-danger fw-bold';
+                        expiryIcon = '<i class="bi bi-exclamation-triangle-fill me-1"></i>';
+                    } else if (isExpiringSoon) {
+                        expiryClass = 'text-warning fw-bold';
+                        expiryIcon = '<i class="bi bi-exclamation-triangle me-1"></i>';
+                    }
+
+                    var row = `
+                        <tr>
+                            <td class="text-center">${index + 1}</td>
+                            <td>
+                                <strong>${batch.batchNo || 'Not Set'}</strong>
+                            </td>
+                            <td class="${expiryClass}">
+                                ${expiryIcon}${expiryDate}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">${receivedQty}</span>
+                            </td>
+                            <!--
+                            <td class="text-center">
+                                <span class="badge bg-success">${availableStock}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">${consumedStock}</span>
+                            </td> -->
+                            <td class="text-center">
+                                <span class="${stockStatusClass}">${stockStatusIcon}${stockStatus}</span>
+                            </td>
+                            <td>${batch.vendorCode || 'Not Set'}</td>
+                        </tr>
+                    `;
+
+                    tbody.append(row);
+                });
+
+                // Update footer totals
+                $('#compounderFooterTotalReceived').text(totalReceived);
+                $('#compounderFooterTotalAvailable').text(totalAvailable);
+                $('#compounderFooterTotalConsumed').text(totalConsumed);
+
+                // Update summary cards
+                $('#compounderViewTotalReceived').text(totalReceived);
+                $('#compounderViewTotalAvailable').text(totalAvailable);
+                $('#compounderViewTotalConsumed').text(totalConsumed);
+
+                // Update overall status
+                var overallStatus = '';
+                var overallClass = '';
+                if (totalAvailable === 0) {
+                    overallStatus = 'Out of Stock';
+                    overallClass = 'bg-danger';
+                } else if (totalAvailable <= (totalReceived * 0.2)) {
+                    overallStatus = 'Low Stock';
+                    overallClass = 'bg-warning';
+                } else {
+                    overallStatus = 'Good Stock';
+                    overallClass = 'bg-success';
+                }
+
+                var statusCard = $('#compounderViewOverallStatus').closest('.card');
+                statusCard.removeClass('bg-danger bg-warning bg-success bg-info').addClass(overallClass);
+                $('#compounderViewOverallStatus').text(overallStatus);
+
+                $('#compounderBatchTableContainer').show();
+            }
+
+            function showCompounderNoBatchesMessage() {
+                $('#compounderBatchTableContainer').hide();
+                $('#compounderNoBatchesMessage').show();
+                resetCompounderSummaryCards();
+            }
+
+            // Handle edit medicine item inline (normal edit)
+            $(document).on('click', '.edit-compounder-medicine-inline', function() {
+                var itemId = $(this).data('id');
+                var row = $(this).closest('tr');
+
+                convertCompounderRowToEditMode(row, itemId);
+            });
+
+            // Handle edit medicine with reason (for fully received items)
+            $(document).on('click', '.edit-compounder-medicine-with-reason', function() {
+                var itemId = $(this).data('id');
+                var row = $(this).closest('tr');
+
+                showCompounderEditReasonModal(row, itemId);
+            });
+
+            function showCompounderEditReasonModal(row, itemId) {
+                console.log('showCompounderEditReasonModal called with itemId:', itemId);
+
+                var medicineName = row.find('td:eq(1)').text().trim();
+                var companyName = row.find('td:eq(2)').text().trim();
+                var vendorCode = row.find('td:eq(3)').text().trim();
+                var raisedQty = parseInt(row.find('td:eq(4)').text()) || 0;
+                var currentReceivedQty = parseInt(row.find('td:eq(5)').text()) || 0;
+
+                var table = row.closest('table');
+                var headerRow = table.find('thead tr');
+                var headers = [];
+
+                headerRow.find('th').each(function(index) {
+                    var headerText = $(this).text().trim();
+                    headers.push(headerText);
+                });
+
+                var batchColumnIndex = -1;
+                var expiryColumnIndex = -1;
+
+                headers.forEach((header, index) => {
+                    if (header.toLowerCase().includes('batch')) {
+                        batchColumnIndex = index;
+                    }
+                    if (header.toLowerCase().includes('expiry')) {
+                        expiryColumnIndex = index;
+                    }
+                });
+
+                var currentBatchNo = '';
+                var currentExpiryDate = '';
+
+                if (batchColumnIndex >= 0) {
+                    currentBatchNo = row.find(`td:eq(${batchColumnIndex})`).text().trim();
+                }
+
+                if (expiryColumnIndex >= 0) {
+                    currentExpiryDate = row.find(`td:eq(${expiryColumnIndex})`).text().trim();
+                }
+
+                // Show edit with reason modal using the imported one
+                if (typeof showEditWithReasonModal === 'function') {
+                    var itemData = {
+                        indentItemId: itemId,
+                        medicineName: medicineName,
+                        companyName: companyName,
+                        vendorCode: vendorCode,
+                        raisedQuantity: raisedQty,
+                        receivedQuantity: currentReceivedQty,
+                        batchNo: currentBatchNo === '-' ? null : currentBatchNo,
+                        expiryDate: convertExpiryDateFormat(currentExpiryDate),
+                        availableStock: extractAvailableStock(row)
+                    };
+
+                    showEditWithReasonModal(itemData);
+                } else {
+                    console.error('showEditWithReasonModal function not available');
+                    alert('Edit functionality is not available. Please refresh the page and try again.');
+                }
+            }
+
+            function convertExpiryDateFormat(expiryDateText) {
+                if (!expiryDateText || expiryDateText === '-') return null;
+
+                // Convert date from dd/MM/yyyy to yyyy-MM-dd for input[type="date"]
+                var dateMatch = expiryDateText.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+                if (dateMatch) {
+                    var [, day, month, year] = dateMatch;
+                    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                }
+
+                return null;
+            }
+
+            function extractAvailableStock(row) {
+                var table = row.closest('table');
+                var headerRow = table.find('thead tr');
+                var headers = [];
+
+                headerRow.find('th').each(function(index) {
+                    var headerText = $(this).text().trim();
+                    headers.push(headerText);
+                });
+
+                var availableStockIndex = -1;
+                headers.forEach((header, index) => {
+                    if (header.toLowerCase().includes('available') && header.toLowerCase().includes('stock')) {
+                        availableStockIndex = index;
+                    }
+                });
+
+                if (availableStockIndex >= 0) {
+                    var availableStockCell = row.find(`td:eq(${availableStockIndex})`);
+                    var availableStockText = availableStockCell.find('.badge.bg-primary').text().trim();
+
+                    // Extract number from "Current: X" format
+                    var match = availableStockText.match(/Current:\s*(\d+)/);
+                    if (match) {
+                        return parseInt(match[1]) || null;
+                    }
+
+                    return availableStockText === '-' ? null : parseInt(availableStockText) || null;
+                }
+
+                return null;
+            }
+
+            // Refresh medicine table function
+            window.refreshCompounderMedicineTable = function() {
+                // Reload the current page to show updated data
+                location.reload();
+            };
+
+            function convertCompounderRowToEditMode(row, itemId) {
+                var currentReceivedQty = parseInt(row.find('td:eq(5)').text()) || 0;
+                var raisedQty = parseInt(row.find('td:eq(4)').text()) || 0;
+
+                // Find column indices based on what columns are present
+                var hasUnitPriceColumns = row.find('td').length > 11;
+
+                var unitPriceIndex = -1;
+                var totalAmountIndex = -1;
+                var batchNoIndex = -1;
+                var expiryDateIndex = -1;
+                var availableStockIndex = -1;
+
+                if (hasUnitPriceColumns && module.isCompounderInventoryMode) {
+                    // Has unit price + batch/expiry/available stock columns
+                    unitPriceIndex = 7;
+                    totalAmountIndex = 8;
+                    batchNoIndex = 9;
+                    expiryDateIndex = 10;
+                    availableStockIndex = 11;
+                } else if (hasUnitPriceColumns && !module.isCompounderInventoryMode) {
+                    // Has unit price but no batch/expiry/available stock columns
+                    unitPriceIndex = 7;
+                    totalAmountIndex = 8;
+                } else if (!hasUnitPriceColumns && module.isCompounderInventoryMode) {
+                    // No unit price but has batch/expiry/available stock columns
+                    batchNoIndex = 7;
+                    expiryDateIndex = 8;
+                    availableStockIndex = 9;
+                }
+
+                var currentUnitPrice = '';
+                if (hasUnitPriceColumns) {
+                    var unitPriceText = row.find(`td:eq(${unitPriceIndex})`).text().replace('₹', '').replace(',', '').trim();
+                    currentUnitPrice = unitPriceText === '-' ? '' : unitPriceText;
+                }
+
+                var currentBatchNo = '';
+                var currentExpiryDate = '';
+                var currentAvailableStock = '';
+                if (module.isCompounderInventoryMode) {
+                    currentBatchNo = row.find(`td:eq(${batchNoIndex})`).text().trim();
+                    var currentExpiryDateText = row.find(`td:eq(${expiryDateIndex})`).text().trim();
+
+                    // Extract current available stock from the badge
+                    var availableStockBadge = row.find(`td:eq(${availableStockIndex}) .badge.bg-primary`).text().trim();
+                    var match = availableStockBadge.match(/Current:\s*(\d+)/);
+                    currentAvailableStock = match ? match[1] : '';
+
+                    // Convert date from dd/MM/yyyy to yyyy-MM-dd for input[type="date"]
+                    if (currentExpiryDateText && currentExpiryDateText !== '-') {
+                        // Extract just the date part (ignore any HTML elements)
+                        var dateMatch = currentExpiryDateText.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+                        if (dateMatch) {
+                            var [, day, month, year] = dateMatch;
+                            currentExpiryDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                        }
+                    }
+                }
+
+                // Store original row content
+                row.data('original-content', row.html());
+
+                // Replace received quantity with input
+                row.find('td:eq(5)').html(`
+                    <input type="number" class="form-control form-control-sm edit-received-qty"
+                           value="${currentReceivedQty}" min="0" max="${raisedQty}" />
+                `);
+
+                // Replace unit price with input (if unit price column exists)
+                if (hasUnitPriceColumns) {
+                    row.find(`td:eq(${unitPriceIndex})`).html(`
+                        <input type="number" class="form-control form-control-sm edit-unit-price"
+                               value="${currentUnitPrice}" min="0" step="0.01" placeholder="Unit Price" />
+                    `);
+                }
+
+                // Replace batch number, expiry date, and available stock with inputs (only if Compounder Inventory mode)
+                if (module.isCompounderInventoryMode) {
+                    var today = new Date().toISOString().split('T')[0]; // Get today's date
+
+                    row.find(`td:eq(${batchNoIndex})`).html(`
+                        <input class="form-control form-control-sm edit-batch-no"
+                               value="${currentBatchNo === '-' ? '' : currentBatchNo}" placeholder="Batch No" />
+                    `);
+
+                    row.find(`td:eq(${expiryDateIndex})`).html(`
+                        <input type="date" class="form-control form-control-sm edit-expiry-date"
+                               value="${currentExpiryDate}" min="${today}"
+                               onchange="validateCompounderInlineExpiryDate(this)" />
+                        <div class="invalid-feedback"></div>
+                    `);
+
+                    row.find(`td:eq(${availableStockIndex})`).html(`
+                        <input type="number" class="form-control form-control-sm edit-available-stock"
+                               value="${currentAvailableStock}" min="0" placeholder="Available Stock" />
+                        <div class="small text-muted mt-1">
+                          <span class="badge bg-info">${row.find('.badge.bg-info').text()}</span>
+                        </div>
+                    `);
+                }
+
+                // Replace action button with save/cancel
+                var actionColumnIndex = row.find('td').length - 1;
+                row.find(`td:eq(${actionColumnIndex})`).html(`
+                    <button class="btn btn-sm btn-success save-compounder-medicine-inline me-1" data-id="${itemId}" title="Save Changes">
+                        <i class="bi bi-check"></i> Save
+                    </button>
+                    <button class="btn btn-sm btn-secondary cancel-compounder-medicine-inline" title="Cancel">
+                        <i class="bi bi-x"></i> Cancel
+                    </button>
+                `);
+
+                // Auto-calculate pending quantity and total amount
+                updateCompounderCalculatedFields(row, raisedQty, hasUnitPriceColumns);
+
+                // Add event listeners for auto-calculation
+                row.find('.edit-received-qty, .edit-unit-price').on('input', function() {
+                    updateCompounderCalculatedFields(row, raisedQty, hasUnitPriceColumns);
+                });
+            }
+
+            function updateCompounderCalculatedFields(row, raisedQty, hasUnitPriceColumns) {
+                var receivedQty = parseInt(row.find('.edit-received-qty').val()) || 0;
+                var unitPrice = parseFloat(row.find('.edit-unit-price').val()) || 0;
+                var pendingQty = Math.max(0, raisedQty - receivedQty);
+
+                // Update pending quantity
+                row.find('td:eq(6)').html(`
+                    <span class="badge ${pendingQty > 0 ? 'bg-warning' : 'bg-success'}">
+                        ${pendingQty}
+                    </span>
+                `);
+
+                // Update total amount (if column exists)
+                if (hasUnitPriceColumns) {
+                    var totalAmount = receivedQty * unitPrice;
+                    var totalAmountIndex = 8;
+                    row.find(`td:eq(${totalAmountIndex})`).text(totalAmount > 0 ? `₹${totalAmount.toFixed(2)}` : '-');
+                }
+            }
+
+            // Save medicine item inline
+            $(document).on('click', '.save-compounder-medicine-inline', function() {
+                var itemId = $(this).data('id');
+                var row = $(this).closest('tr');
+                var receivedQty = parseInt(row.find('.edit-received-qty').val()) || 0;
+                var unitPrice = parseFloat(row.find('.edit-unit-price').val()) || null;
+                var batchNo = row.find('.edit-batch-no').val() ? row.find('.edit-batch-no').val().trim() : null;
+                var expiryDate = row.find('.edit-expiry-date').val() || null;
+                var availableStock = row.find('.edit-available-stock').val() ? parseInt(row.find('.edit-available-stock').val()) : null;
+                var raisedQty = parseInt(row.find('td:eq(4)').text()) || 0;
+
+                // Validate received quantity
+                if (receivedQty > raisedQty) {
+                    alert('Received quantity cannot exceed raised quantity.');
+                    return;
+                }
+
+                // Validate available stock
+                if (availableStock !== null && availableStock < 0) {
+                    alert('Available stock cannot be negative.');
+                    return;
+                }
+
+                // Validate expiry date before saving
+                var expiryDateValid = true;
+                if (expiryDate) {
+                    var expiryDateElement = row.find('.edit-expiry-date')[0];
+                    expiryDateValid = validateCompounderInlineExpiryDate(expiryDateElement);
+                }
+
+                if (!expiryDateValid) {
+                    alert('Please correct the expiry date before saving.');
+                    return;
+                }
+
+                // Disable button to prevent double submission
+                $(this).prop('disabled', true);
+
+                // Prepare AJAX data
+                var ajaxData = {
+                    indentItemId: itemId,
+                    receivedQuantity: receivedQty,
+                    unitPrice: unitPrice
+                };
+
+                // Only include batch no, expiry date, and available stock if in Compounder Inventory mode
+                if (module.isCompounderInventoryMode) {
+                    ajaxData.batchNo = batchNo;
+                    ajaxData.expiryDate = expiryDate;
+                    ajaxData.availableStock = availableStock;
+                }
+
+                // Update via AJAX
+                $.post('@Url.Action("UpdateMedicineItem", "CompounderIndent")', ajaxData)
+                .done(function(response) {
+                    if (response.success) {
+                        var hasUnitPriceColumns = row.find('td').length > 11;
+
+                        // Update row with new values
+                        row.find('td:eq(5)').text(response.data.receivedQuantity);
+                        row.find('td:eq(6)').html(`
+                            <span class="badge ${response.data.pendingQuantity > 0 ? 'bg-warning' : 'bg-success'}">
+                                ${response.data.pendingQuantity}
+                            </span>
+                        `);
+
+                        // Update unit price and total amount if columns exist
+                        if (hasUnitPriceColumns) {
+                            var unitPriceIndex = 7;
+                            var totalAmountIndex = 8;
+
+                            row.find(`td:eq(${unitPriceIndex})`).text(response.data.unitPrice ? `₹${response.data.unitPrice.toFixed(2)}` : '-');
+                            row.find(`td:eq(${totalAmountIndex})`).text(response.data.totalAmount ? `₹${response.data.totalAmount.toFixed(2)}` : '-');
+
+                            // Update batch number, expiry date, and available stock if Compounder Inventory mode
+                            if (module.isCompounderInventoryMode) {
+                                var batchNoIndex = 9;
+                                var expiryDateIndex = 10;
+                                var availableStockIndex = 11;
+
+                                row.find(`td:eq(${batchNoIndex})`).text(response.data.batchNo || '-');
+
+                                // Update expiry date with color coding
+                                if (response.data.expiryDate) {
+                                    var expiryDate = new Date(response.data.expiryDate);
+                                    var daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+                                    var expiryClass = daysToExpiry <= 30 ? 'text-danger' : daysToExpiry <= 90 ? 'text-warning' : 'text-success';
+                                    var title = daysToExpiry > 0 ? `Expires in ${daysToExpiry} days` : `Expired ${Math.abs(daysToExpiry)} days ago`;
+                                    row.find(`td:eq(${expiryDateIndex})`).html(`
+                                        <span class="${expiryClass}" title="${title}">
+                                            ${expiryDate.toLocaleDateString('en-GB')}
+                                        </span>
+                                    `);
+                                } else {
+                                    row.find(`td:eq(${expiryDateIndex})`).html('<span class="text-muted">-</span>');
+                                }
+
+                                // Update available stock with store total
+                                var storeTotal = row.find('.badge.bg-info').text();
+                                if (response.data.availableStock !== null) {
+                                    row.find(`td:eq(${availableStockIndex})`).html(`
+
+                                        <div>
+
+                                            <span class="badge bg-info">${storeTotal}</span>
+                                        </div>
+                                    `);
+                                } else {
+                                    row.find(`td:eq(${availableStockIndex})`).html(`
+
+                                        <div>
+
+                                            <span class="badge bg-info">${storeTotal}</span>
+                                        </div>
+                                    `);
+                                }
+                            }
+                        } else if (module.isCompounderInventoryMode) {
+                            // No unit price columns but has batch/expiry/available stock columns
+                            var batchNoIndex = 7;
+                            var expiryDateIndex = 8;
+                            var availableStockIndex = 9;
+
+                            row.find(`td:eq(${batchNoIndex})`).text(response.data.batchNo || '-');
+
+                            // Update expiry date with color coding
+                            if (response.data.expiryDate) {
+                                var expiryDate = new Date(response.data.expiryDate);
+                                var daysToExpiry = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+                                var expiryClass = daysToExpiry <= 30 ? 'text-danger' : daysToExpiry <= 90 ? 'text-warning' : 'text-success';
+                                var title = daysToExpiry > 0 ? `Expires in ${daysToExpiry} days` : `Expired ${Math.abs(daysToExpiry)} days ago`;
+                                row.find(`td:eq(${expiryDateIndex})`).html(`
+                                    <span class="${expiryClass}" title="${title}">
+                                        ${expiryDate.toLocaleDateString('en-GB')}
+                                    </span>
+                                `);
+                            } else {
+                                row.find(`td:eq(${expiryDateIndex})`).html('<span class="text-muted">-</span>');
+                            }
+
+                            // Update available stock with store total
+                            var storeTotal = row.find('.badge.bg-info').text();
+                            if (response.data.availableStock !== null) {
+                                row.find(`td:eq(${availableStockIndex})`).html(`
+
+                                    <div>
+
+                                        <span class="badge bg-info">${storeTotal}</span>
+                                    </div>
+                                `);
+                            } else {
+                                row.find(`td:eq(${availableStockIndex})`).html(`
+
+                                    <div>
+
+                                        <span class="badge bg-info">${storeTotal}</span>
+                                    </div>
+                                `);
+                            }
+                        }
+
+                        // Restore action button based on pending quantity
+                        var actionColumnIndex = row.find('td').length - 1;
+                        if (response.data.pendingQuantity > 0) {
+                            row.find(`td:eq(${actionColumnIndex})`).html(`
+                                <span class="text-muted">View Only</span>
+                            `);
+                        } else {
+                            row.find(`td:eq(${actionColumnIndex})`).html(`
+                                <span class="text-muted">View Only</span>
+                            `);
+                        }
+
+                        // Show success message
+                        if (typeof showMessage === 'function') {
+                            showMessage(response.message, 'success');
+                        }
+
+                        // Reload main table if available
+                        if (typeof tbl !== 'undefined' && tbl.ajax) {
+                            tbl.ajax.reload();
+                        }
+                    } else {
+                        alert(response.message || 'Failed to update medicine item.');
+                        // Re-enable button
+                        $(this).prop('disabled', false);
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.error('Update medicine item request failed:', status, error);
+                    alert('Network error occurred. Please try again.');
+                    // Re-enable button
+                    $(this).prop('disabled', false);
+                });
+            });
+
+            // Cancel medicine item inline edit
+            $(document).on('click', '.cancel-compounder-medicine-inline', function() {
+                var row = $(this).closest('tr');
+                var originalContent = row.data('original-content');
+
+                if (originalContent) {
+                    row.html(originalContent);
+                    row.removeData('original-content');
+                }
+            });
+
+            // Reset summary cards when modal is closed
+            $('#compounderBatchViewModal').on('hidden.bs.modal', function() {
+                resetCompounderSummaryCards();
+            });
+
+            // Make validateCompounderInlineExpiryDate globally available
+            window.validateCompounderInlineExpiryDate = validateCompounderInlineExpiryDate;
+
+            // Make renderCompounderViewBatchTable globally available
+            window.renderCompounderViewBatchTable = renderCompounderViewBatchTable;
+        });
+
+    })(jQuery);
+</script>
+
+@* Include Edit with Reason Modal *@
+@await Html.PartialAsync("_EditWithReasonModal")

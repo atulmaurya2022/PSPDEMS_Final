@@ -1,0 +1,290 @@
+﻿@model EMS.WebApp.Data.MedExaminationResultListViewModel
+
+@{
+    ViewData["Title"] = "Medical Examination Results";
+}
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+<div id="alertContainer"></div>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <h4>Medical Examination Results</h4>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <a href="@Url.Action("Create", "MedExaminationResult")" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add New Medical Examination Result
+        </a>
+    </div>
+    <div class="col-md-6">
+        <div class="input-group">
+            <input type="text" class="form-control" id="searchInput" placeholder="Search by Employee ID, Name, Category...">
+            <button class="btn btn-outline-secondary" type="button" id="searchBtn">
+                <i class="fas fa-search"></i> Search
+            </button>
+            <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">
+                <i class="fas fa-times"></i> Clear
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>Employee ID</th>
+                                <th>Employee Name</th>
+                                <th>Category</th>
+                                <th>Test Date</th>
+                                <th>Test Location</th>
+                                <th>Result</th>
+                                <th>Approval Status</th>
+                                <th>Created By</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody">
+                            <!-- Data will be loaded via AJAX -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="loadingIndicator" class="text-center" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div id="noDataMessage" class="text-center text-muted" style="display: none;">
+                    <p>No medical examination results found.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-id" id="deleteModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this medical examination result?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            let currentResultId = null;
+
+            // Load results on page load
+            loadResults();
+
+            // Search button click
+            $('#searchBtn').on('click', function () {
+                loadResults($('#searchInput').val());
+            });
+
+            // Search on Enter key
+            $('#searchInput').on('keypress', function (e) {
+                if (e.which === 13) {
+                    loadResults($(this).val());
+                }
+            });
+
+            // Clear search
+            $('#clearSearchBtn').on('click', function () {
+                $('#searchInput').val('');
+                loadResults();
+            });
+
+            // Function to load results
+            function loadResults(searchTerm = '') {
+                $('#loadingIndicator').show();
+                $('#resultsTableBody').empty();
+                $('#noDataMessage').hide();
+
+                $.ajax({
+                    url: '@Url.Action("GetResultsList", "MedExaminationResult")',
+                    type: 'GET',
+                    data: { searchTerm: searchTerm },
+                    success: function (data) {
+                        $('#loadingIndicator').hide();
+
+                        if (data && data.length > 0) {
+                            renderResults(data);
+                        } else {
+                            $('#noDataMessage').show();
+                        }
+                    },
+                    error: function (xhr) {
+                        $('#loadingIndicator').hide();
+                        showAlert('error', 'Error loading results. Please try again.');
+                    }
+                });
+            }
+
+            // Function to render results in table
+            function renderResults(results) {
+                let html = '';
+
+                results.forEach(function (item) {
+                    // Determine approval status badge
+                    let statusBadge = '';
+                    switch (item.approvalStatus) {
+                        case 'Approved':
+                            statusBadge = '<span class="badge bg-success">Approved</span>';
+                            break;
+                        case 'Rejected':
+                            statusBadge = '<span class="badge bg-danger">Rejected</span>';
+                            break;
+                        case 'Pending':
+                            statusBadge = '<span class="badge bg-warning text-dark">Pending</span>';
+                            break;
+                        default:
+                            statusBadge = '<span class="badge bg-secondary">N/A</span>';
+                    }
+
+                    // Build action buttons
+                    let actions = `<a href="@Url.Action("View", "MedExaminationResult")/${item.resultId}" class="btn btn-action-view view me-1" title="View">
+                                    <i class="bi bi-eye fs-6"></i>
+                                   </a>`;
+
+                    // Show Edit and Delete buttons only if:
+                    // 1. User is the creator
+                    // 2. Approval status is not "Approved"
+                    if (item.canEdit && item.approvalStatus !== 'Approved') {
+                        actions += ` <a href="@Url.Action("Edit", "MedExaminationResult")/${item.resultId}" class="btn btn-action-edit edit me-1" title="Edit">
+                                        <i class="bi bi-pencil fs-6"></i>
+                                     </a>`;
+                    }
+
+                    if (item.canDelete && item.approvalStatus !== 'Approved') {
+                        actions += ` <button class="btn btn-action-delete delete" data-result-id="${item.resultId}" title="Delete">
+                                        <i class="bi bi-trash fs-6"></i>
+                                     </button>`;
+                    }
+
+                    html += `<tr>
+                                <td>${item.employeeId}</td>
+                                <td>${item.employeeName}</td>
+                                <td>${item.categoryName}</td>
+                                <td>${item.testDateFormatted}</td>
+                                <td>${item.testLocationName}</td>
+                                <td>${item.result || 'N/A'}</td>
+                                <td>${statusBadge}</td>
+                                <td>${item.createdBy}</td>
+                                <td>${actions}</td>
+                            </tr>`;
+                });
+
+                $('#resultsTableBody').html(html);
+            }
+
+            // Delete button click handler (delegated)
+            $(document).on('click', '.delete', function () {
+                currentResultId = $(this).data('result-id');
+                $('#deleteModal').modal('show');
+            });
+
+            // Confirm delete
+            $('#confirmDeleteBtn').on('click', function () {
+                if (currentResultId) {
+                    deleteResult(currentResultId);
+                }
+            });
+
+            // Function to delete result
+            function deleteResult(resultId) {
+                $.ajax({
+                    url: '@Url.Action("Delete", "MedExaminationResult")',
+                    type: 'POST',
+                    data: {
+                        resultId: resultId,
+                        __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function (response) {
+                        $('#deleteModal').modal('hide');
+
+                        if (response.success) {
+                            showAlert('success', response.message);
+                            loadResults($('#searchInput').val());
+                        } else {
+                            showAlert('error', response.message);
+                        }
+                    },
+                    error: function (xhr) {
+                        $('#deleteModal').modal('hide');
+                        showAlert('error', 'Error deleting result. Please try again.');
+                    }
+                });
+            }
+
+            // Alert function
+            function showAlert(type, message) {
+                const alertClass = type === 'success' ? 'alert-success' :
+                                 type === 'info' ? 'alert-info' : 'alert-danger';
+                const alertId = 'alert-' + Date.now();
+                const icon = type === 'success' ? 'fas fa-check-circle' :
+                           type === 'info' ? 'fas fa-info-circle' : 'fas fa-exclamation-triangle';
+
+                const alertHtml = `
+                    <div id="${alertId}" class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        <i class="${icon}"></i> ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+
+                $('#alertContainer').html(alertHtml);
+
+                const dismissTime = type === 'error' ? 6000 : 4000;
+                setTimeout(() => {
+                    const alertEl = document.getElementById(alertId);
+                    if (alertEl && bootstrap.Alert.getOrCreateInstance) {
+                        bootstrap.Alert.getOrCreateInstance(alertEl).close();
+                    }
+                }, dismissTime);
+            }
+        });
+    </script>
+}
+
+<style>
+    .table-responsive {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .btn-sm {
+        margin-right: 5px;
+    }
+
+    .card {
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .table thead {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 10;
+    }
+</style>
+
+@Html.AntiForgeryToken()

@@ -1,0 +1,577 @@
+﻿@{
+    ViewData["Title"] = "Store Indent";
+}
+<!-- Include Master Common Styles -->
+<link href="~/css/master-common.css" rel="stylesheet" />
+
+<!-- Enhanced Master Header -->
+<!-- Enhanced Master Header with Search and Add Button -->
+<div class="master-header">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div class="flex-grow-1">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-master">
+                    <li class="breadcrumb-item">Home</li>
+                    <li class="breadcrumb-item active" aria-current="page">Store Indent</li>
+                </ol>
+            </nav>
+            <h1 class="master-title">
+                <i class="bi bi-building"></i>
+                Store Indent
+            </h1>
+            <p class="master-subtitle">Manage store indent requests and approvals</p>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <label for="indentTypeFilter" class="form-label mb-0 fw-semibold" style="white-space: nowrap;">Indent Type:</label>
+                <select id="indentTypeFilter" class="form-select form-select-sm glass-input" style="width: 200px">
+                    <option selected disabled value="">Select Store Indent Type</option>
+                    <option value="Draft Indent">Draft Indent</option>
+                    <option value="Pending Indents">Pending Indents</option>
+                    <option value="Approved Indents">Approved Indents</option>
+                    <option value="Rejected Indents">Rejected Indents</option>
+                    <option value="Store Inventory">Store Inventory</option>
+                </select>
+            </div>
+            <button id="btnCreate" class="btn btn-add-master">
+                <i class="bi bi-plus-lg"></i>
+                Add Store Indent
+            </button>
+        </div>
+    </div>
+</div>
+
+
+
+@* <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center gap-2">
+        <label for="indentTypeFilter" class="form-label mb-0">Indent Type:</label>
+        <select id="indentTypeFilter" class="form-select form-select-sm glass-input" style="width: 180px">
+            <option selected disabled value="">--Select Store Indent Type--</option>
+            <option value="Draft Indent">Draft Indent (My Drafts)</option>
+            <option value="Pending Indents">Pending Indents</option>
+            <option value="Approved Indents">Approved Indents</option>
+            <option value="Rejected Indents">Rejected Indents</option>
+            <option value="Store Inventory">Store Inventory</option>
+        </select>
+    </div>
+    <button id="btnCreate" class="btn btn-primary">+Add Store Indent</button>
+</div> *@
+
+<!-- Success/Error message area -->
+<div id="messageArea" style="display:none;"></div>
+
+<div class="master-form">
+    <div class="card-body p-0">
+        <table id="tblStoreIndents" class="table table-striped table-glass glass-table">
+            <thead>
+                <tr>
+                    <th>SI.No</th>
+                    <th>Indent No.</th>
+                    <th>Indent Type</th>
+                    <th>Indent Date</th>
+                    <th>Approval Status</th>
+                    <th>Created By</th>
+                    <th style="width:200px">Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="modalStoreIndent" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h5 class="modal-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+
+        (function($) {
+            'use strict';
+
+            // Initialize namespace for Index page
+            window.IndexModule = window.IndexModule || {};
+            var module = window.IndexModule;
+
+            // Show message function for page-level notifications
+            function showMessage(message, type) {
+                type = type || 'success';
+                var alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-warning';
+                $('#messageArea')
+                    .removeClass('alert-success alert-warning alert-danger')
+                    .addClass(`alert ${alertClass}`)
+                    .html(message)
+                    .show();
+
+                setTimeout(function() {
+                    $('#messageArea').fadeOut();
+                }, 5000);
+
+                $('html, body').animate({ scrollTop: 0 }, 300);
+            }
+
+            // Function to check user role and hide/show button accordingly
+            function checkUserRoleAndToggleButton() {
+                // Method 1: Check via AJAX call to get current user role
+                // Uncomment this if you have a controller method that returns user role
+                /*
+                $.get('@Url.Action("GetCurrentUserRole", "StoreIndent")')
+                .done(function(response) {
+                    if (response && response.isDoctor) {
+                        $('#btnCreate').hide();
+                        console.log('Add button hidden - User is a doctor');
+                    } else {
+                        $('#btnCreate').show();
+                        console.log('Add button shown - User is not a doctor');
+                    }
+                })
+                .fail(function(xhr, status, error) {
+                    console.warn('Could not determine user role, showing button by default');
+                    $('#btnCreate').show();
+                });
+                */
+
+                // Method 2: Check based on table data (if any row indicates user is a doctor)
+                // This method checks if the current user is a doctor based on the isDoctor flag in table data
+                var checkTableDataForDoctorRole = function() {
+                    var tableData = window.tbl ? window.tbl.rows().data() : [];
+                    var isUserDoctor = false;
+
+                    // Check if any row indicates the current user is a doctor
+                    for (var i = 0; i < tableData.length; i++) {
+                        if (tableData[i] && tableData[i].isDoctor === true) {
+                            isUserDoctor = true;
+                            break;
+                        }
+                    }
+
+                    if (isUserDoctor) {
+                        $('#btnCreate').hide();
+                        console.log('Add button hidden - User is a doctor (detected from table data)');
+                    } else {
+                        $('#btnCreate').show();
+                        console.log('Add button shown - User is not a doctor (detected from table data)');
+                    }
+
+                    return isUserDoctor;
+                };
+
+                // Method 3: Check via separate AJAX call with current filter
+                // This method makes a call to check user role specifically
+                var checkUserRoleViaAjax = function() {
+                    $.post('@Url.Action("CheckUserRole", "StoreIndent")', {})
+                    .done(function(response) {
+                        if (response && response.isDoctor === true) {
+                            $('#btnCreate').hide();
+                            console.log('Add button hidden - User is a doctor (via AJAX check)');
+                        } else {
+                            $('#btnCreate').show();
+                            console.log('Add button shown - User is not a doctor (via AJAX check)');
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.warn('Could not determine user role via AJAX, checking table data');
+                        // Fallback to table data method
+                        checkTableDataForDoctorRole();
+                    });
+                };
+
+                // Choose your preferred method:
+                // Uncomment the method you want to use
+
+                // Use AJAX method (requires controller method)
+                checkUserRoleViaAjax();
+
+                // OR use table data method (works with existing data)
+                // checkTableDataForDoctorRole();
+            }
+
+            $(function () {
+                var modalEl = $('#modalStoreIndent');
+                modalEl.appendTo('body');
+                modalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+
+                function initializePageState() {
+
+                    var selectedType = $('#indentTypeFilter').val();
+                    if (selectedType === '') {
+                        $('#tblStoreIndents').hide();
+                        if ($('#noFilterMessage').length === 0) {
+                            $('#tblStoreIndents').after('<div id="noFilterMessage" class="alert alert-info text-center"><i class="bi bi-info-circle me-2"></i>Please select a specific Indent Type to view records.</div>');
+                        }
+                    } else {
+                        $('#tblStoreIndents').show();
+                        $('#noFilterMessage').remove();
+                    }
+                }
+
+                var tbl = $('#tblStoreIndents').DataTable({
+                    ajax: {
+                        url: '@Url.Action("LoadData", "StoreIndent")',
+                        dataSrc: 'data',
+                        data: function(d) {
+                            d.indentType = $('#indentTypeFilter').val();
+                        }
+                    },
+                    columns: [
+                        {
+                            data: null,
+                            render: function(data, type, row, meta) {
+                                return meta.row + 1;
+                            }
+                        },
+                        { data: 'indentNo' },
+                        {
+                            data: 'indentType',
+                            render: function(data) {
+                                if (data === 'Draft Indent') {
+                                    return '<span class="badge bg-secondary"><i class="bi bi-file-text me-1"></i>' + data + '</span>';
+                                } else if (data === 'Store Inventory') {
+                                    return '<span class="badge bg-info"><i class="bi bi-boxes me-1"></i>' + data + '</span>';
+                                }
+                                return data;
+                            }
+                        },
+                        { data: 'indentDate' },
+                        {
+                            data: 'status',
+                            render: function(data) {
+                                var badgeClass = 'bg-secondary';
+                                var icon = 'bi-question-circle';
+
+                                if (data === 'Draft') {
+                                    badgeClass = 'bg-secondary';
+                                    icon = 'bi-file-text';
+                                } else if (data === 'Pending') {
+                                    badgeClass = 'bg-warning';
+                                    icon = 'bi-clock';
+                                } else if (data === 'Approved') {
+                                    badgeClass = 'bg-success';
+                                    icon = 'bi-check-circle';
+                                } else if (data === 'Rejected') {
+                                    badgeClass = 'bg-danger';
+                                    icon = 'bi-x-circle';
+                                }
+
+                                return '<span class="badge ' + badgeClass + '"><i class="' + icon + ' me-1"></i>' + data + '</span>';
+                            }
+                        },
+                        { data: 'createdBy', render: function(data) { return data || 'N/A'; } },
+                        {
+                            data: null,
+                            render: function(data, type, row) {
+                                var id = row.indentId;
+                                var status = row.status;
+                                var indentType = row.indentType;
+                                var canApproveReject = row.canApproveReject;
+                                var canEdit = row.canEdit;
+                                var canDelete = row.canDelete;
+                                var isDoctor = row.isDoctor;
+                                var allItemsReceived = row.allItemsReceived;
+                                var hasItems = row.hasItems;
+
+                                var buttons = '';
+                                buttons += `<button class="btn btn-action-view view me-1" data-id="${id}" title="View Details">
+                                                <i class="bi bi-eye fs-6"></i>
+                                            </button>`;
+
+                                if (canApproveReject) {
+                                    buttons += `<button class="btn btn-sm btn-success approve-reject me-1" data-id="${id}" title="Review & Approve/Reject Indent">
+                                                    <i class="bi bi-check2-square"></i> Review & Approve
+                                                </button>`;
+                                }
+
+                                if (indentType === 'Store Inventory') {
+                                    if (canEdit && hasItems) {
+                                        buttons += `<button class="btn btn-action-edit edit me-1" data-id="${id}" title="Update Inventory">
+                                                        <i class="bi bi-pencil fs-6"></i>
+                                                    </button>`;
+                                    }
+                                } else if (indentType === 'Draft Indent') {
+                                    if (canEdit && !isDoctor) {
+                                        buttons += `<button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit Draft">
+                                                        <i class="bi bi-pencil fs-6"></i>
+                                                    </button>`;
+                                    }
+                                    if (canDelete && !isDoctor) {
+                                        buttons += `<button class="btn btn-action-delete delete" data-id="${id}" title="Delete Draft">
+                                                        <i class="bi bi-trash fs-6"></i>
+                                                    </button>`;
+                                    }
+                                } else {
+                                        switch(status) {
+                                        case 'Pending':
+                                            if (canEdit && !isDoctor) {
+                                                buttons += `<button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit Indent">
+                                                                <i class="bi bi-pencil fs-6"></i>
+                                                            </button>`;
+                                            }
+                                            if (canDelete && !isDoctor) {
+                                                buttons += `<button class="btn btn-action-delete delete" data-id="${id}" title="Delete Indent">
+                                                                <i class="bi bi-trash fs-6"></i>
+                                                            </button>`;
+                                            }
+                                            break;
+
+                                        case 'Approved':
+                                            // NEW: Show edit button for doctors when viewing "Approved Indents" filter
+                                            if (canEdit && isDoctor) {
+                                                buttons += `<button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit Approved Indent">
+                                                                <i class="bi bi-pencil fs-6"></i>
+                                                            </button>`;
+                                            }
+                                            break;
+
+                                        case 'Rejected':
+                                            // View button already added at the top
+                                            break;
+
+                                        default:
+                                            if (canEdit && !isDoctor) {
+                                                buttons += `<button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit Indent">
+                                                                <i class="bi bi-pencil fs-6"></i>
+                                                            </button>`;
+                                            }
+                                            if (canDelete && !isDoctor) {
+                                                buttons += `<button class="btn btn-action-delete delete" data-id="${id}" title="Delete Indent">
+                                                                <i class="bi bi-trash fs-6"></i>
+                                                            </button>`;
+                                            }
+                                    }
+                                }
+
+                                return buttons;
+                            }
+                        }
+                    ],
+                    order: [[1, 'desc']],
+                    pageLength: 25,
+                    language: {
+                        emptyTable: 'No data available in table'
+                    },
+                    drawCallback: function() {
+                        var selectedType = $('#indentTypeFilter').val();
+                        var isEmpty = this.api().data().length === 0;
+
+                        if (isEmpty && selectedType === 'Draft Indent') {
+                            $('.dataTables_empty').html('You have no draft indents. Click "Add Store Indent" and save as draft to create one.');
+                        } else if (isEmpty && selectedType === 'Store Inventory') {
+                            $('.dataTables_empty').html('No approved indents available for inventory management.');
+                        }
+
+                        // Check user role and toggle button visibility after each draw
+                        setTimeout(function() {
+                            checkUserRoleAndToggleButton();
+                        }, 100);
+                    }
+                });
+
+
+                // Handle modal close/cancel - refresh table to clear any editing states
+                modalEl.on('hidden.bs.modal', function() {
+                    // Refresh the DataTable to clear any inline editing states
+                    if (typeof tbl !== 'undefined' && tbl) {
+                        tbl.ajax.reload(null, false); // Reload without resetting pagination
+                    }
+
+                    // Clear any message areas
+                    $('#messageArea').hide();
+                });
+
+                // Also handle the cancel button click specifically
+                $(document).on('click', '[data-bs-dismiss="modal"]', function() {
+                    // Just ensure modal closes properly - the hidden.bs.modal event will handle the refresh
+                    modalEl.modal('hide');
+                });
+
+
+                // Filter change handler
+                $('#indentTypeFilter').change(function() {
+                    var selectedType = $(this).val();
+
+                    if (selectedType === '') {
+                        $('#tblStoreIndents').hide();
+                        if ($('#noFilterMessage').length === 0) {
+                            $('#tblStoreIndents').after('<div id="noFilterMessage" class="alert alert-info text-center"><i class="bi bi-info-circle me-2"></i>Please select a specific Indent Type to view records.</div>');
+                        }
+                        // Show button when no filter is selected (optional)
+                        $('#btnCreate').show();
+                    } else {
+                        $('#tblStoreIndents').show();
+                        $('#noFilterMessage').remove();
+                        tbl.ajax.reload();
+                    }
+                });
+
+                // Open Create Modal
+                $('#btnCreate').click(() => {
+                    var createUrl = '@Url.Action("Create", "StoreIndent")';
+
+                    $.get(createUrl)
+                    .done(html => {
+                        modalEl.find('.modal-title').text('Add Store Indent');
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Create request failed:', status, error);
+                        showMessage('Failed to load create form. Please try again.', 'error');
+                    });
+                });
+
+
+                // Open Edit Modal - make sure this doesn't trigger inline editing
+                $('#tblStoreIndents').on('click', '.edit', function (e) {
+                    e.preventDefault(); // Prevent any default behavior
+                    e.stopPropagation(); // Stop event bubbling
+
+                    var id = $(this).data('id');
+                    var currentFilter = $('#indentTypeFilter').val();
+                    var editUrl = '@Url.Action("Edit", "StoreIndent")' + '/' + id;
+
+                    if (currentFilter) {
+                        editUrl += '?filterType=' + encodeURIComponent(currentFilter);
+                    }
+
+                    $.get(editUrl)
+                    .done(html => {
+                        modalEl.find('.modal-title').text('Edit Store Indent');
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Edit request failed:', status, error);
+                        showMessage('Failed to load edit form. Please try again.', 'error');
+                    });
+                });
+
+                
+
+                // Open Approve/Reject Modal
+                $('#tblStoreIndents').on('click', '.approve-reject', function () {
+                    var id = $(this).data('id');
+                    var approveRejectUrl = '@Url.Action("ApproveReject", "StoreIndent")' + '/' + id;
+
+                    $.get(approveRejectUrl)
+                    .done(html => {
+                        modalEl.find('.modal-title').text('Approve/Reject Store Indent');
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Approve/Reject request failed:', status, error);
+                        showMessage('Failed to load approve/reject form. Please try again.', 'error');
+                    });
+                });
+
+                // $('#tblStoreIndents').on('click', '.approve-reject', function () {
+                //     var id = $(this).data('id');
+                //     var approveRejectUrl = '@Url.Action("ApproveReject", "StoreIndent")' + '/' + id;
+
+                //     $.get(approveRejectUrl)
+                //     .done(html => {
+                //         modalEl.find('.modal-title').text('Approve/Reject Store Indent');
+                //         $('#modalBody').html(html);
+                //         modalEl.modal('show');
+                //     })
+                //     .fail(function(xhr, status, error) {
+                //         console.error('Approve/Reject request failed:', status, error);
+                //         showMessage('Failed to load approve/reject form. Please try again.', 'error');
+                //     });
+                // });
+
+                // View Modal
+                $('#tblStoreIndents').on('click', '.view', function (e) {
+                    if ($(e.target).is('button') || $(e.target).is('i')) {
+                        var id = $(this).data('id');
+                        var detailsUrl = '@Url.Action("Details", "StoreIndent")' + '/' + id;
+
+                        $.get(detailsUrl)
+                        .done(html => {
+                            modalEl.find('.modal-title').text('View Store Indent');
+                            $('#modalBody').html(html);
+                            modalEl.modal('show');
+                        })
+                        .fail(function(xhr, status, error) {
+                            console.error('View request failed:', status, error);
+                            showMessage('Failed to load details. Please try again.', 'error');
+                        });
+                    }
+                });
+
+                // Delete
+                $('#tblStoreIndents').on('click', '.delete', function () {
+                    var indentType = $(this).closest('tr').find('td:eq(2)').text().trim();
+                    var confirmText = indentType === 'Draft Indent' ? 'Delete this Draft?' : 'Delete this Store Indent?';
+
+                    if (!confirm(confirmText)) return;
+
+                    var id = $(this).data('id');
+                    var deleteUrl = '@Url.Action("Delete", "StoreIndent")';
+
+                    $.post(deleteUrl, { id: id })
+                    .done(function(response) {
+                        if (response.success) {
+                            tbl.ajax.reload(null, false);
+                            var successText = indentType === 'Draft Indent' ? 'Draft deleted successfully.' : 'Store Indent deleted successfully.';
+                            showMessage(successText, 'success');
+                        } else {
+                            showMessage(response.message || 'Failed to delete Store Indent.', 'error');
+                        }
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Delete request failed:', status, error);
+                        showMessage('Failed to delete Store Indent. Please try again.', 'error');
+                    });
+                });
+
+                // Handle edit link in success message
+                $(document).on('click', '.edit-link', function(e) {
+                    e.preventDefault();
+                    var id = $(this).data('id');
+                    var editUrl = '@Url.Action("Edit", "StoreIndent")' + '/' + id;
+
+                    $.get(editUrl)
+                    .done(html => {
+                        modalEl.find('.modal-title').text('Edit Store Indent - Add Medicines');
+                        $('#modalBody').html(html);
+                        modalEl.modal('show');
+                        $('#messageArea').hide();
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('Edit link request failed:', status, error);
+                        showMessage('Failed to load edit form. Please try again.', 'error');
+                    });
+                });
+
+                // Hide message area when modal is shown
+                modalEl.on('shown.bs.modal', function() {
+                    $('#messageArea').hide();
+                });
+
+                initializePageState();
+
+                // Make tbl and showMessage available globally
+                window.tbl = tbl;
+                window.showMessage = showMessage;
+
+                // Initial check for user role when page loads
+                // Wait a bit for DataTable to initialize
+                setTimeout(function() {
+                    checkUserRoleAndToggleButton();
+                }, 500);
+            });
+
+        })(jQuery);
+    </script>
+}

@@ -1,0 +1,601 @@
+﻿@model EMS.WebApp.Data.HrEmployeeDependent
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Warning</strong>
+                @ViewBag.Error
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form asp-action="@(Model.emp_dep_id == 0 ? "Create" : "Edit")" method="post" id="hrEmployeeDependentForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="emp_dep_id" type="hidden" />
+    <input asp-for="CreatedBy" type="hidden" />
+    <input asp-for="CreatedOn" type="hidden" />
+
+    <!-- Display general validation message -->
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-x-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Validation Error</strong>
+                Please correct the errors below and try again.
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- Employee and Dependent Name Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="emp_uid" class="form-label form-label-master">
+                <i class="bi bi-person-badge"></i>
+                Employee Name <span class="text-danger">*</span>
+            </label>
+            <select asp-for="emp_uid" class="form-control form-control-master" asp-items="ViewBag.EmpDependentList" id="empUidInput">
+                <option value="">-- Select Married Employee --</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="emp_uid" class="field-validation-error" id="empUidValidation"></span>
+                <small class="text-muted">Only married employees can have dependents</small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="dep_name" class="form-label form-label-master">
+                <i class="bi bi-person"></i>
+                Dependent Name <span class="text-danger">*</span>
+            </label>
+            <input asp-for="dep_name" class="form-control form-control-master" id="depNameInput" maxlength="100" placeholder="Enter dependent name" />
+            <div class="char-counter-container">
+                <span asp-validation-for="dep_name" class="field-validation-error" id="depNameValidation"></span>
+                <small class="char-counter" id="depNameCharCount">0/100</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date of Birth and Relation Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="dep_dob" class="form-label form-label-master">
+                <i class="bi bi-calendar-event"></i>
+                Date of Birth
+            </label>
+            <input asp-for="dep_dob" type="date" class="form-control form-control-master" id="depDobInput" />
+            <div class="char-counter-container">
+                <span asp-validation-for="dep_dob" class="field-validation-error" id="depDobValidation"></span>
+                <small class="text-muted" id="ageDisplay"></small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="relation" class="form-label form-label-master">
+                <i class="bi bi-diagram-3"></i>
+                Relation <span class="text-danger">*</span>
+            </label>
+            <select asp-for="relation" class="form-control form-control-master" id="relationInput">
+                <option value="">-- Select Relation --</option>
+                <option value="Wife">Wife</option>
+                <option value="Husband">Husband</option>
+                <option value="Child">Child</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="relation" class="field-validation-error" id="relationValidation"></span>
+                <small class="text-muted">Max limits: 1 Spouse (Wife/Husband), 2 Children. Parents not allowed.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gender and Status Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="gender" class="form-label form-label-master">
+                <i class="bi bi-gender-ambiguous"></i>
+                Gender <span class="text-danger">*</span>
+            </label>
+            <select asp-for="gender" class="form-control form-control-master" id="genderInput">
+                <option value="">-- Select Gender --</option>
+                <option value="M">Male</option>
+                <option value="F">Female</option>
+                <option value="O">Other</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="gender" class="field-validation-error" id="genderValidation"></span>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="is_active" class="form-label form-label-master">
+                <i class="bi bi-toggle2-on"></i>
+                Status <span class="text-danger">*</span>
+            </label>
+            <div class="d-flex justify-content-around align-items-center mt-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" asp-for="is_active" value="true" id="Active">
+                    <label class="form-check-label" for="Active">
+                        <i class="bi bi-check-circle text-success"></i> Active
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" asp-for="is_active" value="false" id="NotActive">
+                    <label class="form-check-label" for="NotActive">
+                        <i class="bi bi-pause-circle text-warning"></i> Not Active
+                    </label>
+                </div>
+            </div>
+            <div class="char-counter-container">
+                <span asp-validation-for="is_active" class="field-validation-error" id="isActiveValidation"></span>
+            </div>
+            <div id="ageWarning" class="alert alert-warning mt-2" style="display: none;">
+                <small><i class="bi bi-exclamation-triangle"></i> Children over 21 years will be automatically deactivated.</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Marital Status Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="marital_status" class="form-label form-label-master">
+                <i class="bi bi-heart"></i>
+                Marital Status
+            </label>
+            <select asp-for="marital_status" class="form-control form-control-master" id="maritalStatusInput">
+                <option value="">-- Select --</option>
+                <option value="true">Married</option>
+                <option value="false">Single</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="marital_status" class="field-validation-error" id="maritalStatusValidation"></span>
+            </div>
+        </div>
+
+        <!-- Display existing dependents info -->
+        <div class="col-md-6" id="existingDependentsInfo" style="display: none;">
+            <label class="form-label form-label-master">
+                <i class="bi bi-info-circle"></i>
+                Existing Dependents
+            </label>
+            <div id="existingDependentsList" class="alert alert-info">
+                <!-- Will be populated via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    @if (Model.emp_dep_id > 0 && (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue))
+    {
+        <div class="audit-section">
+            <h6>
+                <i class="bi bi-clock-history"></i>
+                Audit Information
+            </h6>
+
+            @if (Model.CreatedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Created By</label>
+                        <input class="form-control" value="@(Model.CreatedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Created On</label>
+                        <input class="form-control" value="@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ModifiedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Modified By</label>
+                        <input class="form-control" value="@(Model.ModifiedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Modified On</label>
+                        <input class="form-control" value="@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="modal-footer modal-footer-master">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            @(Model.emp_dep_id == 0 ? "Save Dependent" : "Update Dependent")
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    @* <script type="text/javascript">
+        $(document).ready(function() {
+            // Form elements
+            const form = $('#hrEmployeeDependentForm');
+            const submitBtn = $('#submitBtn');
+            const empUidInput = $('#empUidInput');
+            const depNameInput = $('#depNameInput');
+            const depDobInput = $('#depDobInput');
+            const relationInput = $('#relationInput');
+            const genderInput = $('#genderInput');
+            const isActiveInputs = $('input[name="is_active"]');
+            const maritalStatusInput = $('#maritalStatusInput');
+            const ageDisplay = $('#ageDisplay');
+            const ageWarning = $('#ageWarning');
+            const existingDependentsInfo = $('#existingDependentsInfo');
+            const existingDependentsList = $('#existingDependentsList');
+
+            // Character count elements
+            const depNameCharCount = $('#depNameCharCount');
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Security patterns to check for
+            const dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            // Function to check for dangerous input
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Function to calculate age
+            function calculateAge(birthDate) {
+                const today = new Date();
+                const birth = new Date(birthDate);
+                let age = today.getFullYear() - birth.getFullYear();
+                const monthDiff = today.getMonth() - birth.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                    age--;
+                }
+                return age;
+            }
+
+            // Function to update age display
+            function updateAgeDisplay() {
+                const dob = depDobInput.val();
+                const relation = relationInput.val();
+
+                if (dob) {
+                    const age = calculateAge(dob);
+                    ageDisplay.text(`Age: ${age} years`);
+
+                    // Show warning for children over 21
+                    if (relation?.toLowerCase() === 'child' && age > 21) {
+                        ageWarning.show();
+                        ageDisplay.addClass('text-warning');
+                    } else {
+                        ageWarning.hide();
+                        ageDisplay.removeClass('text-warning');
+                    }
+                } else {
+                    ageDisplay.text('');
+                    ageWarning.hide();
+                }
+            }
+
+            // Function to load existing dependents
+            function loadExistingDependents(empUid) {
+                if (!empUid) {
+                    existingDependentsInfo.hide();
+                    return;
+                }
+
+                $.get(`@Url.Action("GetEmployeeDependents")?empUid=${empUid}`)
+                    .done(function(response) {
+                        if (response.success && response.data.length > 0) {
+                            let html = '<strong>Current Dependents:</strong><br>';
+                            const spouses = response.data.filter(d => d.relation?.toLowerCase() === 'wife' || d.relation?.toLowerCase() === 'husband');
+                            const children = response.data.filter(d => d.relation?.toLowerCase() === 'child');
+
+                            html += `• Spouses: ${spouses.length}/1<br>`;
+                            html += `• Children: ${children.length}/2<br>`;
+
+                            if (response.data.some(d => d.isOverAgeLimit)) {
+                                html += '<span class="text-warning">⚠ Some children are over age limit</span>';
+                            }
+
+                            existingDependentsList.html(html);
+                            existingDependentsInfo.show();
+                        } else {
+                            existingDependentsInfo.hide();
+                        }
+                    })
+                    .fail(function() {
+                        existingDependentsInfo.hide();
+                    });
+            }
+
+            // Enhanced character count functions
+            function updateCharCount(input, countElement, maxLength) {
+                const currentLength = input.val().length;
+                countElement.text(`${currentLength}/${maxLength}`);
+
+                // Remove previous classes
+                countElement.removeClass('text-warning text-danger');
+
+                // Calculate thresholds
+                const warningThreshold = Math.floor(maxLength * 0.8);
+
+                if (currentLength >= maxLength) {
+                    countElement.addClass('text-danger');
+                } else if (currentLength >= warningThreshold) {
+                    countElement.addClass('text-warning');
+                }
+            }
+
+            // Enhanced validation functions
+            function validateEmployee() {
+                const empUid = empUidInput.val();
+                const validationSpan = $('#empUidValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                empUidInput.removeClass('is-invalid is-valid');
+
+                if (!empUid) {
+                    showFieldError(validationSpan, empUidInput, 'Married Employee is required.');
+                    isValid = false;
+                } else {
+                    empUidInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateDependentName() {
+                const depName = depNameInput.val().trim();
+                const validationSpan = $('#depNameValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                depNameInput.removeClass('is-invalid is-valid');
+
+                if (!depName) {
+                    showFieldError(validationSpan, depNameInput, 'Dependent Name is required.');
+                    isValid = false;
+                } else if (depName.length < 2) {
+                    showFieldError(validationSpan, depNameInput, 'Dependent Name must be at least 2 characters.');
+                    isValid = false;
+                } else if (depName.length > 100) {
+                    showFieldError(validationSpan, depNameInput, 'Dependent Name cannot exceed 100 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(depName)) {
+                    showFieldError(validationSpan, depNameInput, 'Dependent Name contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z\s\-\.]+$/.test(depName)) {
+                    showFieldError(validationSpan, depNameInput, 'Dependent Name can only contain letters, spaces, hyphens, and dots.');
+                    isValid = false;
+                } else {
+                    depNameInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateRelation() {
+                const relation = relationInput.val();
+                const validationSpan = $('#relationValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                relationInput.removeClass('is-invalid is-valid');
+
+                if (!relation) {
+                    showFieldError(validationSpan, relationInput, 'Relation is required.');
+                    isValid = false;
+                } else {
+                    const allowedRelations = ['Wife', 'Husband', 'Child'];
+                    if (!allowedRelations.includes(relation)) {
+                        showFieldError(validationSpan, relationInput, 'Only Wife, Husband, and Child relations are allowed.');
+                        isValid = false;
+                    } else {
+                        relationInput.addClass('is-valid');
+                    }
+                }
+
+                return isValid;
+            }
+
+            function validateGender() {
+                const gender = genderInput.val();
+                const validationSpan = $('#genderValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                genderInput.removeClass('is-invalid is-valid');
+
+                if (!gender) {
+                    showFieldError(validationSpan, genderInput, 'Gender is required.');
+                    isValid = false;
+                } else {
+                    genderInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateDateOfBirth() {
+                const depDob = depDobInput.val();
+                const relation = relationInput.val();
+                const validationSpan = $('#depDobValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                depDobInput.removeClass('is-invalid is-valid');
+
+                if (depDob) {
+                    const dobDate = new Date(depDob);
+                    const today = new Date();
+                    const age = calculateAge(depDob);
+
+                    if (dobDate > today) {
+                        showFieldError(validationSpan, depDobInput, 'Date of Birth cannot be in the future.');
+                        isValid = false;
+                    } else if (age > 100) {
+                        showFieldError(validationSpan, depDobInput, 'Age cannot exceed 100 years.');
+                        isValid = false;
+                    } else if (relation?.toLowerCase() === 'child' && age > 21) {
+                        showFieldError(validationSpan, depDobInput, 'Child dependents cannot be older than 21 years.');
+                        isValid = false;
+                    } else {
+                        depDobInput.addClass('is-valid');
+                    }
+                }
+
+                return isValid;
+            }
+
+            function validateStatus() {
+                const isActiveSelected = isActiveInputs.filter(':checked').length > 0;
+                const validationSpan = $('#isActiveValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                isActiveInputs.removeClass('is-invalid');
+
+                if (!isActiveSelected) {
+                    showFieldError(validationSpan, isActiveInputs, 'Status is required.');
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Event handlers
+            empUidInput.on('change', function() {
+                validateEmployee();
+                loadExistingDependents($(this).val());
+                updateSubmitButton();
+            });
+
+            depNameInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), depNameCharCount, 100);
+                    validateDependentName();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            relationInput.on('change', function() {
+                validateRelation();
+                updateAgeDisplay();
+                updateSubmitButton();
+            });
+
+            genderInput.on('change', function() {
+                validateGender();
+                updateSubmitButton();
+            });
+
+            depDobInput.on('change blur', function() {
+                validateDateOfBirth();
+                updateAgeDisplay();
+                updateSubmitButton();
+            });
+
+            isActiveInputs.on('change', function() {
+                validateStatus();
+                updateSubmitButton();
+            });
+
+            // Initialize on page load
+            updateCharCount(depNameInput, depNameCharCount, 100);
+            validateEmployee();
+            validateDependentName();
+            validateRelation();
+            validateGender();
+            validateDateOfBirth();
+            validateStatus();
+            updateAgeDisplay();
+
+            // Load existing dependents if editing
+            const initialEmpUid = empUidInput.val();
+            if (initialEmpUid) {
+                loadExistingDependents(initialEmpUid);
+            }
+
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateEmployee() || !validateDependentName() || !validateRelation() ||
+                    !validateGender() || !validateDateOfBirth() || !validateStatus()) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Double-check for dangerous input before submission
+                const depName = depNameInput.val().trim();
+
+                if (containsDangerousInput(depName)) {
+                    e.preventDefault();
+                    alert('Invalid input detected. Please remove any script tags or unsafe characters.');
+                    return false;
+                }
+            });
+
+            // Prevent pasting of dangerous content
+            function handleDangerousPaste(input, inputName) {
+                input.on('paste', function(e) {
+                    setTimeout(function() {
+                        const pastedContent = input.val();
+                        if (containsDangerousInput(pastedContent)) {
+                            input.val('');
+                            alert('Pasted content in ' + inputName + ' contains unsafe characters and has been removed.');
+                        }
+                    }, 10);
+                });
+            }
+
+            handleDangerousPaste(depNameInput, 'Dependent Name');
+        });
+    </script> *@
+}

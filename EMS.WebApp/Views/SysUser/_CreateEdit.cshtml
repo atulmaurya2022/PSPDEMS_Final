@@ -1,0 +1,616 @@
+﻿@model EMS.WebApp.Data.SysUser
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Warning</strong>
+                @ViewBag.Error
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form asp-action="@(Model.user_id == 0 ? "Create" : "Edit")" method="post" id="sysUserForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="user_id" type="hidden" />
+    <input asp-for="CreatedBy" type="hidden" />
+    <input asp-for="CreatedOn" type="hidden" />
+
+    <!-- Display general validation message -->
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-x-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Validation Error</strong>
+                Please correct the errors below and try again.
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- User Identification Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="adid" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.adid)
+                <span class="text-danger">*</span>
+            </label>
+            <input asp-for="adid" class="form-control form-control-master" id="adidInput" maxlength="100" onkeyup="this.value = this.value.replace(/[^pPiI0-9_]/g, '')" placeholder="Enter Active Directory ID" />
+            <div class="char-counter-container">
+                <span asp-validation-for="adid" class="field-validation-error" id="adidValidation"></span>
+                <small class="char-counter" id="adidCharCount">0/15</small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="full_name" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.full_name)
+                <span class="text-danger">*</span>
+            </label>
+            <input asp-for="full_name" class="form-control form-control-master" id="fullNameInput" maxlength="80" placeholder="Enter full name" />
+            <div class="char-counter-container">
+                <span asp-validation-for="full_name" class="field-validation-error" id="fullNameValidation"></span>
+                <small class="char-counter" id="fullNameCharCount">0/80</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Information Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label asp-for="email" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.email)
+                <span class="text-danger">*</span>
+            </label>
+            <input asp-for="email" type="email" class="form-control form-control-master" id="emailInput" maxlength="120" placeholder="Enter email address" />
+            <div class="char-counter-container">
+                <span asp-validation-for="email" class="field-validation-error" id="emailValidation"></span>
+                <small class="char-counter" id="emailCharCount">0/120</small>
+            </div>
+            <small class="form-text text-info">
+                <i class="bi bi-info-circle"></i>
+                Only @@itc.in and @@associatemail.in domains are allowed
+            </small>
+        </div>
+    </div>
+
+    <!-- Role and Plant Assignment Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="role_id" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.role_id)
+                <span class="text-danger">*</span>
+            </label>
+            <select asp-for="role_id" class="form-control form-control-master" id="roleSelect" asp-items="ViewBag.SysRoleList">
+                <option value="">-- Select Role --</option>
+            </select>
+            <span asp-validation-for="role_id" class="field-validation-error" id="roleValidation"></span>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="plant_id" class="form-label form-label-master">
+                @Html.DisplayNameFor(m => m.plant_id)
+                <span class="text-danger">*</span>
+            </label>
+            <select asp-for="plant_id" class="form-control form-control-master" id="plantSelect" asp-items="ViewBag.PlantMasterList">
+                <option value="">-- Select Plant --</option>
+            </select>
+            <span asp-validation-for="plant_id" class="field-validation-error" id="plantValidation"></span>
+        </div>
+    </div>
+
+    <!-- User Status Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label class="form-label form-label-master">
+                User Status
+                <span class="text-danger">*</span>
+            </label>
+            <div class="status-radio-group">
+                <div class="form-check form-check-master">
+                    <input class="form-check-input" type="radio" asp-for="is_active" value="true" id="Active">
+                    <label class="form-check-label" for="Active">
+                        <i class="bi bi-check-circle text-success"></i>
+                        Active
+                    </label>
+                </div>
+                <div class="form-check form-check-master">
+                    <input class="form-check-input" type="radio" asp-for="is_active" value="false" id="NotActive">
+                    <label class="form-check-label" for="NotActive">
+                        <i class="bi bi-x-circle text-danger"></i>
+                        Not Active
+                    </label>
+                </div>
+            </div>
+            <span asp-validation-for="is_active" class="field-validation-error" id="statusValidation"></span>
+        </div>
+    </div>
+
+    @if (Model.user_id > 0 && (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue))
+    {
+        <div class="audit-section">
+            <h6>
+                <i class="bi bi-clock-history"></i>
+                Audit Information
+            </h6>
+
+            @if (Model.CreatedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Created By</label>
+                        <input class="form-control" value="@(Model.CreatedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Created On</label>
+                        <input class="form-control" value="@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ModifiedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Modified By</label>
+                        <input class="form-control" value="@(Model.ModifiedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Modified On</label>
+                        <input class="form-control" value="@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="modal-footer modal-footer-master">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            @(Model.user_id == 0 ? "Save User" : "Update User")
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+   @*  <script type="text/javascript">
+        $(document).ready(function() {
+            // Form elements
+            const form = $('#sysUserForm');
+            const submitBtn = $('#submitBtn');
+            const adidInput = $('#adidInput');
+            const fullNameInput = $('#fullNameInput');
+            const emailInput = $('#emailInput');
+            const roleSelect = $('#roleSelect');
+            const plantSelect = $('#plantSelect');
+            const statusRadios = $('input[name="is_active"]');
+            const userId = $('#user_id').val();
+
+            // Character count elements
+            const adidCharCount = $('#adidCharCount');
+            const fullNameCharCount = $('#fullNameCharCount');
+            const emailCharCount = $('#emailCharCount');
+
+            // Validation flags
+            let isCheckingEmail = false;
+            let isCheckingAdid = false;
+
+            // Initialize validation
+            form.removeData("validator");
+            form.removeData("unobtrusiveValidation");
+            $.validator.unobtrusive.parse(form);
+
+            // Security patterns to check for
+            const dangerousPatterns = [
+                /<script[^>]*>.*?<\/script>/gi,
+                /javascript:/gi,
+                /vbscript:/gi,
+                /on\w+\s*=/gi,
+                /<iframe/gi,
+                /<object/gi,
+                /<embed/gi,
+                /<form/gi,
+                /eval\s*\(/gi,
+                /expression\s*\(/gi
+            ];
+
+            // Allowed email domains
+            const allowedDomains = ['itc.in', 'associatemail.in'];
+
+            // Function to check for dangerous input
+            function containsDangerousInput(text) {
+                if (!text) return false;
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            }
+
+            // Enhanced character count functions
+            function updateCharCount(input, countElement, maxLength) {
+                const currentLength = input.val().length;
+                countElement.text(`${currentLength}/${maxLength}`);
+
+                // Remove previous classes
+                countElement.removeClass('text-warning text-danger');
+
+                // Calculate thresholds
+                const warningThreshold = Math.floor(maxLength * 0.8);
+
+                if (currentLength >= maxLength) {
+                    countElement.addClass('text-danger');
+                } else if (currentLength >= warningThreshold) {
+                    countElement.addClass('text-warning');
+                }
+            }
+
+            // Enhanced validation functions
+            function validateAdid() {
+                const adid = adidInput.val().trim();
+                const validationSpan = $('#adidValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                adidInput.removeClass('is-invalid is-valid');
+
+                if (!adid) {
+                    showFieldError(validationSpan, adidInput, 'ADID is required.');
+                    isValid = false;
+                } else if (adid.length < 2) {
+                    showFieldError(validationSpan, adidInput, 'ADID must be at least 2 characters.');
+                    isValid = false;
+                } else if (adid.length > 100) {
+                    showFieldError(validationSpan, adidInput, 'ADID cannot exceed 100 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(adid)) {
+                    showFieldError(validationSpan, adidInput, 'ADID contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z0-9\s\-_\.@@]+$/.test(adid)) {
+                    showFieldError(validationSpan, adidInput, 'ADID can only contain letters, numbers, spaces, hyphens, underscores, dots, and email symbol.');
+                    isValid = false;
+                } else {
+                    adidInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateFullName() {
+                const fullName = fullNameInput.val().trim();
+                const validationSpan = $('#fullNameValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                fullNameInput.removeClass('is-invalid is-valid');
+
+                if (!fullName) {
+                    showFieldError(validationSpan, fullNameInput, 'Full Name is required.');
+                    isValid = false;
+                } else if (fullName.length < 2) {
+                    showFieldError(validationSpan, fullNameInput, 'Full Name must be at least 2 characters.');
+                    isValid = false;
+                } else if (fullName.length > 80) {
+                    showFieldError(validationSpan, fullNameInput, 'Full Name cannot exceed 80 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(fullName)) {
+                    showFieldError(validationSpan, fullNameInput, 'Full Name contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[a-zA-Z\s\-\.]+$/.test(fullName)) {
+                    showFieldError(validationSpan, fullNameInput, 'Full Name can only contain letters, spaces, hyphens, and dots.');
+                    isValid = false;
+                } else {
+                    fullNameInput.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateEmail() {
+                const email = emailInput.val().trim().toLowerCase();
+                const validationSpan = $('#emailValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                emailInput.removeClass('is-invalid is-valid');
+
+                if (!email) {
+                    showFieldError(validationSpan, emailInput, 'Email Address is required.');
+                    isValid = false;
+                } else if (email.length > 120) {
+                    showFieldError(validationSpan, emailInput, 'Email Address cannot exceed 120 characters.');
+                    isValid = false;
+                } else if (containsDangerousInput(email)) {
+                    showFieldError(validationSpan, emailInput, 'Email Address contains invalid characters. Script tags and unsafe characters are not allowed.');
+                    isValid = false;
+                } else if (!/^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/.test(email)) {
+                    showFieldError(validationSpan, emailInput, 'Please enter a valid email address.');
+                    isValid = false;
+                } else {
+                    // Check domain validation
+                    const domain = email.split('@@')[1];
+                    if (!allowedDomains.includes(domain)) {
+                        showFieldError(validationSpan, emailInput, 'Email domain must be @@itc.in or @@associatemail.in');
+                        isValid = false;
+                    } else {
+                        emailInput.addClass('is-valid');
+                    }
+                }
+
+                return isValid;
+            }
+
+            function validateRole() {
+                const roleId = roleSelect.val();
+                const validationSpan = $('#roleValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                roleSelect.removeClass('is-invalid is-valid');
+
+                if (!roleId) {
+                    showFieldError(validationSpan, roleSelect, 'Role selection is required.');
+                    isValid = false;
+                } else {
+                    roleSelect.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validatePlant() {
+                const plantId = plantSelect.val();
+                const validationSpan = $('#plantValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+                plantSelect.removeClass('is-invalid is-valid');
+
+                if (!plantId) {
+                    showFieldError(validationSpan, plantSelect, 'Plant selection is required.');
+                    isValid = false;
+                } else {
+                    plantSelect.addClass('is-valid');
+                }
+
+                return isValid;
+            }
+
+            function validateStatus() {
+                const isSelected = statusRadios.filter(':checked').length > 0;
+                const validationSpan = $('#statusValidation');
+                let isValid = true;
+
+                validationSpan.text('').removeClass('field-validation-error').hide();
+
+                if (!isSelected) {
+                    validationSpan.text('User Status selection is required.')
+                                 .addClass('field-validation-error')
+                                 .show();
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            function showFieldError(validationSpan, inputElement, message) {
+                validationSpan.text(message)
+                           .addClass('field-validation-error')
+                           .show();
+                inputElement.addClass('is-invalid');
+            }
+
+            // Real-time validation for email uniqueness
+            function checkEmailUniqueness() {
+                const email = emailInput.val().trim();
+                const validationSpan = $('#emailValidation');
+
+                if (!email || !validateEmail()) {
+                    updateSubmitButton();
+                    return;
+                }
+
+                if (isCheckingEmail) return;
+
+                isCheckingEmail = true;
+                submitBtn.prop('disabled', true);
+
+                $.post('@Url.Action("CheckEmailExists", "SysUser")', {
+                    email: email,
+                    userId: userId || null
+                })
+                .done(function(response) {
+                    if (response.exists) {
+                        showFieldError(validationSpan, emailInput, 'A user with this email already exists. Please use a different email.');
+                        submitBtn.prop('disabled', true);
+                    } else {
+                        if (validateEmail()) {
+                            validationSpan.text('').removeClass('field-validation-error').hide();
+                            emailInput.removeClass('is-invalid').addClass('is-valid');
+                        }
+                        updateSubmitButton();
+                    }
+                })
+                .fail(function() {
+                    console.log('Error checking email uniqueness');
+                    updateSubmitButton();
+                })
+                .always(function() {
+                    isCheckingEmail = false;
+                });
+            }
+
+            // Real-time validation for ADID uniqueness
+            function checkAdidUniqueness() {
+                const adid = adidInput.val().trim();
+                const validationSpan = $('#adidValidation');
+
+                if (!adid || !validateAdid()) {
+                    updateSubmitButton();
+                    return;
+                }
+
+                if (isCheckingAdid) return;
+
+                isCheckingAdid = true;
+                submitBtn.prop('disabled', true);
+
+                $.post('@Url.Action("CheckAdidExists", "SysUser")', {
+                    adid: adid,
+                    userId: userId || null
+                })
+                .done(function(response) {
+                    if (response.exists) {
+                        showFieldError(validationSpan, adidInput, 'A user with this ADID already exists. Please use a different ADID.');
+                        submitBtn.prop('disabled', true);
+                    } else {
+                        if (validateAdid()) {
+                            validationSpan.text('').removeClass('field-validation-error').hide();
+                            adidInput.removeClass('is-invalid').addClass('is-valid');
+                        }
+                        updateSubmitButton();
+                    }
+                })
+                .fail(function() {
+                    console.log('Error checking ADID uniqueness');
+                    updateSubmitButton();
+                })
+                .always(function() {
+                    isCheckingAdid = false;
+                });
+            }
+
+            function updateSubmitButton() {
+                const hasErrors = $('.field-validation-error:visible').length > 0 ||
+                                $('.is-invalid').length > 0 ||
+                                isCheckingEmail ||
+                                isCheckingAdid;
+                submitBtn.prop('disabled', hasErrors);
+            }
+
+            // Real-time character counting and validation
+            adidInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), adidCharCount, 100);
+                    validateAdid();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            fullNameInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), fullNameCharCount, 80);
+                    validateFullName();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            emailInput.on('input paste keyup', function() {
+                setTimeout(() => {
+                    updateCharCount($(this), emailCharCount, 120);
+                    validateEmail();
+                    updateSubmitButton();
+                }, 10);
+            });
+
+            roleSelect.on('change', function() {
+                validateRole();
+                updateSubmitButton();
+            });
+
+            plantSelect.on('change', function() {
+                validatePlant();
+                updateSubmitButton();
+            });
+
+            statusRadios.on('change', function() {
+                validateStatus();
+                updateSubmitButton();
+            });
+
+            // Debounced uniqueness checks
+            let emailCheckTimeout;
+            emailInput.on('input keyup', function() {
+                clearTimeout(emailCheckTimeout);
+                emailCheckTimeout = setTimeout(checkEmailUniqueness, 500);
+            });
+
+            let adidCheckTimeout;
+            adidInput.on('input keyup', function() {
+                clearTimeout(adidCheckTimeout);
+                adidCheckTimeout = setTimeout(checkAdidUniqueness, 500);
+            });
+
+            // Initialize on page load
+            updateCharCount(adidInput, adidCharCount, 100);
+            updateCharCount(fullNameInput, fullNameCharCount, 80);
+            updateCharCount(emailInput, emailCharCount, 120);
+            validateAdid();
+            validateFullName();
+            validateEmail();
+            validateRole();
+            validatePlant();
+            validateStatus();
+            updateSubmitButton();
+
+            // Prevent form submission if validation fails
+            form.on('submit', function(e) {
+                if (!validateAdid() || !validateFullName() || !validateEmail() || 
+                    !validateRole() || !validatePlant() || !validateStatus() || 
+                    isCheckingEmail || isCheckingAdid) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Final check for any visible errors
+                if ($('.field-validation-error:visible').length > 0) {
+                    e.preventDefault();
+                    return false;
+                }
+
+                // Double-check for dangerous input before submission
+                const adid = adidInput.val().trim();
+                const fullName = fullNameInput.val().trim();
+                const email = emailInput.val().trim();
+
+                if (containsDangerousInput(adid) || containsDangerousInput(fullName) || containsDangerousInput(email)) {
+                    e.preventDefault();
+                    alert('Invalid input detected. Please remove any script tags or unsafe characters.');
+                    return false;
+                }
+
+                // Final domain check
+                const emailDomain = email.split('@@')[1];
+                if (email && !allowedDomains.includes(emailDomain.toLowerCase())) {
+                    e.preventDefault();
+                    alert('Email domain must be @@itc.in or @@associatemail.in');
+                    return false;
+                }
+            });
+
+            // Prevent pasting of dangerous content
+            function handleDangerousPaste(input, inputName) {
+                input.on('paste', function(e) {
+                    setTimeout(function() {
+                        const pastedContent = input.val();
+                        if (containsDangerousInput(pastedContent)) {
+                            input.val('');
+                            alert('Pasted content in ' + inputName + ' contains unsafe characters and has been removed.');
+                        }
+                    }, 10);
+                });
+            }
+
+            handleDangerousPaste(adidInput, 'ADID');
+            handleDangerousPaste(fullNameInput, 'Full Name');
+            handleDangerousPaste(emailInput, 'Email Address');
+        });
+    </script> *@
+}

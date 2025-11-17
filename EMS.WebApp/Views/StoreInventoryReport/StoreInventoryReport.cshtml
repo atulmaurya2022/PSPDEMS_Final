@@ -1,0 +1,779 @@
+﻿@{
+    ViewData["Title"] = "Store Inventory Report";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/css/report.css" rel="stylesheet" />
+<link href="~/css/report-inventory.css" rel="stylesheet" />
+
+<!-- Enhanced Dashboard Header -->
+<div class="dashboard-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item">Reports</li>
+            <li class="breadcrumb-item active" aria-current="page">Store Inventory Report</li>
+        </ol>
+    </nav>
+    <h1 class="dashboard-title">
+        <i class="bi bi-boxes"></i>
+        Store Inventory Report
+    </h1>
+    <p class="dashboard-subtitle">Comprehensive batch-level store inventory tracking with stock status monitoring and alert system</p>
+</div>
+
+<div class="container-fluid">
+    <!-- Enhanced Filter Controls Section -->
+    <div class="report-controls-section">
+        <div class="controls-row">
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-calendar-range me-2"></i>
+                    Date Range
+                </label>
+                <div class="date-range-inputs">
+                    <input type="date" class="form-control form-control-enhanced" id="fromDate" />
+                    <span class="date-separator">to</span>
+                    <input type="date" class="form-control form-control-enhanced" id="toDate" />
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-funnel me-2"></i>
+                    Filters
+                </label>
+                <div class="filter-controls">
+                    <div class="custom-checkbox-enhanced">
+                        <input class="form-check-input-enhanced" type="checkbox" id="showLowStockOnly">
+                        <label class="form-check-label-enhanced" for="showLowStockOnly">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Show Low/Out of Stock Only
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-actions">
+                <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
+                    <i class="bi bi-search"></i>
+                    Generate Report
+                </button>
+                <div class="action-buttons" id="actionButtons" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
+                        <i class="bi bi-download"></i>
+                        Export
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="printReport()">
+                        <i class="bi bi-printer"></i>
+                        Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Summary Cards (6 cards for Inventory) -->
+    <div id="reportSummary" class="inventory-summary-grid" style="display: none;">
+        <div class="summary-card" data-category="total-records">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Records</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-list-ul"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalRecords">0</div>
+                <div class="summary-subtitle">Inventory records</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-batches">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Batches</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-archive"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalBatches">0</div>
+                <div class="summary-subtitle">Batch entries</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="available-stock">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Available Stock</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalAvailable">0</div>
+                <div class="summary-subtitle">Units available</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="consumed-stock">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Consumed Stock</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-arrow-down-circle"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalConsumed">0</div>
+                <div class="summary-subtitle">Units consumed</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="out-of-stock">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Stock Alerts</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="stockAlerts">0</div>
+                <div class="summary-subtitle">Critical alerts</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="low-stock">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Received</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-box-arrow-in-down"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalReceived">0</div>
+                <div class="summary-subtitle">Units received</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Plant Information -->
+    <div id="plantInfo" class="plant-info-section" style="display: none;">
+        <div class="plant-info-content">
+            <div class="plant-info-header">
+                <i class="bi bi-building me-2"></i>
+                <h6 class="plant-info-title">Plant Information</h6>
+            </div>
+            <div class="plant-info-details">
+                <div class="plant-detail-item">
+                    <span class="plant-detail-label">Plant Code:</span>
+                    <span class="plant-detail-value" id="currentPlantCode">-</span>
+                </div>
+                <div class="plant-detail-separator"></div>
+                <div class="plant-detail-item">
+                    <span class="plant-detail-label">Plant Name:</span>
+                    <span class="plant-detail-value" id="currentPlantName">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Status Legend -->
+    <div id="stockLegend" class="plant-info-section" style="display: none;">
+        <div class="plant-info-content">
+            <div class="plant-info-header">
+                <i class="bi bi-info-circle me-2"></i>
+                <h6 class="plant-info-title">Stock Status Legend</h6>
+            </div>
+            <div class="plant-info-details">
+                <div class="plant-detail-item">
+                    <span class="status-indicator-inventory normal">
+                        <i class="bi bi-check-circle me-1"></i>In Stock
+                    </span>
+                    <small class="text-muted">Available > 20%</small>
+                </div>
+                <div class="plant-detail-separator"></div>
+                <div class="plant-detail-item">
+                    <span class="status-indicator-inventory warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Low Stock
+                    </span>
+                    <small class="text-muted">Available ≤ 20%</small>
+                </div>
+                <div class="plant-detail-separator"></div>
+                <div class="plant-detail-item">
+                    <span class="status-indicator-inventory critical">
+                        <i class="bi bi-x-circle me-1"></i>Out of Stock
+                    </span>
+                    <small class="text-muted">Available = 0</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Header -->
+    <div id="reportHeader" class="report-header-section" style="display: none;">
+        <div class="report-header-content">
+            <div class="company-info">
+                <h4 id="unitHeader">Unit: ITC LIMITED - PSPD-N/A</h4>
+                <div class="report-meta">
+                    <span class="meta-item">
+                        <i class="bi bi-clock me-1"></i>
+                        Generated: <span id="runDateTime"></span>
+                    </span>
+                    <span class="meta-item">
+                        <i class="bi bi-person me-1"></i>
+                        By: <span id="generatedBy"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="report-title">
+                <h3>STORE INVENTORY</h3>
+                <p class="report-subtitle">Batch Level Report</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Search Section -->
+    <div id="searchSection" class="search-controls-section" style="display: none;">
+        <div class="search-wrapper">
+            <div class="search-input-group">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control search-input-enhanced" id="searchInput"
+                       placeholder="Search by medicine name, batch no, manufacturer, vendor code, stock status...">
+                <button type="button" class="btn btn-clear" onclick="clearSearch()">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="search-results-info">
+                <small class="text-muted" id="searchResultCount">No search applied</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Table -->
+    <div id="reportTableSection" class="inventory-table-section" style="display: none;">
+        <div class="table-container">
+            <div class="table-responsive">
+                <table class="table table-striped table-glass glass-table table-sm" id="reportTable">
+                    <thead>
+                        <tr>
+                            <th class="col-sl">SL</th>
+                            <th class="col-indent-id">INDENT ID</th>
+                            <th class="col-raised-date">RAISED DATE</th>
+                            <th class="col-medicine-name">MEDICINE NAME</th>
+                            <th class="col-manufacturer">MANUFACTURER</th>
+                            <th class="col-batch-no">BATCH NO</th>
+                            <th class="col-vendor-code">VENDOR CODE</th>
+                            <th class="col-raised-qty">RAISED QTY</th>
+                            <th class="col-received-qty">RECEIVED</th>
+                            <th class="col-consumed">CONSUMED</th>
+                            <th class="col-available">AVAILABLE</th>
+                            
+                            <th class="col-expiry-date">EXPIRY DATE</th>
+                            <th class="col-status">STOCK STATUS</th>
+                            <th class="col-raised-by">RAISED BY</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportData">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="inventory-table-footer">
+                            <th colspan="7" class="text-end">Totals:</th>
+                            <th id="footerTotalRaised" class="total-value">0</th>
+                            <th id="footerTotalReceived" class="total-value">0</th>
+                            <th id="footerTotalConsumed" class="total-value">0</th>
+                            <th id="footerTotalAvailable" class="total-value">0</th>
+                            
+                            <th colspan="3"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced No Data State -->
+    <div id="noDataMessage" class="empty-state-section" style="display: none;">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-archive-x"></i>
+            </div>
+            <h6 class="empty-state-title">No Inventory Data Found</h6>
+            <p class="empty-state-description">
+                No store inventory batch records found for the selected date range.<br>
+                Try adjusting your date filters or removing the stock filter.
+            </p>
+            <button type="button" class="btn btn-outline-primary btn-enhanced" onclick="$('#fromDate, #toDate').focus()">
+                <i class="bi bi-funnel"></i>
+                Adjust Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Enhanced Loading State -->
+    <div id="loadingSpinner" class="loading-state-section" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner-inventory"></div>
+            <h6 class="loading-title">Generating Inventory Report</h6>
+            <p class="loading-description">Processing batch-level inventory data...</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var allReportData = []; // Store all data for filtering
+        var currentFilteredData = []; // Store currently filtered data
+
+        $(document).ready(function() {
+            // Set default dates (current month)
+            var now = new Date();
+            var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            var today = new Date();
+
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(today.toISOString().split('T')[0]);
+
+            // Filter checkbox event
+            $('#showLowStockOnly').change(function() {
+                applyFilters();
+
+                // Add visual feedback
+                if ($(this).is(':checked')) {
+                    showAlert('info', 'Showing only low/out of stock items', 'Filter Applied');
+                } else {
+                    showAlert('info', 'Showing all inventory items', 'Filter Removed');
+                }
+            });
+
+            // Search input event with debounce
+            $('#searchInput').on('input', debounce(function() {
+                applyFilters();
+            }, 300));
+
+            // Enhanced form validation
+            $('#fromDate, #toDate').on('change', function() {
+                validateDateRange();
+            });
+        });
+
+        // Enhanced date validation
+        function validateDateRange() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                showAlert('warning', 'From Date cannot be greater than To Date', 'Invalid Date Range');
+                return false;
+            }
+            return true;
+        }
+
+        // Debounce function for search input
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function loadReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select both From Date and To Date', 'Missing Required Fields');
+                return;
+            }
+
+            if (!validateDateRange()) {
+                return;
+            }
+
+            // Show loading state
+            $('#loadingSpinner').show();
+            $('#reportTableSection').hide();
+            $('#reportHeader').hide();
+            $('#reportSummary').hide();
+            $('#plantInfo').hide();
+            $('#stockLegend').hide();
+            $('#noDataMessage').hide();
+            $('#searchSection').hide();
+            $('#actionButtons').hide();
+
+            $.ajax({
+                url: '@Url.Action("GetReport", "StoreInventoryReport")',
+                type: 'GET',
+                data: {
+                    fromDate: fromDate,
+                    toDate: toDate
+                },
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+
+                    if (response.success && response.data && response.data.length > 0) {
+                        allReportData = response.data;
+                        currentFilteredData = [...allReportData]; // Copy all data initially
+
+                        applyFilters();
+                        updateReportHeader(response.reportInfo);
+                        updateSummaryCards(response.reportInfo);
+                        updatePlantInfo(response.reportInfo);
+
+                        // Show all sections with animation
+                        $('#reportSummary').fadeIn(300);
+                        setTimeout(() => $('#plantInfo').fadeIn(300), 100);
+                        setTimeout(() => $('#stockLegend').fadeIn(300), 150);
+                        setTimeout(() => $('#reportHeader').fadeIn(300), 200);
+                        setTimeout(() => $('#searchSection').fadeIn(300), 300);
+                        setTimeout(() => $('#reportTableSection').fadeIn(300), 400);
+                        setTimeout(() => $('#actionButtons').fadeIn(300), 500);
+
+                        showAlert('success', `Inventory report generated with ${response.data.length} records`, 'Report Ready');
+                    } else {
+                        $('#noDataMessage').fadeIn(300);
+                        showAlert('info', 'No inventory data found for the selected criteria', 'No Results');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#loadingSpinner').hide();
+                    $('#noDataMessage').show();
+                    showAlert('danger', 'Error loading inventory report: ' + error, 'Load Error');
+                }
+            });
+        }
+
+        function applyFilters() {
+            var showLowStockOnly = $('#showLowStockOnly').is(':checked');
+            var searchText = $('#searchInput').val().toLowerCase().trim();
+
+            var filteredData = allReportData;
+
+            // Apply stock status filter
+            if (showLowStockOnly) {
+                filteredData = filteredData.filter(function(item) {
+                    return item.stockStatus === 'Low Stock' || item.stockStatus === 'Out of Stock';
+                });
+            }
+
+            // Apply search filter
+            if (searchText) {
+                filteredData = filteredData.filter(function(item) {
+                    return (item.medicineName || '').toLowerCase().includes(searchText) ||
+                           (item.batchNo || '').toLowerCase().includes(searchText) ||
+                           (item.manufacturerBy || '').toLowerCase().includes(searchText) ||
+                           (item.vendorCode || '').toLowerCase().includes(searchText) ||
+                           (item.potency || '').toLowerCase().includes(searchText) ||
+                           (item.stockStatus || '').toLowerCase().includes(searchText) ||
+                           (item.raisedBy || '').toLowerCase().includes(searchText) ||
+                           (item.indentId != null && item.indentId.toString().includes(searchText));
+                });
+            }
+
+            currentFilteredData = filteredData;
+            populateReportTable(filteredData);
+            updateSearchResultCount(filteredData.length);
+        }
+
+        function updateSearchResultCount(count) {
+            var searchText = $('#searchInput').val().trim();
+            var stockFilter = $('#showLowStockOnly').is(':checked');
+
+            if (searchText || stockFilter) {
+                var filterInfo = `${count} of ${allReportData.length} records found`;
+                if (searchText && stockFilter) {
+                    filterInfo += ' (search + filter)';
+                } else if (searchText) {
+                    filterInfo += ' (search)';
+                } else {
+                    filterInfo += ' (filter)';
+                }
+                $('#searchResultCount').text(filterInfo);
+
+                if (count === 0) {
+                    $('#searchResultCount').addClass('text-warning').removeClass('text-muted');
+                } else {
+                    $('#searchResultCount').addClass('text-success').removeClass('text-muted text-warning');
+                }
+            } else {
+                $('#searchResultCount').text('No search applied').removeClass('text-warning text-success').addClass('text-muted');
+            }
+        }
+
+        function clearSearch() {
+            $('#searchInput').val('');
+            $('#showLowStockOnly').prop('checked', false);
+            applyFilters();
+            showAlert('info', 'All filters cleared', 'Filters Reset');
+        }
+
+        // Build (IndentId + MedicineName) => average raised qty (rounded)
+        function buildRaisedAverageMap(data) {
+            const agg = new Map(); // key -> { sum, count }
+            for (const row of data) {
+                const key = `${row.indentId}||${(row.medicineName || '').toLowerCase()}`;
+                const a = agg.get(key) || { sum: 0, count: 0 };
+                a.sum += Number(row.raisedQuantity || 0);
+                a.count += 1;
+                agg.set(key, a);
+            }
+            const avg = new Map();
+            agg.forEach((v, k) => {
+                avg.set(k, v.count ? Math.round(v.sum / v.count) : 0);
+            });
+            return avg;
+        }
+
+        function populateReportTable(data) {
+            var tbody = $('#reportData');
+            tbody.empty();
+
+            var totalReceived = 0;
+            var totalAvailable = 0;
+            var totalConsumed = 0;
+
+            // Pre-compute group averages for display
+            const avgMap = buildRaisedAverageMap(data);
+
+            $.each(data, function(index, item) {
+                // Stock status styling and row classes
+                var stockStatusClass = '';
+                var stockStatusIcon = '';
+                var rowClass = '';
+
+                        switch(item.stockStatus) {
+            case 'In Stock':
+                stockStatusClass = 'stock-badge-success';
+                stockStatusIcon = '<i class="bi bi-check-circle me-1"></i>';
+                rowClass = 'row-success';
+                break;
+            case 'In Stock - Expiring Soon':
+                stockStatusClass = 'stock-badge-warning';
+                stockStatusIcon = '<i class="bi bi-exclamation-triangle me-1"></i>';
+                rowClass = 'row-warning';
+                break;
+            case 'Low Stock':
+                stockStatusClass = 'stock-badge-warning';
+                stockStatusIcon = '<i class="bi bi-exclamation-triangle me-1"></i>';
+                rowClass = 'row-warning';
+                break;
+            case 'Low Stock - Expiring Soon':
+                stockStatusClass = 'stock-badge-warning';
+                stockStatusIcon = '<i class="bi bi-exclamation-triangle me-1"></i>';
+                rowClass = 'row-warning';
+                break;
+            case 'Out of Stock':
+                stockStatusClass = 'stock-badge-danger';
+                stockStatusIcon = '<i class="bi bi-x-circle me-1"></i>';
+                rowClass = 'row-danger';
+                break;
+            case 'Expired - Not Usable':
+                stockStatusClass = 'stock-badge-expired';
+                stockStatusIcon = '<i class="bi bi-exclamation-octagon me-1"></i>';
+                rowClass = 'row-expired';
+                break;
+            case 'Expired - Out of Stock':
+                stockStatusClass = 'stock-badge-expired-empty';
+                stockStatusIcon = '<i class="bi bi-x-octagon me-1"></i>';
+                rowClass = 'row-expired-empty';
+                break;
+            default:
+                stockStatusClass = 'stock-badge-secondary';
+                stockStatusIcon = '<i class="bi bi-question-circle me-1"></i>';
+                rowClass = '';
+        }
+
+                // Check if batch is expiring soon or expired
+                var expiryBadgeClass = '';
+
+                if (item.expiryDate && item.expiryDate !== 'Not Set') {
+                    var expiryDate = new Date(item.expiryDate.split('/').reverse().join('-'));
+                    var today = new Date();
+                    var thirtyDaysFromNow = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+
+                    if (expiryDate < today) {
+                        expiryBadgeClass = 'expiry-badge-expired';
+                    } else if (expiryDate <= thirtyDaysFromNow) {
+                        expiryBadgeClass = 'expiry-badge-warning';
+                    } else {
+                        expiryBadgeClass = 'expiry-badge-normal';
+                    }
+                }
+
+                // Simple sums for other totals
+                totalReceived += Number(item.receivedQuantity || 0);
+                totalAvailable += Number(item.availableStock || 0);
+                totalConsumed += Number(item.consumedStock || 0);
+
+                // Display raised qty = group average for (IndentId + MedicineName)
+                const key = `${item.indentId}||${(item.medicineName || '').toLowerCase()}`;
+                const displayRaisedQty = avgMap.get(key) ?? Number(item.raisedQuantity || 0);
+
+                var row = `<tr class="inventory-table-row ${rowClass}">
+                    <td class="sl-cell">${index + 1}</td>
+                    <td class="indent-id-cell">
+                        <span class="id-badge">${item.indentId}</span>
+                    </td>
+                    <td class="date-cell">${item.raisedDate}</td>
+                    <td class="medicine-cell">
+                        <span class="medicine-name">${item.medicineName || ''}</span>
+                        ${item.potency ? `<br><small class="text-muted">${item.potency}</small>` : ''}
+                    </td>
+                    <td class="manufacturer-cell">${item.manufacturerBy || ''}</td>
+                    <td class="batch-cell">
+                        <span class="batch-badge">${item.batchNo || ''}</span>
+                    </td>
+                    <td class="vendor-cell">${item.vendorCode || ''}</td>
+                    <td class="quantity-cell">
+                        <span class="quantity-badge raised">${displayRaisedQty}</span>
+                    </td>
+                    <td class="quantity-cell">
+                        <span class="quantity-badge received">${item.receivedQuantity || 0}</span>
+                    </td>
+                    <td class="quantity-cell">
+                        <span class="quantity-badge consumed">${item.consumedStock || 0}</span>
+                    </td>
+                    <td class="quantity-cell">
+                        <span class="quantity-badge available">${item.availableStock || 0}</span>
+                    </td>
+                    
+                    <td class="expiry-cell">
+                        <span class="expiry-badge ${expiryBadgeClass}">${item.expiryDate || ''}</span>
+                    </td>
+                    <td class="status-cell">
+                        <span class="status-badge ${stockStatusClass}">${stockStatusIcon}${item.stockStatus || ''}</span>
+                    </td>
+                    <td class="raised-by-cell">${item.raisedBy || ''}</td>
+                </tr>`;
+                tbody.append(row);
+            });
+
+            // Footer totals (Raised Total uses per-group averages)
+            const raisedTotal = computeRaisedTotalByGroupAverage(data);
+            animateFooterValue('footerTotalRaised', raisedTotal);
+            animateFooterValue('footerTotalReceived', totalReceived);
+            animateFooterValue('footerTotalConsumed', totalConsumed);
+            animateFooterValue('footerTotalAvailable', totalAvailable);
+            
+        }
+
+        function animateFooterValue(elementId, newValue) {
+            $('#' + elementId).fadeOut(150, function() {
+                $(this).text(newValue.toLocaleString()).fadeIn(150);
+            });
+        }
+
+        // Raised Total = sum of per-group averages (IndentId + MedicineName)
+        function computeRaisedTotalByGroupAverage(data) {
+            if (!data || !data.length) return 0;
+            const avgMap = buildRaisedAverageMap(data);
+            let total = 0;
+            avgMap.forEach(v => { total += Number(v) || 0; });
+            return Math.round(total); // whole number as per your example
+        }
+
+        function updateReportHeader(reportInfo) {
+            $('#runDateTime').text(reportInfo.generatedOn);
+            $('#generatedBy').text(reportInfo.generatedBy);
+
+            // Dynamic unit header with plant code
+            var unitText = 'Unit: ITC LIMITED - PSPD-' + (reportInfo.plantCode || 'N/A');
+            if (reportInfo.plantName && reportInfo.plantName !== 'Unknown Plant') {
+                unitText += ' (' + reportInfo.plantName + ')';
+            }
+            $('#unitHeader').text(unitText);
+        }
+
+        function updateSummaryCards(reportInfo) {
+            // Animate card values
+            animateValue('totalRecords', 0, reportInfo.totalRecords, 1000);
+            animateValue('totalBatches', 0, reportInfo.totalBatches, 1100);
+            animateValue('totalReceived', 0, reportInfo.totalReceived, 1200);
+            animateValue('totalAvailable', 0, reportInfo.totalAvailable, 1300);
+            animateValue('totalConsumed', 0, reportInfo.totalConsumed, 1400);
+            animateValue('stockAlerts', 0, (reportInfo.lowStockBatches || 0) + (reportInfo.outOfStockBatches || 0), 1500);
+        }
+
+        function animateValue(elementId, start, end, duration) {
+            const element = document.getElementById(elementId);
+            const startTime = performance.now();
+
+            function updateValue(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (end - start) * progress);
+
+                element.textContent = current.toLocaleString();
+
+                if (progress < 1) {
+                    requestAnimationFrame(updateValue);
+                }
+            }
+
+            requestAnimationFrame(updateValue);
+        }
+
+        function updatePlantInfo(reportInfo) {
+            $('#currentPlantCode').text(reportInfo.plantCode || 'N/A');
+            $('#currentPlantName').text(reportInfo.plantName || 'Unknown Plant');
+        }
+
+        function exportReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select date range first', 'Export Failed');
+                return;
+            }
+
+            showAlert('info', 'Preparing inventory export file...', 'Export Started');
+
+            window.location.href = '@Url.Action("Export", "StoreInventoryReport")' +
+                '?fromDate=' + fromDate + '&toDate=' + toDate;
+        }
+
+        function printReport() {
+            if ($('#reportTableSection').is(':visible')) {
+                showAlert('info', 'Preparing print view...', 'Print Started');
+                setTimeout(() => window.print(), 500);
+            } else {
+                showAlert('warning', 'Please generate the report first', 'Print Failed');
+            }
+        }
+
+        // Enhanced alert system integration
+        function showAlert(type, message, title = null) {
+            // This function should integrate with your existing alert system
+            // For now, using console.log as placeholder
+            console.log(`${title || type.toUpperCase()}: ${message}`);
+
+            // If you have the showAlert function from your site.js, uncomment this:
+            // window.showAlert(type, message);
+        }
+    </script>
+}
+
+<style>
+    .stock-badge-expired {
+        background-color: #dc3545;
+        color: white;
+        border: 2px solid #a02331;
+    }
+
+    .stock-badge-expired-empty {
+        background-color: #6f42c1;
+        color: white;
+        border: 2px solid #5a3695;
+    }
+
+    .row-expired {
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+
+    .row-expired-empty {
+        background-color: rgba(111, 66, 193, 0.1);
+    }
+</style>

@@ -1,0 +1,248 @@
+﻿@{
+    ViewData["Title"] = "Admin Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+<style>
+    .kpi-card {
+        border: 0;
+        border-radius: 1rem;
+        box-shadow: 0 10px 30px rgba(28,39,60,.06),0 2px 8px rgba(28,39,60,.05);
+    }
+
+    .kpi-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .kpi-label {
+        color: #6b7ca6;
+        font-weight: 600;
+        letter-spacing: .2px;
+    }
+
+    .list-compact li {
+        padding: .4rem 0;
+        border-bottom: 1px dashed #e5e9f5;
+    }
+
+        .list-compact li:last-child {
+            border-bottom: 0;
+        }
+</style>
+
+<div class="container-fluid py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="mb-0">Admin Dashboard</h2>
+        <div>
+            <button class="btn btn-sm btn-outline-primary" id="btn-refresh">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Actions (Masters & Maintenance) -->
+    <div class="card kpi-card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index","PlantMaster")">
+                        <i class="bi bi-diagram-3 me-2" aria-hidden="true"></i> Plant Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "HrEmployee")">
+                        <i class="bi bi-person-badge me-2" aria-hidden="true"></i> Employee Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "MedDisease")">
+                        <i class="bi bi-bug me-2" aria-hidden="true"></i> Medicine Disease Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "DepartmentMaster")">
+                        <i class="bi bi-buildings me-2" aria-hidden="true"></i> Department Master
+                    </a>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "HrEmployeeDependent")">
+                        <i class="bi bi-people me-2" aria-hidden="true"></i> Employee Dependent Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "MedAmbulanceMaster")">
+                        <i class="bi bi-truck me-2" aria-hidden="true"></i> Medicine Ambulance Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "MedCategory")">
+                        <i class="bi bi-tags me-2" aria-hidden="true"></i> Medicine Category Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "MedDiagnosis")">
+                        <i class="bi bi-clipboard2-data me-2" aria-hidden="true"></i> Medicine Diagnosis Master
+                    </a>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "MedExamCategory")">
+                        <i class="bi bi-card-checklist me-2" aria-hidden="true"></i> Medicine Exam Category Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "SysUser")">
+                        <i class="bi bi-person-lines-fill me-2" aria-hidden="true"></i> User Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "SystemScreenMaster")">
+                        <i class="bi bi-window me-2" aria-hidden="true"></i> Screen Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "SysRole")">
+                        <i class="bi bi-shield-lock me-2" aria-hidden="true"></i> Role Master
+                    </a>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "SysAttachScreenRole")">
+                        <i class="bi bi-diagram-2 me-2" aria-hidden="true"></i> Role Mapping
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "MedBase")">
+                        <i class="bi bi-capsule me-2" aria-hidden="true"></i> Medicine Base
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "MedRefHospital")">
+                        <i class="bi bi-building me-2" aria-hidden="true"></i> Medicine Ref Hospital Master
+                    </a>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <a class="btn btn-outline-secondary w-100 text-start" href="@Url.Action("Index", "MedMaster")">
+                        <i class="bi bi-capsule me-2" aria-hidden="true"></i> Medicine Master
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-3">
+        <div class="col-md-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label mb-1"><i class="bi bi-people me-1"></i> Total Users</div>
+                    <div class="kpi-value" id="kpi-users-total">0</div>
+                    <div class="text-muted small mt-2">
+                        <span class="me-3"><i class="bi bi-clock-history me-1"></i>Inactive 30d: <span id="kpi-users-inactive">0</span></span>
+                        <span><i class="bi bi-person-exclamation me-1"></i>Never logged: <span id="kpi-users-never">0</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label mb-1"><i class="bi bi-shield-lock me-1"></i> Roles</div>
+                    <div class="kpi-value" id="kpi-roles-total">0</div>
+                    <div class="text-muted small mt-2"><i class="bi bi-building me-1"></i>Plants: <span id="kpi-plants-total">0</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="kpi-label"><i class="bi bi-activity me-1"></i> Errors (last 24h)</div>
+                        <div class="text-muted small">
+                            <span class="me-3"><i class="bi bi-lightning"></i> 1h: <span id="kpi-err-1h">0</span></span>
+                            <span class="me-3"><i class="bi bi-speedometer2"></i> 6h: <span id="kpi-err-6h">0</span></span>
+                            <span><i class="bi bi-bar-chart-line"></i> 24h: <span id="kpi-err-24h">0</span></span>
+                        </div>
+                    </div>
+                    <ul class="list-unstyled list-compact mb-0" id="list-top-sources"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-md-8">
+            <div class="card kpi-card">
+                <div class="card-header kpi-label">Recent audit errors</div>
+                <div class="card-body">
+                    <ul class="list-unstyled list-compact mb-0" id="list-audit"></ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card kpi-card">
+                <div class="card-header kpi-label">Application</div>
+                <div class="card-body">
+                    <div class="mb-1"><span class="text-muted">Version:</span> <span id="app-version">-</span></div>
+                    <div class="mb-1"><span class="text-muted">Build (UTC):</span> <span id="app-build">-</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function(){
+          function load(){
+            $.getJSON('@Url.Action("Cards", "AdminDashboard")')
+              .done(d=>{
+                // Users
+                $('#kpi-users-total').text(d.users?.total ?? 0);
+                $('#kpi-users-inactive').text(d.users?.inactive30 ?? 0);
+                $('#kpi-users-never').text(d.users?.neverLogged ?? 0);
+
+                // Snapshot
+                $('#kpi-roles-total').text(d.inventory?.roles ?? 0);
+                $('#kpi-plants-total').text(d.inventory?.plants ?? 0);
+
+                // Errors
+                $('#kpi-err-1h').text(d.errors?.last1h ?? 0);
+                $('#kpi-err-6h').text(d.errors?.last6h ?? 0);
+                $('#kpi-err-24h').text(d.errors?.last24h ?? 0);
+
+                const $src = $('#list-top-sources').empty();
+                const top = d.errors?.topSources24h || [];
+                if(top.length===0) $src.append('<li class="text-muted">No error sources in the last 24h.</li>');
+                top.forEach(x=>{
+                  $src.append(`<li><i class="bi bi-bug me-1"></i>${(x.source||'unknown')} <span class="badge bg-light text-dark ms-2">${x.count}</span></li>`);
+                });
+
+                const $au = $('#list-audit').empty();
+                const rec = d.audit?.recent || [];
+                if(rec.length===0) $au.append('<li class="text-muted">No recent audit errors.</li>');
+                rec.forEach(a=>{
+                  const ts = a.timestamp || '';
+                  const typ = a.type || '';
+                  const msg = (a.message || '').toString().replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                  $au.append(`<li><i class="bi bi-clipboard2-x me-1"></i><span class="text-muted">${ts}</span> <span class="badge bg-danger-subtle text-danger-emphasis ms-2">${typ||'Error'}</span> <span class="ms-2">${msg}</span></li>`);
+                });
+
+                // App
+                $('#app-version').text(d.app?.version || '-');
+                $('#app-build').text(d.app?.buildUtc || '-');
+              })
+              .fail(()=> {
+                $('#kpi-users-total,#kpi-users-inactive,#kpi-users-never,#kpi-roles-total,#kpi-plants-total,#kpi-err-1h,#kpi-err-6h,#kpi-err-24h').text('0');
+                $('#list-top-sources').html('<li class="text-danger">Failed to load metrics.</li>');
+                $('#list-audit').html('<li class="text-danger">Failed to load audit.</li>');
+              });
+          }
+
+          $('#btn-refresh').on('click', function(e){ e.preventDefault(); load(); });
+          $(document).ready(load);
+        })();
+    </script>
+}

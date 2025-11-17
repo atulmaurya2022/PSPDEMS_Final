@@ -1,0 +1,462 @@
+﻿@model EMS.WebApp.Data.MedExamCategory
+
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-triangle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Warning</strong>
+                @ViewBag.Error
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+}
+
+<form asp-action="@(Model.CatId==0? "Create":"Edit")" method="post" id="medExamCategoryForm">
+    @Html.AntiForgeryToken()
+
+    <input asp-for="CatId" type="hidden" />
+    <input asp-for="CreatedBy" type="hidden" />
+    <input asp-for="CreatedOn" type="hidden" />
+
+    <!-- Display general validation message -->
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-dismissible fade show" role="alert" style="display: none;">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-x-circle me-3 flex-shrink-0" style="font-size: 18px;"></i>
+            <div class="flex-grow-1">
+                <strong class="d-block mb-1">Validation Error</strong>
+                Please correct the errors below and try again.
+            </div>
+            <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
+
+    <!-- First Row: Category Name and Years -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="CatName" class="form-label form-label-master">
+                <i class="bi bi-calendar2-check"></i>
+                Medical Exam Category <span class="text-danger">*</span>
+            </label>
+            <input asp-for="CatName" class="form-control form-control-master" id="catNameInput" maxlength="100" placeholder="Enter medical examination category" />
+            <div class="char-counter-container">
+                <span asp-validation-for="CatName" id="catNameValidation" class="field-validation-error"></span>
+                <small class="char-counter" id="catNameCharCount">0/100</small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="YearsFreq" class="form-label form-label-master">
+                <i class="bi bi-arrow-repeat"></i>
+                Years Frequency <span class="text-danger">*</span>
+            </label>
+            <input asp-for="YearsFreq" type="number" class="form-control form-control-master" id="yearsFreqInput" min="1" max="12" placeholder="1-12 years" />
+            <div class="char-counter-container">
+                <span asp-validation-for="YearsFreq" id="yearsFreqValidation" class="field-validation-error"></span>
+                <small class="text-muted">Frequency range: 1-12 years</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Row: Annually Rule and Medical Criteria -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label asp-for="AnnuallyRule" class="form-label form-label-master">
+                <i class="bi bi-calendar3"></i>
+                Annually Rule <span class="text-danger">*</span>
+            </label>
+            <select asp-for="AnnuallyRule" class="form-control form-control-master" id="annuallyRuleSelect">
+                <option value="">-- Select Annually Rule --</option>
+                <option value="once">Once</option>
+                <option value="twice">Twice</option>
+                <option value="thrice">Thrice</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="AnnuallyRule" id="annuallyRuleValidation" class="field-validation-error"></span>
+                <small class="text-muted">How many times per year</small>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label asp-for="criteria_id" class="form-label form-label-master">
+                <i class="bi bi-list-check"></i>
+                Medical Criteria <span class="text-danger">*</span>
+            </label>
+            <select asp-for="criteria_id" class="form-control form-control-master" id="criteriaSelect" asp-items="ViewBag.MedCriteriaList">
+                <option value="">-- Select Medical Criteria --</option>
+            </select>
+            <div class="char-counter-container">
+                <span asp-validation-for="criteria_id" id="criteriaValidation" class="field-validation-error"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Third Row: Month Selection -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label class="form-label form-label-master">
+                <i class="bi bi-calendar-range"></i>
+                Months Schedule <span class="text-danger">*</span>
+            </label>
+
+            <!-- Selected months display -->
+            <input asp-for="MonthsSched" id="monthsSchedInput" type="text" class="form-control form-control-master mb-3" placeholder="Selected months will appear here" readonly style="background-color: var(--bg-secondary);" />
+
+            <!-- Month selection grid -->
+            <div class="border rounded-3 p-3" style="background: var(--bg-light);">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Jan" id="monthJan" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthJan">
+                                <i class="bi bi-calendar-month"></i> January
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Feb" id="monthFeb" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthFeb">
+                                <i class="bi bi-calendar-month"></i> February
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Mar" id="monthMar" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthMar">
+                                <i class="bi bi-calendar-month"></i> March
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Apr" id="monthApr" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthApr">
+                                <i class="bi bi-calendar-month"></i> April
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="May" id="monthMay" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthMay">
+                                <i class="bi bi-calendar-month"></i> May
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Jun" id="monthJun" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthJun">
+                                <i class="bi bi-calendar-month"></i> June
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Jul" id="monthJul" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthJul">
+                                <i class="bi bi-calendar-month"></i> July
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Aug" id="monthAug" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthAug">
+                                <i class="bi bi-calendar-month"></i> August
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Sep" id="monthSep" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthSep">
+                                <i class="bi bi-calendar-month"></i> September
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Oct" id="monthOct" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthOct">
+                                <i class="bi bi-calendar-month"></i> October
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Nov" id="monthNov" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthNov">
+                                <i class="bi bi-calendar-month"></i> November
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="Dec" id="monthDec" onchange="updateMonths()">
+                            <label class="form-check-label" for="monthDec">
+                                <i class="bi bi-calendar-month"></i> December
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="char-counter-container">
+                <span asp-validation-for="MonthsSched" id="monthsSchedValidation" class="field-validation-error"></span>
+                <small class="text-muted">
+                    <span id="selectedMonthsCount">0</span> month(s) selected
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fourth Row: Remarks -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <label asp-for="Remarks" class="form-label form-label-master">
+                <i class="bi bi-chat-square-text"></i>
+                Remarks
+            </label>
+            <textarea asp-for="Remarks" id="remarksTextarea" class="form-control form-control-master" rows="4" maxlength="200" placeholder="Enter remarks (optional)"></textarea>
+            <div class="char-counter-container">
+                <span asp-validation-for="Remarks" id="remarksValidation" class="field-validation-error"></span>
+                <small class="char-counter" id="remarksCharCount">0/200</small>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.CatId > 0 && (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue))
+    {
+        <div class="audit-section">
+            <h6>
+                <i class="bi bi-clock-history"></i>
+                Audit Information
+            </h6>
+
+            @if (Model.CreatedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Created By</label>
+                        <input class="form-control" value="@(Model.CreatedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Created On</label>
+                        <input class="form-control" value="@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ModifiedOn.HasValue)
+            {
+                <div class="audit-row">
+                    <div class="audit-field">
+                        <label>Modified By</label>
+                        <input class="form-control" value="@(Model.ModifiedBy ?? "N/A")" readonly />
+                    </div>
+                    <div class="audit-field">
+                        <label>Modified On</label>
+                        <input class="form-control" value="@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")" readonly />
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="modal-footer modal-footer-master">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+            @(Model.CatId == 0 ? "Save Category" : "Update Category")
+        </button>
+    </div>
+</form>
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
+@* <script type="text/javascript">
+    // Enhanced functionality with master styling
+    (function() {
+        'use strict';
+
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        function updateMonths() {
+            // Get all checked checkboxes
+            const selectedMonths = [];
+            MONTHS.forEach(function(month) {
+                const checkbox = document.getElementById('month' + month);
+                if (checkbox && checkbox.checked) {
+                    selectedMonths.push(month);
+                }
+            });
+
+            // Update the MonthsSched field directly (ASP.NET will bind this)
+            const monthsField = document.querySelector('input[name="MonthsSched"]');
+            if (monthsField) {
+                monthsField.value = selectedMonths.join(',');
+            }
+
+            // Update counter
+            const countElement = document.getElementById('selectedMonthsCount');
+            if (countElement) {
+                countElement.textContent = selectedMonths.length;
+            }
+
+            // Handle annually rule restrictions
+            handleAnnuallyRuleRestriction();
+        }
+
+        function handleAnnuallyRuleRestriction() {
+            const annuallyRuleSelect = document.getElementById('annuallyRuleSelect');
+            if (!annuallyRuleSelect) return;
+
+            const annuallyRule = annuallyRuleSelect.value;
+            const maxAllowed = annuallyRule === 'once' ? 1 : annuallyRule === 'twice' ? 2 : annuallyRule === 'thrice' ? 3 : 0;
+
+            if (maxAllowed === 0) {
+                // Disable all checkboxes if no rule selected
+                MONTHS.forEach(function(month) {
+                    const checkbox = document.getElementById('month' + month);
+                    if (checkbox) checkbox.disabled = true;
+                });
+                return;
+            }
+
+            // Count selected
+            let selectedCount = 0;
+            MONTHS.forEach(function(month) {
+                const checkbox = document.getElementById('month' + month);
+                if (checkbox && checkbox.checked) selectedCount++;
+            });
+
+            // Enable/disable based on count
+            MONTHS.forEach(function(month) {
+                const checkbox = document.getElementById('month' + month);
+                if (checkbox) {
+                    if (selectedCount >= maxAllowed && !checkbox.checked) {
+                        checkbox.disabled = true;
+                    } else {
+                        checkbox.disabled = false;
+                    }
+                }
+            });
+        }
+
+        function updateCharCount(fieldName, countElementId, maxLength) {
+            const field = document.querySelector('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]');
+            const countElement = document.getElementById(countElementId);
+            if (field && countElement) {
+                const updateCount = function() {
+                    const currentLength = field.value.length;
+                    countElement.textContent = `${currentLength}/${maxLength}`;
+
+                    // Remove previous classes
+                    countElement.classList.remove('text-warning', 'text-danger');
+
+                    // Calculate thresholds
+                    const warningThreshold = Math.floor(maxLength * 0.8);
+
+                    if (currentLength >= maxLength) {
+                        countElement.classList.add('text-danger');
+                    } else if (currentLength >= warningThreshold) {
+                        countElement.classList.add('text-warning');
+                    }
+                };
+
+                updateCount(); // Initial count
+                field.addEventListener('input', updateCount);
+            }
+        }
+
+        function initializeForm() {
+            // Initialize months from existing data (for edit mode)
+            const monthsField = document.querySelector('input[name="MonthsSched"]');
+            if (monthsField && monthsField.value) {
+                const savedMonths = monthsField.value.split(',');
+                savedMonths.forEach(function(month) {
+                    const checkbox = document.getElementById('month' + month.trim());
+                    if (checkbox) checkbox.checked = true;
+                });
+            }
+
+            // Initialize restrictions
+            handleAnnuallyRuleRestriction();
+            updateMonths();
+
+            // Character counts
+            updateCharCount('CatName', 'catNameCharCount', 100);
+            updateCharCount('Remarks', 'remarksCharCount', 200);
+        }
+
+        // Make updateMonths available globally for onclick handlers
+        window.updateMonths = updateMonths;
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initializeForm();
+
+                // Annually rule change handler
+                const annuallyRuleSelect = document.getElementById('annuallyRuleSelect');
+                if (annuallyRuleSelect) {
+                    annuallyRuleSelect.addEventListener('change', handleAnnuallyRuleRestriction);
+                }
+
+                // Form submission handler
+                const form = document.getElementById('medExamCategoryForm');
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        // Final update before submission
+                        updateMonths();
+
+                        // Basic validation
+                        const monthsField = document.querySelector('input[name="MonthsSched"]');
+                        if (monthsField && !monthsField.value) {
+                            alert('Please select at least one month.');
+                            e.preventDefault();
+                            return false;
+                        }
+
+                        return true;
+                    });
+                }
+            });
+        } else {
+            // DOM already loaded
+            initializeForm();
+
+            // Annually rule change handler
+            const annuallyRuleSelect = document.getElementById('annuallyRuleSelect');
+            if (annuallyRuleSelect) {
+                annuallyRuleSelect.addEventListener('change', handleAnnuallyRuleRestriction);
+            }
+
+            // Form submission handler
+            const form = document.getElementById('medExamCategoryForm');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    // Final update before submission
+                    updateMonths();
+
+                    // Basic validation
+                    const monthsField = document.querySelector('input[name="MonthsSched"]');
+                    if (monthsField && !monthsField.value) {
+                        alert('Please select at least one month.');
+                        e.preventDefault();
+                        return false;
+                    }
+
+                    return true;
+                });
+            }
+        }
+    })();
+</script> *@

@@ -1,0 +1,49 @@
+﻿@{
+    ViewData["Title"] = "Logged Out";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Session Ended</h4>
+                </div>
+                <div class="card-body text-center">
+                    @if (!string.IsNullOrEmpty(ViewBag.Message))
+                    {
+                        <div class="alert alert-info">
+                            @ViewBag.Message
+                        </div>
+                    }
+
+                    @if (ViewBag.Reason == "SessionTimeout")
+                    {
+                        <i class="fas fa-clock text-warning" style="font-size: 48px; margin-bottom: 20px;"></i>
+                        <p class="text-muted">For your security, we automatically log you out after a period of inactivity.</p>
+                    }
+                    else
+                    {
+                        <i class="fas fa-sign-out-alt text-info" style="font-size: 48px; margin-bottom: 20px;"></i>
+                        <p class="text-muted">You have been successfully logged out.</p>
+                    }
+
+                    <a href="@Url.Action("Login", "Account")" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login Again
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Clear any existing session data
+    if (window.sessionTimeoutManager) {
+        window.sessionTimeoutManager.cleanup();
+    }
+
+    // Clear local storage if needed
+    localStorage.clear();
+    sessionStorage.clear();
+</script>

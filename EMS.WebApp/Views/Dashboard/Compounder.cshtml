@@ -1,0 +1,1700 @@
+﻿@{
+    ViewData["Title"] = "Compounder/Pharmacist Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+<style>
+    /* Enhanced Dashboard Styles for Compounder - Matching Doctor Dashboard */
+    .dashboard-header {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .dashboard-title {
+        color: var(--primary-blue);
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .dashboard-subtitle {
+        color: var(--text-secondary);
+        font-size: 16px;
+        margin: 8px 0 0 44px;
+        font-weight: 400;
+    }
+
+    .breadcrumb-custom {
+        background: transparent;
+        padding: 0;
+        margin: 0 0 8px 44px;
+        font-size: 14px;
+    }
+
+        .breadcrumb-custom .breadcrumb-item a {
+            color: var(--primary-blue);
+            text-decoration: none;
+        }
+
+    /* Enhanced KPI Cards for 8 Categories */
+    .kpi-card {
+        border-radius: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+    }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Card Background Colors for 8 Categories */
+        .kpi-card[data-category="pending"] {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        }
+
+        .kpi-card[data-category="approved"] {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        }
+
+        .kpi-card[data-category="drafts"] {
+            background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+        }
+
+        .kpi-card[data-category="near-expiry"] {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        }
+
+        .kpi-card[data-category="expired"] {
+            background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+        }
+
+        .kpi-card[data-category="disposal"] {
+            background: linear-gradient(135deg, #fde2e4 0%, #fbb6ce 100%);
+        }
+
+        .kpi-card[data-category="low-stock"] {
+            background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+        }
+
+        .kpi-card[data-category="out-stock"] {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        }
+
+    .kpi-card-body {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        text-align: center;
+        justify-content: space-between;
+    }
+
+    .kpi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+    }
+
+    .kpi-title {
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.3;
+        margin: 0;
+        text-align: left;
+        flex: 1;
+        padding-right: 8px;
+    }
+
+    /* Card-specific title colors */
+    .kpi-card[data-category="pending"] .kpi-title {
+        color: #1e40af;
+    }
+
+    .kpi-card[data-category="approved"] .kpi-title {
+        color: #065f46;
+    }
+
+    .kpi-card[data-category="drafts"] .kpi-title {
+        color: #5b21b6;
+    }
+
+    .kpi-card[data-category="near-expiry"] .kpi-title {
+        color: #92400e;
+    }
+
+    .kpi-card[data-category="expired"] .kpi-title {
+        color: #991b1b;
+    }
+
+    .kpi-card[data-category="disposal"] .kpi-title {
+        color: #be185d;
+    }
+
+    .kpi-card[data-category="low-stock"] .kpi-title {
+        color: #c2410c;
+    }
+
+    .kpi-card[data-category="out-stock"] .kpi-title {
+        color: #475569;
+    }
+
+    .kpi-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+    }
+
+    /* Icon colors matching titles */
+    .kpi-card[data-category="pending"] .kpi-icon {
+        color: #1e40af;
+    }
+
+    .kpi-card[data-category="approved"] .kpi-icon {
+        color: #065f46;
+    }
+
+    .kpi-card[data-category="drafts"] .kpi-icon {
+        color: #5b21b6;
+    }
+
+    .kpi-card[data-category="near-expiry"] .kpi-icon {
+        color: #92400e;
+    }
+
+    .kpi-card[data-category="expired"] .kpi-icon {
+        color: #991b1b;
+    }
+
+    .kpi-card[data-category="disposal"] .kpi-icon {
+        color: #be185d;
+    }
+
+    .kpi-card[data-category="low-stock"] .kpi-icon {
+        color: #c2410c;
+    }
+
+    .kpi-card[data-category="out-stock"] .kpi-icon {
+        color: #475569;
+    }
+
+    .kpi-card:hover .kpi-icon {
+        transform: scale(1.1);
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    .kpi-value {
+        font-size: 48px;
+        font-weight: 900;
+        line-height: 1;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Value colors matching other elements */
+    .kpi-card[data-category="pending"] .kpi-value {
+        color: #1d4ed8;
+    }
+
+    .kpi-card[data-category="approved"] .kpi-value {
+        color: #064e3b;
+    }
+
+    .kpi-card[data-category="drafts"] .kpi-value {
+        color: #581c87;
+    }
+
+    .kpi-card[data-category="near-expiry"] .kpi-value {
+        color: #92400e;
+    }
+
+    .kpi-card[data-category="expired"] .kpi-value {
+        color: #991b1b;
+    }
+
+    .kpi-card[data-category="disposal"] .kpi-value {
+        color: #be185d;
+    }
+
+    .kpi-card[data-category="low-stock"] .kpi-value {
+        color: #c2410c;
+    }
+
+    .kpi-card[data-category="out-stock"] .kpi-value {
+        color: #475569;
+    }
+
+    /* Loading spinner in cards */
+    .kpi-value .loading-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        margin: 0;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .kpi-card[data-category="pending"] .loading-spinner {
+        border-top-color: #1e40af;
+    }
+
+    .kpi-card[data-category="approved"] .loading-spinner {
+        border-top-color: #065f46;
+    }
+
+    .kpi-card[data-category="drafts"] .loading-spinner {
+        border-top-color: #5b21b6;
+    }
+
+    .kpi-card[data-category="near-expiry"] .loading-spinner {
+        border-top-color: #92400e;
+    }
+
+    .kpi-card[data-category="expired"] .loading-spinner {
+        border-top-color: #991b1b;
+    }
+
+    .kpi-card[data-category="disposal"] .loading-spinner {
+        border-top-color: #be185d;
+    }
+
+    .kpi-card[data-category="low-stock"] .loading-spinner {
+        border-top-color: #c2410c;
+    }
+
+    .kpi-card[data-category="out-stock"] .loading-spinner {
+        border-top-color: #475569;
+    }
+
+    @@keyframes spin {
+        0%
+
+    {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+
+    }
+
+    /* Controls Section */
+    .controls-section {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .controls-label {
+        color: var(--text-primary);
+        font-weight: 600;
+        font-size: 14px;
+        margin: 0;
+    }
+
+    .form-select-enhanced {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        background-position: right 12px center;
+        background-color: #ffffff;
+    }
+
+        .form-select-enhanced:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+    /* Data Cards */
+    .data-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+        .data-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06);
+            transform: translateY(-2px);
+        }
+
+    .data-card-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        padding: 20px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+        .data-card-header i {
+            color: var(--primary-blue);
+            font-size: 18px;
+        }
+
+    /* Enhanced Table Styling */
+    .table.dataTable {
+        background: #ffffff !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+        .table.dataTable thead {
+            background: #ffffff !important;
+        }
+
+            .table.dataTable thead th {
+                background: #ffffff !important;
+                color: #64748b !important;
+                font-weight: 600 !important;
+                font-size: 12px !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.5px !important;
+                padding: 16px !important;
+                border: none !important;
+                border-bottom: 1px solid #e2e8f0 !important;
+                white-space: nowrap !important;
+            }
+
+        .table.dataTable tbody tr {
+            background: #ffffff !important;
+            border: none !important;
+            transition: all 0.2s ease !important;
+            cursor: pointer;
+        }
+
+            .table.dataTable tbody tr:hover {
+                background: #f8fafc !important;
+            }
+
+        .table.dataTable tbody td {
+            padding: 16px !important;
+            color: var(--text-primary) !important;
+            font-size: 14px !important;
+            font-weight: 400 !important;
+            line-height: 1.5 !important;
+            vertical-align: middle !important;
+            border: none !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+        }
+
+            .table.dataTable tbody td:first-child {
+                font-weight: 600 !important;
+                color: var(--primary-blue) !important;
+            }
+
+    /* Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: capitalize;
+        letter-spacing: 0.3px;
+    }
+
+        .status-badge.pending {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-badge.approved {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.draft {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .status-badge.near-expiry {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.expired {
+            background: #fecaca;
+            color: #991b1b;
+        }
+
+    /* Enhanced Modal Styling */
+    .modal-header-enhanced {
+        background: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 20px 24px;
+    }
+
+    .modal-title-enhanced {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0;
+    }
+
+        .modal-title-enhanced i {
+            color: var(--primary-blue);
+            font-size: 20px;
+        }
+
+    .modal-content {
+        background: #ffffff !important;
+        border: none !important;
+        border-radius: 16px !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Alert System */
+    .alert-custom {
+        border: none;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+        .alert-custom.alert-info {
+            background: #eff6ff;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .alert-custom.alert-warning {
+            background: #fefbf3;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .alert-custom.alert-danger {
+            background: #fef2f2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+
+        .alert-custom.alert-success {
+            background: #f0fdf4;
+            color: #15803d;
+            border-left: 4px solid #10b981;
+        }
+
+    /* Loading States */
+    .loading-skeleton {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #94a3b8;
+        font-style: italic;
+    }
+
+    .loading-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #e2e8f0;
+        border-top: 2px solid var(--primary-blue);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 12px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 48px 24px;
+        color: #94a3b8;
+    }
+
+        .empty-state i {
+            font-size: 48px;
+            color: #e2e8f0;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h6 {
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            margin: 0;
+        }
+
+    /* Responsive Design for 8 Cards */
+    @@media (max-width: 768px) {
+        .dashboard-title
+
+    {
+        font-size: 24px;
+    }
+
+    .dashboard-subtitle {
+        margin-left: 36px;
+        font-size: 14px;
+    }
+
+    .breadcrumb-custom {
+        margin-left: 36px;
+    }
+
+    .kpi-card-body {
+        padding: 16px;
+    }
+
+    .kpi-value {
+        font-size: 36px;
+    }
+
+    .controls-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    }
+
+    @@media (min-width: 1200px) {
+        .row.g-4.mb-4 .col-12.col-sm-6.col-md-4.col-lg-3
+
+    {
+        flex: 0 0 25% !important;
+        max-width: 25% !important;
+    }
+
+    }
+
+    /* Click feedback */
+    .kpi-card:active {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
+    }
+</style>
+
+<!-- Alert Container -->
+<div id="alertContainer"></div>
+
+<!-- Enhanced Dashboard Header -->
+<div class="dashboard-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item">Home</li>
+            <li class="breadcrumb-item active" aria-current="page">Compounder/Pharmacist Dashboard</li>
+        </ol>
+    </nav>
+    <h1 class="dashboard-title">
+        <i class="bi bi-person-workspace"></i>
+        Compounder/Pharmacist Dashboard
+    </h1>
+    <p class="dashboard-subtitle">Monitor inventory, indents, and medicine stock levels</p>
+</div>
+
+<div class="container-fluid">
+    <!-- Enhanced KPI Tiles - 8 Cards -->
+    <div class="row g-4 mb-4" id="kpi-tiles">
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="kpi-card" data-category="pending" id="btn-view-pending">
+                <div class="kpi-card-body">
+                    <div class="kpi-header">
+                        <h6 class="kpi-title">Pending<br>Indents</h6>
+                        <div class="kpi-icon">
+                            <i class="bi bi-inbox"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpi-pending">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="kpi-card" data-category="approved" id="btn-view-await">
+                <div class="kpi-card-body">
+                    <div class="kpi-header">
+                        <h6 class="kpi-title">Approved<br>Awaiting Receipt</h6>
+                        <div class="kpi-icon">
+                            <i class="bi bi-box-arrow-in-down"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpi-await">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="kpi-card" data-category="drafts" id="btn-view-drafts">
+                <div class="kpi-card-body">
+                    <div class="kpi-header">
+                        <h6 class="kpi-title">My Draft<br>Indents</h6>
+                        <div class="kpi-icon">
+                            <i class="bi bi-pencil-square"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpi-drafts">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="kpi-card" data-category="near-expiry" id="btn-view-near">
+                <div class="kpi-card-body">
+                    <div class="kpi-header">
+                        <h6 class="kpi-title">Near-Expiry<br>(&le; <span id="near-label">30</span>d)</h6>
+                        <div class="kpi-icon">
+                            <i class="bi bi-alarm"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpi-near">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="kpi-card" data-category="expired" id="btn-view-expired">
+                <div class="kpi-card-body">
+                    <div class="kpi-header">
+                        <h6 class="kpi-title">Expired<br>Batches</h6>
+                        <div class="kpi-icon">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpi-expired">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="kpi-card" data-category="disposal" id="btn-view-exp-disposal">
+                <div class="kpi-card-body">
+                    <div class="kpi-header">
+                        <h6 class="kpi-title">Pending<br>Disposal</h6>
+                        <div class="kpi-icon">
+                            <i class="bi bi-trash"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpi-exp-disposal">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="kpi-card" data-category="low-stock" id="btn-view-low">
+                <div class="kpi-card-body">
+                    <div class="kpi-header">
+                        <h6 class="kpi-title">Low<br>Stock</h6>
+                        <div class="kpi-icon">
+                            <i class="bi bi-graph-down"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpi-low">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+            <div class="kpi-card" data-category="out-stock" id="btn-view-oos">
+                <div class="kpi-card-body">
+                    <div class="kpi-header">
+                        <h6 class="kpi-title">Out of<br>Stock</h6>
+                        <div class="kpi-icon">
+                            <i class="bi bi-x-octagon"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value" id="kpi-oos">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Controls Section -->
+    <div class="controls-section">
+        <label class="controls-label">
+            <i class="bi bi-funnel me-2"></i>
+            Near-Expiry Window:
+        </label>
+        <select id="near-days" class="form-select form-select-enhanced" style="width:140px;">
+            <option value="7">7 days</option>
+            <option value="15">15 days</option>
+            <option selected value="30">30 days</option>
+            <option value="60">60 days</option>
+        </select>
+        <div class="ms-auto text-muted">
+            <i class="bi bi-info-circle me-1"></i>
+            <small>Data refreshes automatically every 30 seconds</small>
+        </div>
+    </div>
+
+    <!-- Enhanced Data Tables -->
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="data-card">
+                <div class="data-card-header">
+                    <i class="bi bi-graph-down"></i>
+                    Low Stock (Top 10)
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle dataTable mb-0" id="tbl-low">
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Available</th>
+                                    <th>Reorder</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="3" class="loading-skeleton">
+                                        <div class="loading-spinner"></div>
+                                        Loading data...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="data-card">
+                <div class="data-card-header">
+                    <i class="bi bi-inbox"></i>
+                    Pending Indents (Recent)
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle dataTable mb-0" id="tbl-pending">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Type</th>
+                                    <th>Date</th>
+                                    <th>By</th>
+                                    <th>Plant</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="loading-skeleton">
+                                        <div class="loading-spinner"></div>
+                                        Loading data...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Modals -->
+<div class="modal fade" id="mdl-pending" tabindex="-1" aria-labelledby="mdlPendingLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-enhanced">
+                <h5 class="modal-title modal-title-enhanced" id="mdlPendingLabel">
+                    <i class="bi bi-inbox"></i>
+                    Pending Compounder Indents
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle dataTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Type</th>
+                                <th>Date</th>
+                                <th>By</th>
+                                <th>Plant</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-pending">
+                            <tr>
+                                <td colspan="6" class="loading-skeleton">
+                                    <div class="loading-spinner"></div>
+                                    Loading data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="mdl-await" tabindex="-1" aria-labelledby="mdlAwaitLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-enhanced">
+                <h5 class="modal-title modal-title-enhanced" id="mdlAwaitLabel">
+                    <i class="bi bi-box-arrow-in-down"></i>
+                    Approved – Awaiting Receipt
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle dataTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Type</th>
+                                <th>Date</th>
+                                <th>By</th>
+                                <th>Plant</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-await">
+                            <tr>
+                                <td colspan="6" class="loading-skeleton">
+                                    <div class="loading-spinner"></div>
+                                    Loading data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="mdl-drafts" tabindex="-1" aria-labelledby="mdlDraftsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-enhanced">
+                <h5 class="modal-title modal-title-enhanced" id="mdlDraftsLabel">
+                    <i class="bi bi-pencil-square"></i>
+                    My Draft Indents
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle dataTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Type</th>
+                                <th>Date</th>
+                                <th>By</th>
+                                <th>Plant</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-drafts">
+                            <tr>
+                                <td colspan="6" class="loading-skeleton">
+                                    <div class="loading-spinner"></div>
+                                    Loading data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="mdl-near" tabindex="-1" aria-labelledby="mdlNearLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-enhanced">
+                <h5 class="modal-title modal-title-enhanced" id="mdlNearLabel">
+                    <i class="bi bi-alarm"></i>
+                    Near-Expiry Batches (full list)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle dataTable">
+                        <thead>
+                            <tr>
+                                <th>Medicine</th>
+                                <th>Batch</th>
+                                <th>Expiry</th>
+                                <th>Available</th>
+                                <th>Vendor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-near">
+                            <tr>
+                                <td colspan="5" class="loading-skeleton">
+                                    <div class="loading-spinner"></div>
+                                    Loading data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="mdl-disposal" tabindex="-1" aria-labelledby="mdlDisposalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-enhanced">
+                <h5 class="modal-title modal-title-enhanced" id="mdlDisposalLabel">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Expired Medicines – Pending Disposal (full list)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle dataTable">
+                        <thead>
+                            <tr>
+                                <th>Medicine</th>
+                                <th>Batch</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Expired On</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-disposal">
+                            <tr>
+                                <td colspan="5" class="loading-skeleton">
+                                    <div class="loading-spinner"></div>
+                                    Loading data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="mdl-expired" tabindex="-1" aria-labelledby="mdlExpiredLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-enhanced">
+                <h5 class="modal-title modal-title-enhanced" id="mdlExpiredLabel">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Expired Medicines
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle dataTable">
+                        <thead>
+                            <tr>
+                                <th>Medicine</th>
+                                <th>Batch</th>
+                                <th>Expiry</th>
+                                <th>Available</th>
+                                <th>Vendor</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-expired">
+                            <tr>
+                                <td colspan="5" class="loading-skeleton">
+                                    <div class="loading-spinner"></div>
+                                    Loading data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="mdl-low" tabindex="-1" aria-labelledby="mdlLowLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-enhanced">
+                <h5 class="modal-title modal-title-enhanced" id="mdlLowLabel">
+                    <i class="bi bi-graph-down"></i>
+                    Low Stock – Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle dataTable">
+                        <thead>
+                            <tr>
+                                <th>Medicine</th>
+                                <th>Total Available</th>
+                                <th>Reorder</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-low">
+                            <tr>
+                                <td colspan="3" class="loading-skeleton">
+                                    <div class="loading-spinner"></div>
+                                    Loading data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="mdl-oos" tabindex="-1" aria-labelledby="mdlOosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-enhanced">
+                <h5 class="modal-title modal-title-enhanced" id="mdlOosLabel">
+                    <i class="bi bi-x-octagon"></i>
+                    Out of Stock – Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle dataTable">
+                        <thead>
+                            <tr>
+                                <th>Medicine</th>
+                                <th>Total Available</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tb-oos">
+                            <tr>
+                                <td colspan="2" class="loading-skeleton">
+                                    <div class="loading-spinner"></div>
+                                    Loading data...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal -->
+<div class="modal fade" id="modalCompounderIndent" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h5 class="modal-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+</div>
+<!-- Details Modal -->
+<div class="modal fade" id="modalDetails" tabindex="-1" aria-labelledby="modalDetailsLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetailsLabel">
+                    <i class="fas fa-info-circle"></i> Expired Medicine Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalDetailsContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts {
+    <script>
+        // Global utility functions
+        function html(s) {
+            return (s || '').toString()
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function formatDate(val) {
+            if (!val) return '';
+            const d = new Date(val);
+            if (isNaN(d)) return '';
+            return d.toLocaleDateString();
+        }
+
+        function go(e, href) {
+            if (!href) return;
+            const newTab = e && (e.ctrlKey || e.metaKey || e.which === 2);
+            if (newTab) window.open(href, '_blank');
+            else window.location.href = href;
+        }
+
+        // Enhanced Alert System
+        function showAlert(type, message, title = null) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertId = 'alert-' + Date.now();
+
+            const iconMap = {
+                success: 'bi-check-circle',
+                warning: 'bi-exclamation-triangle',
+                danger: 'bi-x-circle',
+                info: 'bi-info-circle'
+            };
+
+            const icon = iconMap[type] || 'bi-info-circle';
+            const alertTitle = title || type.charAt(0).toUpperCase() + type.slice(1);
+
+            const alertHtml = `
+                <div id="${alertId}" class="alert alert-${type} alert-custom alert-dismissible fade show" role="alert">
+                    <div class="d-flex align-items-start">
+                        <i class="bi ${icon} me-3 flex-shrink-0" style="font-size: 18px;"></i>
+                        <div class="flex-grow-1">
+                            <strong class="d-block mb-1">${alertTitle}</strong>
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close ms-3" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+
+            alertContainer.insertAdjacentHTML('afterbegin', alertHtml);
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const alertElement = document.getElementById(alertId);
+                if (alertElement) {
+                    const alert = bootstrap.Alert.getOrCreateInstance(alertElement);
+                    alert.close();
+                }
+            }, 5000);
+        }
+
+        const routes = {
+            compounderIndentReview: '@Url.Action("Approve", "CompounderIndent")',
+            batchDetails: '@Url.Action("BatchDetails", "CompounderIndent")',
+            expiredReview: '@Url.Action("Review", "ExpiredMedicine")'
+        };
+
+        function updateKpiCard(id, value, category) {
+            const kpiElement = document.getElementById(id);
+            kpiElement.innerHTML = value === '—' ? '<div class="loading-spinner"></div>' : value;
+        }
+
+        function showLoadingError(tableId, colSpan, message) {
+            document.getElementById(tableId).innerHTML =
+                `<tr><td colspan="${colSpan}" class="text-danger text-center py-4">
+                    <i class="bi bi-exclamation-triangle me-2"></i>${message}
+                </td></tr>`;
+        }
+
+        (function () {
+            const $nearSel = $('#near-days'), $nearLbl = $('#near-label');
+
+            function loadSummary() {
+                const days = parseInt($nearSel.val(), 10) || 30;
+                $nearLbl.text(days);
+
+                $.getJSON('@Url.Action("GetSummary", "CompounderDashboard")', { nearDays: days })
+                    .done(function (data) {
+                        updateKpiCard('kpi-pending', data.pendingIndents, 'pending');
+                        updateKpiCard('kpi-await', data.approvedAwaitingReceipt, 'approved');
+                        updateKpiCard('kpi-drafts', data.myDraftIndents, 'drafts');
+                        updateKpiCard('kpi-near', data.nearExpiryBatches, 'near-expiry');
+                        updateKpiCard('kpi-expired', data.expiredBatches, 'expired');
+                        updateKpiCard('kpi-exp-disposal', data.expiredMedicinesPendingDisposal, 'disposal');
+                        updateKpiCard('kpi-low', data.lowStockCount, 'low-stock');
+                        updateKpiCard('kpi-oos', data.outOfStockCount, 'out-stock');
+                    })
+                    .fail(function (xhr) {
+                        console.error('Summary load failed', xhr);
+                        showAlert('danger', 'Failed to load dashboard summary. Please refresh the page.', 'Loading Error');
+                    });
+
+                $.getJSON('@Url.Action("GetLowStock", "CompounderDashboard")', { top: 10 })
+                    .done(function (rows) {
+                        const $tb = $('#tbl-low tbody').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append('<tr><td colspan="3" class="text-muted">No records.</td></tr>');
+                            return;
+                        }
+                        rows.forEach(r => {
+                            const href = routes.compounderIndentReview;
+                            const tr = `<tr title="Open compounder indents">
+                                <td>${html(r.medicineName)}</td>
+                                <td>${r.totalAvailable}</td>
+                                <td>${r.reorderLevel ?? ''}</td>
+                            </tr>`;
+                            $tb.append(tr);
+                        });
+                    })
+                    .fail(function (xhr) {
+                        console.error('Low stock load failed', xhr);
+                        showAlert('warning', 'Failed to load low stock data.', 'Data Loading Warning');
+                    });
+
+                $.getJSON('@Url.Action("ListPending", "CompounderDashboard")')
+                    .done(function (rows) {
+                        const $tb = $('#tbl-pending tbody').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append('<tr><td colspan="6" class="text-muted">No pending.</td></tr>');
+                            return;
+                        }
+                        rows.forEach(r => {
+                            const href = routes.compounderIndentReview + r.indentId;
+                            const tr = `<tr onclick="loadViewData(${r.indentId},'${r.indentType.replace(/'/g,"\\'")}','mdl-pending');" title="Open #${r.indentId}">
+                                <td><strong>${r.indentId}</strong></td>
+                                <td>${html(r.indentType)}</td>
+                                <td>${formatDate(r.indentDate)}</td>
+                                <td>${html(r.createdBy)}</td>
+                                <td>${html(r.plantName)}</td>
+                                <td><span class="status-badge pending">${html(r.status)}</span></td>
+                            </tr>`;
+                            $tb.append(tr);
+                        });
+                    })
+                    .fail(function (xhr) {
+                        console.error('Pending load failed', xhr);
+                        showAlert('warning', 'Failed to load pending indents data.', 'Data Loading Warning');
+                    });
+            }
+
+            function showModal(id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const modal = bootstrap.Modal.getOrCreateInstance(el);
+                modal.show();
+            }
+            function hideModal(modalid) {
+                const viewmodalEl = $('#'+modalid);
+                if (!viewmodalEl) return;
+                viewmodalEl.appendTo('body');
+                viewmodalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+                viewmodalEl.modal('hide');
+            }
+
+
+            // View Modal
+                window.loadViewData = function (id, currentIndentType,modalid) {
+
+                     const modalEl = $('#modalCompounderIndent');
+                        modalEl.appendTo('body');
+                        modalEl.modal({ backdrop: 'static', keyboard: false, show: false });
+
+                        //const currentIndentType = $('#indentTypeFilter').val();
+                        const detailsUrl = '@Url.Action("Details", "CompounderIndent")' + '/' + id + '?indentType=' + encodeURIComponent(currentIndentType);
+
+                        $.get(detailsUrl)
+                        .done(html => {
+                            modalEl.find('.modal-title').text('View Compounder Indent');
+                            $('#modalBody').html(html);
+                            modalEl.modal('show');
+
+                            hideModal(modalid);
+                        })
+                        .fail(function(xhr, status, error) {
+                            console.error('View request failed:', status, error);
+                            showAlert('danger','Failed to load details. Please try again.', 'error');
+                        });
+                };
+
+
+            // KPI Card Click Handlers
+            $('#btn-view-pending').on('click', function (e) {
+
+                
+                e.preventDefault();
+                $('#tb-pending').html('<tr><td colspan="6" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
+
+                $.getJSON('@Url.Action("ListPending", "CompounderDashboard")')
+                    .done(function (rows) {
+                        const $tb = $('#tb-pending').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append(`<tr><td colspan="6" class="empty-state">
+                                <i class="bi bi-check-circle d-block"></i>
+                                <h6>No Pending Indents</h6>
+                                <p>All indents have been processed.</p>
+                            </td></tr>`);
+                            return;
+                        }
+
+                        rows.forEach(r => {
+                            const href = routes.compounderIndentReview + r.indentId;
+                            $tb.append(`<tr onclick="loadViewData(${r.indentId},'${r.indentType.replace(/'/g,"\\'")}','mdl-pending');" title="Click to review indent #${r.indentId}">
+                                <td><strong>${r.indentId}</strong></td>
+                                <td>${html(r.indentType)}</td>
+                                <td>${formatDate(r.indentDate)}</td>
+                                <td>${html(r.createdBy)}</td>
+                                <td>${html(r.plantName)}</td>
+                                <td><span class="status-badge pending">${html(r.status)}</span></td>
+                            </tr>`);
+                        });
+                    })
+                    .fail(() => {
+                        showLoadingError('tb-pending', 6, 'Failed to load pending indents data. Please try again.');
+                        showAlert('danger', 'Unable to load pending indents data.', 'Data Loading Error');
+                    });
+                showModal('mdl-pending');
+            });
+
+            $('#btn-view-await').on('click', function (e) {
+                e.preventDefault();
+                $('#tb-await').html('<tr><td colspan="6" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
+
+                $.getJSON('@Url.Action("ListApprovedAwaitingReceipt", "CompounderDashboard")')
+                    .done(function (rows) {
+                        const $tb = $('#tb-await').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append(`<tr><td colspan="6" class="empty-state">
+                                <i class="bi bi-check-circle d-block"></i>
+                                <h6>No Awaiting Receipt</h6>
+                                <p>No approved indents are awaiting receipt.</p>
+                            </td></tr>`);
+                            return;
+                        }
+
+                        rows.forEach(r => {
+                            const href = routes.compounderIndentReview + r.indentId;
+                            $tb.append(`<tr onclick="loadViewData(${r.indentId},'${r.indentType.replace(/'/g,"\\'")}','mdl-await');" title="Click to review indent #${r.indentId}">
+                                <td><strong>${r.indentId}</strong></td>
+                                <td>${html(r.indentType)}</td>
+                                <td>${formatDate(r.indentDate)}</td>
+                                <td>${html(r.createdBy)}</td>
+                                <td>${html(r.plantName)}</td>
+                                <td><span class="status-badge approved">${html(r.status)}</span></td>
+                            </tr>`);
+                        });
+                    })
+                    .fail(() => {
+                        showLoadingError('tb-await', 6, 'Failed to load awaiting receipt data. Please try again.');
+                        showAlert('danger', 'Unable to load awaiting receipt data.', 'Data Loading Error');
+                    });
+                showModal('mdl-await');
+            });
+
+            $('#btn-view-drafts').on('click', function (e) {
+                e.preventDefault();
+                $('#tb-drafts').html('<tr><td colspan="6" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
+
+                $.getJSON('@Url.Action("ListMyDrafts", "CompounderDashboard")')
+                    .done(function (rows) {
+                        const $tb = $('#tb-drafts').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append(`<tr><td colspan="6" class="empty-state">
+                                <i class="bi bi-check-circle d-block"></i>
+                                <h6>No Draft Indents</h6>
+                                <p>You have no saved draft indents.</p>
+                            </td></tr>`);
+                            return;
+                        }
+
+                        rows.forEach(r => {
+                            const href = routes.compounderIndentReview + r.indentId;
+                            $tb.append(`<tr onclick="loadViewData(${r.indentId},'${r.indentType.replace(/'/g,"\\'")}','mdl-drafts');" title="Click to edit draft #${r.indentId}">
+                                <td><strong>${r.indentId}</strong></td>
+                                <td>${html(r.indentType)}</td>
+                                <td>${formatDate(r.indentDate)}</td>
+                                <td>${html(r.createdBy)}</td>
+                                <td>${html(r.plantName)}</td>
+                                <td><span class="status-badge draft">${html(r.status)}</span></td>
+                            </tr>`);
+                        });
+                    })
+                    .fail(() => {
+                        showLoadingError('tb-drafts', 6, 'Failed to load draft indents data. Please try again.');
+                        showAlert('danger', 'Unable to load draft indents data.', 'Data Loading Error');
+                    });
+                showModal('mdl-drafts');
+            });
+
+
+
+            $('#btn-view-near').on('click', function (e) {
+                e.preventDefault();
+                const days = parseInt($('#near-days').val(), 10) || 30;
+                $('#tb-near').html('<tr><td colspan="5" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
+
+                $.getJSON('@Url.Action("GetNearExpiry", "CompounderDashboard")', { days: days, top: 200 })
+                    .done(function (rows) {
+                        const $tb = $('#tb-near').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append(`<tr><td colspan="5" class="empty-state">
+                                <i class="bi bi-check-circle d-block"></i>
+                                <h6>No Near-Expiry Items</h6>
+                                <p>No medicines are approaching expiry within ${days} days.</p>
+                            </td></tr>`);
+                            return;
+                        }
+
+                        rows.forEach(r => {
+                            const href = routes.batchDetails + r.batchId;
+                            $tb.append(`<tr title="Click to view batch details for ${html(r.batchNo)}">
+                                <td>${html(r.medicineName)}</td>
+                                <td><strong>${html(r.batchNo)}</strong></td>
+                                <td><span class="status-badge near-expiry">${formatDate(r.expiryDate)}</span></td>
+                                <td>${r.availableStock}</td>
+                                <td>${html(r.vendorCode || 'N/A')}</td>
+                            </tr>`);
+                        });
+                    })
+                    .fail(() => {
+                        showLoadingError('tb-near', 5, 'Failed to load near-expiry data. Please try again.');
+                        showAlert('warning', 'Unable to load near-expiry data.', 'Data Loading Warning');
+                    });
+                showModal('mdl-near');
+            });
+
+
+
+
+
+
+            // Action button functions
+            window.viewExpiredDetails = function(id,modalid) {
+                $.get(`@Url.Action("Details", "ExpiredMedicine")/${id}`)
+                    .done(function(html) {
+                        $('#modalDetailsContent').html(html);
+                        $('#modalDetails').modal('show');
+
+
+                            hideModal(modalid);
+                    })
+                    .fail(function(xhr, status, error) {
+                        console.error('View details error:', error);
+                        alert('Error loading details: ' + error);
+                    });
+            };
+
+            $('#btn-view-expired').on('click', function (e) {
+                e.preventDefault();
+                $('#tb-expired').html('<tr><td colspan="5" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
+
+                $.getJSON('@Url.Action("GetExpired", "CompounderDashboard")')
+                    .done(function (rows) {
+                        const $tb = $('#tb-expired').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append(`<tr><td colspan="5" class="empty-state">
+                                <i class="bi bi-check-circle d-block"></i>
+                                <h6>No Expired Items</h6>
+                                <p>All expired medicines have been disposed of properly.</p>
+                            </td></tr>`);
+                            return;
+                        }
+
+                        rows.forEach(r => {
+                            const href = routes.batchDetails + r.batchId;
+                            $tb.append(`<tr title="Click to view batch details for ${html(r.batchNo)}">
+                                <td>${html(r.medicineName)}</td>
+                                <td><strong>${html(r.batchNo)}</strong></td>
+                                <td><span class="status-badge near-expiry">${formatDate(r.expiryDate)}</span></td>
+                                <td>${r.availableStock}</td>
+                                <td>${html(r.vendorCode || 'N/A')}</td>
+                            </tr>`);
+                        });
+                    })
+                    .fail(() => {
+                        showLoadingError('tb-expired', 5, 'Failed to load expired medicines data. Please try again.');
+                        showAlert('danger', 'Unable to load expired medicines data.', 'Critical Data Error');
+                    });
+                showModal('mdl-expired');
+            });
+
+
+            $('#btn-view-exp-disposal').on('click', function (e) {
+                e.preventDefault();
+                $('#tb-disposal').html('<tr><td colspan="5" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
+
+                $.getJSON('@Url.Action("GetPendingDisposal", "CompounderDashboard")')
+                    .done(function (rows) {
+                        const $tb = $('#tb-disposal').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append(`<tr><td colspan="5" class="empty-state">
+                                <i class="bi bi-check-circle d-block"></i>
+                                <h6>No Expired Items</h6>
+                                <p>All expired medicines - pending disposal have been disposed of properly.</p>
+                            </td></tr>`);
+                            return;
+                        }
+
+                        rows.forEach(r => {
+                            const href = routes.expiredReview + r.id;
+                            $tb.append(`<tr title="Click to review expired item #${r.id}">
+                                <td>${html(r.medicineName)}</td>
+                                <td><strong>${html(r.batchNo)}</strong></td>
+                                <td>${html(r.typeOfMedicine)}</td>
+                                <td><span class="status-badge expired">${html(r.status)}</span></td>
+                                <td><span class="status-badge expired">${formatDate(r.expiredOn)}</span></td>
+                            </tr>`);
+                        });
+                    })
+                    .fail(() => {
+                        showLoadingError('tb-disposal', 5, 'Failed to load expired medicines - pending disposal data. Please try again.');
+                        showAlert('danger', 'Unable to load expired medicines - pending disposal data.', 'Critical Data Error');
+                    });
+                showModal('mdl-disposal');
+            });
+
+            $('#btn-view-low').on('click', function (e) {
+                e.preventDefault();
+                $('#tb-low').html('<tr><td colspan="3" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
+
+                $.getJSON('@Url.Action("GetLowStock", "CompounderDashboard")', { top: 200 })
+                    .done(function (rows) {
+                        const $tb = $('#tb-low').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append(`<tr><td colspan="3" class="empty-state">
+                                <i class="bi bi-check-circle d-block"></i>
+                                <h6>No Low Stock Items</h6>
+                                <p>All medicines are adequately stocked.</p>
+                            </td></tr>`);
+                            return;
+                        }
+
+                        rows.forEach(r => {
+                            const href = routes.compounderIndentReview;
+                            $tb.append(`<tr title="Click to create indent">
+                                <td>${html(r.medicineName)}</td>
+                                <td>${r.totalAvailable}</td>
+                                <td>${r.reorderLevel ?? 'N/A'}</td>
+                            </tr>`);
+                        });
+                    })
+                    .fail(() => {
+                        showLoadingError('tb-low', 3, 'Failed to load low stock data. Please try again.');
+                        showAlert('warning', 'Unable to load low stock data.', 'Data Loading Warning');
+                    });
+                showModal('mdl-low');
+            });
+
+            $('#btn-view-oos').on('click', function (e) {
+                e.preventDefault();
+                $('#tb-oos').html('<tr><td colspan="2" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
+
+                $.getJSON('@Url.Action("GetOutOfStock", "CompounderDashboard")', { top: 200 })
+                    .done(function (rows) {
+                        const $tb = $('#tb-oos').empty();
+                        if (!rows || rows.length === 0) {
+                            $tb.append(`<tr><td colspan="2" class="empty-state">
+                                <i class="bi bi-check-circle d-block"></i>
+                                <h6>No Out of Stock Items</h6>
+                                <p>All medicines are in stock.</p>
+                            </td></tr>`);
+                            return;
+                        }
+
+                        rows.forEach(r => {
+                            const href = routes.compounderIndentReview;
+                            $tb.append(`<tr title="Click to create indent">
+                                <td>${html(r.medicineName)}</td>
+                                <td>${r.totalAvailable}</td>
+                            </tr>`);
+                        });
+                    })
+                    .fail(() => {
+                        showLoadingError('tb-oos', 2, 'Failed to load out of stock data. Please try again.');
+                        showAlert('danger', 'Unable to load out of stock data.', 'Critical Data Error');
+                    });
+                showModal('mdl-oos');
+            });
+
+            // Enhanced table click handlers
+            $('#tbl-low tbody, #tbl-pending tbody, #tb-pending, #tb-await, #tb-drafts, #tb-near, #tb-expired, #tb-low, #tb-oos')
+                .on('click', 'tr[data-href]', function (e) {
+                    const href = this.getAttribute('data-href');
+                    go(e, href);
+                })
+                .on('mousedown', 'tr[data-href]', function (e) {
+                    if (e.which === 2) {
+                        const href = this.getAttribute('data-href');
+                        go(e, href);
+                    }
+                });
+
+            // Add hover effect for better UX
+            $('.kpi-card').on('mouseenter', function () {
+                $(this).css('cursor', 'pointer');
+            });
+
+            $nearSel.on('change', loadSummary);
+            $(document).ready(loadSummary);
+
+            // Auto-refresh every 30 seconds
+            setInterval(loadSummary, 30000);
+        })();
+    </script>
+}

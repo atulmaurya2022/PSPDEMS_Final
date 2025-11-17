@@ -1,0 +1,108 @@
+﻿@model EMS.WebApp.Data.OrgDepartment
+
+<!-- Department Information Display -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label class="form-label form-label-master">
+            Department Name
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
+            <strong class="text-primary">@Model.dept_name</strong>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label class="form-label form-label-master">
+            Description
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 80px; padding: 12px;">
+            @if (!string.IsNullOrEmpty(Model.dept_description))
+            {
+                @Model.dept_description
+            }
+            else
+            {
+                <em class="text-muted">No description provided</em>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <label class="form-label form-label-master">
+            Remarks
+        </label>
+        <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed; min-height: 80px; padding: 12px;">
+            @if (!string.IsNullOrEmpty(Model.Remarks))
+            {
+                @Model.Remarks
+            }
+            else
+            {
+                <em class="text-muted">No remarks provided</em>
+            }
+        </div>
+    </div>
+</div>
+
+@if (Model.CreatedOn.HasValue || Model.ModifiedOn.HasValue)
+{
+    <div class="audit-section">
+        <h6>
+            Audit Information
+        </h6>
+
+        @if (Model.CreatedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Created By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Created On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.CreatedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (Model.ModifiedOn.HasValue)
+        {
+            <div class="audit-row">
+                <div class="audit-field">
+                    <label>
+                        Modified By
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedBy ?? "N/A")</strong>
+                    </div>
+                </div>
+                <div class="audit-field">
+                    <label>
+                        Modified On
+                    </label>
+                    <div class="form-control">
+                        <strong>@(Model.ModifiedOn?.ToString("dd-MMM-yyyy hh:mm:ss tt") ?? "N/A")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="modal-footer modal-footer-master">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        Close
+    </button>
+</div>
