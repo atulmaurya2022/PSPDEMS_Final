@@ -131,6 +131,7 @@ namespace EMS.WebApp.Controllers
             {
                 claims.Add(new Claim("PlantName", userWithDetails.OrgPlant.plant_name));
                 claims.Add(new Claim("PlantId", userWithDetails.plant_id.ToString()));
+                
             }
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

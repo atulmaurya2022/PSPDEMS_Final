@@ -249,7 +249,7 @@ namespace EMS.WebApp.Services
             return await query
                 .Include(i => i.MedMaster)
                 .Include(i => i.CompounderIndent)
-                    .ThenInclude(s => s.OrgPlant)
+                .ThenInclude(s => s.OrgPlant)
                 .ToListAsync();
         }
 
@@ -342,27 +342,7 @@ namespace EMS.WebApp.Services
 
         public async Task DeleteBatchAsync(int indentId, int batchId, int? userPlantId = null)
         {
-            //var query = _db.CompounderIndentBatches.AsQueryable();
-
-            //// Plant-wise filtering
-            //if (userPlantId.HasValue)
-            //{
-            //    query = query.Where(batch =>
-            //        _db.CompounderIndentItems.Any(item =>
-            //            item.IndentItemId == batch.IndentItemId &&
-            //            _db.CompounderIndents.Any(indent =>
-            //                indent.IndentId == item.IndentId && indent.plant_id == userPlantId.Value)));
-            //}
-
-            //var batch = await query.FirstOrDefaultAsync(b => b.BatchId == batchId);
-            //if (batch != null)
-            //{
-            //    _db.CompounderIndentBatches.Remove(batch);
-            //    await _db.SaveChangesAsync();
-            //}
-
-
-            // Load deleting batch + item + indent (to infer PlantId)
+            
             var data = await (
                 from b in _db.CompounderIndentBatches
                 join ii in _db.CompounderIndentItems on b.IndentItemId equals ii.IndentItemId

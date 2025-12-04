@@ -30,33 +30,6 @@ namespace EMS.WebApp.Controllers
             _logger = logger;
         }
 
-        //public async Task<IActionResult> Index()
-        //{
-        //    try
-        //    {
-        //        var userPlantId = await GetCurrentUserPlantIdAsync();
-        //        var userRole = await GetUserRoleAsync();
-
-        //        ViewBag.UserRole = userRole;
-        //        ViewBag.IsDoctor = userRole?.ToLower() == "doctor";
-        //        ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
-
-        //        // NEW: Load all employee diagnoses instead of empty search form
-        //        var diagnoses = await _doctorDiagnosisRepository.GetAllEmployeeDiagnosesAsync(userPlantId);
-
-        //        await _auditService.LogAsync("doctor_diagnosis", "INDEX_VIEW", "main", null, null,
-        //            $"Doctor diagnosis list loaded - Count: {diagnoses.Count()}, Role: {userRole}, Plant: {userPlantId}");
-
-        //        return View(diagnoses);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error loading doctor diagnosis list");
-        //        await _auditService.LogAsync("doctor_diagnosis", "INDEX_FAILED", "main", null, null,
-        //            $"Failed to load doctor diagnosis index: {ex.Message}");
-        //        return View(new List<EmployeeDiagnosisListViewModel>());
-        //    }
-        //}
 
 
         public async Task<IActionResult> Index()
@@ -182,88 +155,6 @@ namespace EMS.WebApp.Controllers
         }
 
 
-        //[HttpGet]
-        //public async Task<IActionResult> GetEmployeeDetails(string empId, DateTime? examDate = null, string? visitType = null, string? patientStatus = null)
-        //{
-        //    try
-        //    {
-        //        var userPlantId = await GetCurrentUserPlantIdAsync();
-
-        //        _logger.LogInformation($"🔍 GetEmployeeDetails called - empId: '{empId}', examDate: {examDate}, visitType: '{visitType}', patientStatus: '{patientStatus}', Plant: {userPlantId}");
-
-        //        // Log access attempt to sensitive medical data with plant info
-        //        await _auditService.LogAsync("doctor_diagnosis", "GET_DETAILS", empId ?? "null", null, null,
-        //            $"Employee details access attempted - ExamDate: {examDate}, VisitType: {visitType}, PatientStatus: {patientStatus}, Plant: {userPlantId}");
-
-        //        if (string.IsNullOrWhiteSpace(empId))
-        //        {
-        //            _logger.LogWarning("❌ Employee ID is null or empty");
-        //            await _auditService.LogAsync("doctor_diagnosis", "DETAILS_INVALID", "null", null, null,
-        //                "Employee details access failed - Employee ID is required");
-        //            return BadRequest("Employee ID is required.");
-        //        }
-
-        //        _logger.LogInformation($"🔍 Searching for employee with ID: '{empId}' in plant: {userPlantId}");
-        //        var employee = await _doctorDiagnosisRepository.GetEmployeeByEmpIdAsync(empId, userPlantId);
-
-        //        if (employee == null)
-        //        {
-        //            _logger.LogWarning($"❌ Employee not found for ID: '{empId}' in plant: {userPlantId}");
-        //            await _auditService.LogAsync("doctor_diagnosis", "DETAILS_NOTFOUND", empId, null, null,
-        //                $"Employee not found for details access: {empId} in plant: {userPlantId}");
-        //            return NotFound($"Employee with ID '{empId}' not found in your plant.");
-        //        }
-
-        //        _logger.LogInformation($"✅ Employee found: {employee.emp_name} in plant: {employee.org_plant?.plant_name}");
-
-        //        var searchDate = examDate ?? DateTime.Now.Date;
-        //        var selectedVisitType = visitType ?? "Regular Visitor";
-        //        var selectedPatientStatus = patientStatus ?? "On Duty"; // NEW: Handle patient status
-
-        //        _logger.LogInformation($"🔍 Loading health profile for date: {searchDate}, visit type: {selectedVisitType}, patient status: {selectedPatientStatus}");
-
-        //        var healthProfile = await _healthProfileRepository.LoadFormData(employee.emp_uid, searchDate);
-        //        var medConditions = await _doctorDiagnosisRepository.GetMedicalConditionsAsync();
-
-        //        _logger.LogInformation($"✅ Health profile loaded, conditions count: {medConditions.Count}");
-
-        //        var model = new DoctorDiagnosisViewModel
-        //        {
-        //            VisitType = selectedVisitType,
-        //            EmpId = empId,
-        //            ExamDate = searchDate,
-        //            Employee = employee,
-        //            MedConditions = medConditions,
-        //            SelectedConditionIds = healthProfile?.SelectedConditionIds ?? new List<int>(),
-        //            PatientStatus = selectedPatientStatus // NEW: Set patient status
-        //        };
-
-        //        // Get user role and apply masking if needed
-        //        var userRole = await GetUserRoleAsync();
-        //        ViewBag.UserRole = userRole;
-        //        ViewBag.UserPlantId = userPlantId;
-        //        ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
-
-        //        // Mask sensitive data if user doesn't have appropriate role
-        //        _maskingService.MaskObject(model, userRole);
-
-        //        // Log successful access to sensitive medical data with plant info
-        //        await _auditService.LogViewAsync("doctor_diagnosis", empId,
-        //            $"Employee medical details accessed - Employee: {employee.emp_name}, Role: {userRole}, Plant: {employee.org_plant?.plant_name}, PatientStatus: {selectedPatientStatus}, Masked: {_maskingService.ShouldMaskData(userRole)}");
-
-        //        return PartialView("_EmployeeDetailsPartial", model);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, $"💥 Error in GetEmployeeDetails for empId: '{empId}' - {ex.Message}");
-        //        await _auditService.LogAsync("doctor_diagnosis", "DETAILS_FAILED", empId ?? "null", null, null,
-        //            $"Employee details access failed: {ex.Message}");
-        //        return BadRequest($"Error loading employee details: {ex.Message}");
-        //    }
-        //}
-
-        // Add these methods to DoctorDiagnosisController.cs
-
         [HttpGet]
         public async Task<IActionResult> GetEmployeeDetails(string empId, DateTime? examDate = null, string? visitType = null, string? patientStatus = null, string? dependentName = null)
         {
@@ -290,7 +181,7 @@ namespace EMS.WebApp.Controllers
 
                 if (employee == null)
                 {
-                    _logger.LogWarning($"❌ Employee not found for ID: '{empId}' in plant: {userPlantId}");
+                    _logger.LogWarning($"Employee not found for ID: '{empId}' in plant: {userPlantId}");
                     await _auditService.LogAsync("doctor_diagnosis", "DETAILS_NOTFOUND", empId, null, null,
                         $"Employee not found for details access: {empId} in plant: {userPlantId}");
                     return NotFound($"Employee with ID '{empId}' not found in your plant.");
@@ -303,7 +194,7 @@ namespace EMS.WebApp.Controllers
                 var selectedPatientStatus = patientStatus ?? "On Duty";
                 var selectedDependentName = dependentName ?? "Self";
 
-                _logger.LogInformation($"🔍 Loading health profile for date: {searchDate}, visit type: {selectedVisitType}, patient status: {selectedPatientStatus}, dependent: {selectedDependentName}");
+                _logger.LogInformation($"Loading health profile for date: {searchDate}, visit type: {selectedVisitType}, patient status: {selectedPatientStatus}, dependent: {selectedDependentName}");
 
                 var healthProfile = await _healthProfileRepository.LoadFormData(employee.emp_uid, searchDate);
                 var medConditions = await _doctorDiagnosisRepository.GetMedicalConditionsAsync();
@@ -494,7 +385,8 @@ namespace EMS.WebApp.Controllers
                         indentItemId = m.IndentItemId, // FIXED: Use actual IndentItemId, not grouped
                         medItemId = m.MedItemId,
                         baseName = m.BaseName,
-                        text = $"{m.MedItemId} - {m.BaseName} - {m.MedItemName} | Batch: {m.BatchNo}",
+                        //text = $"{m.MedItemId} - {m.BaseName} - {m.MedItemName} | Batch: {m.BatchNo}",
+                        text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo}",
                         stockInfo = $"Stock: {m.AvailableStock}",
                         expiryInfo = m.ExpiryDateFormatted,
                         daysToExpiry = m.DaysToExpiry,
@@ -563,110 +455,7 @@ namespace EMS.WebApp.Controllers
                 });
             }
         }
-        //[HttpGet]
-        //public async Task<IActionResult> GetPrescriptionData()
-        //{
-        //    try
-        //    {
-        //        var userPlantId = await GetCurrentUserPlantIdAsync();
-
-        //        _logger.LogInformation($"🔍 Getting prescription data with batch grouping for plant: {userPlantId}");
-
-        //        // Log access to prescription/medicine data with plant info
-        //        await _auditService.LogAsync("doctor_diagnosis", "GET_PRESCDATA", "system", null, null,
-        //            $"Prescription and medicine data access attempted for plant: {userPlantId}");
-
-        //        // Get plant-wise diseases
-        //        var diseases = await _doctorDiagnosisRepository.GetDiseasesAsync(userPlantId);
-
-        //        // Get plant-wise medicines with batch grouping
-        //        var medicineStocks = await _doctorDiagnosisRepository.GetMedicinesFromCompounderIndentAsync(userPlantId);
-
-        //        _logger.LogInformation($"✅ Found {diseases.Count} diseases and {medicineStocks.Count} medicine batches for plant: {userPlantId}");
-
-        //        // Convert medicines to dropdown format with enhanced batch and stock info
-        //        var medicineDropdownItems = medicineStocks
-        //            .GroupBy(m => m.MedItemName)
-        //            .SelectMany(medicineGroup =>
-        //                medicineGroup
-        //                    .GroupBy(b => b.BatchNo) // Then group by batch within each medicine
-        //                    .Select(batchGroup => new
-        //                    {
-        //                        indentItemId = batchGroup.First().IndentItemId,
-        //                        medItemId = batchGroup.First().MedItemId,  // Use actual MedItemId, not batch as key
-        //                        baseName = batchGroup.First().BaseName,
-        //                        text = $"{batchGroup.First().MedItemId} - {batchGroup.First().BaseName} - {medicineGroup.Key} | Batch: {batchGroup.Key}",
-        //                        stockInfo = $"Stock: {batchGroup.Sum(x => x.AvailableStock)}",
-        //                        expiryInfo = batchGroup.First().ExpiryDateFormatted,
-        //                        daysToExpiry = batchGroup.First().DaysToExpiry,
-        //                        availableStock = batchGroup.Sum(x => x.AvailableStock), // Sum stock for same batch
-        //                        batchNo = batchGroup.Key,
-        //                        expiryDate = batchGroup.First().ExpiryDate?.ToString("yyyy-MM-dd"),
-        //                        companyName = batchGroup.First().CompanyName,
-        //                        plantId = batchGroup.First().PlantId,
-        //                        medicineName = medicineGroup.Key,
-        //                        expiryClass = batchGroup.First().DaysToExpiry switch
-        //                        {
-        //                            < 0 => "text-danger",
-        //                            <= 7 => "text-warning",
-        //                            <= 30 => "text-info",
-        //                            _ => "text-success"
-        //                        },
-        //                        expiryLabel = batchGroup.First().DaysToExpiry switch
-        //                        {
-        //                            < 0 => "EXPIRED",
-        //                            <= 7 => $"Expires in {batchGroup.First().DaysToExpiry} days",
-        //                            <= 30 => $"Expires in {batchGroup.First().DaysToExpiry} days",
-        //                            _ => $"Expires: {batchGroup.First().ExpiryDateFormatted}"
-        //                        },
-        //                        isNearExpiry = batchGroup.First().DaysToExpiry <= 30 && batchGroup.First().DaysToExpiry >= 0,
-        //                        isExpired = batchGroup.First().DaysToExpiry < 0
-        //                    })
-        //            )
-        //            .OrderBy(m => m.expiryDate)
-        //            .ThenBy(m => m.medicineName)
-        //            .ThenBy(m => m.batchNo)
-        //            .ToList();
-        //        // Convert diseases to dropdown format with plant info
-        //        var diseaseDropdownItems = diseases.Select(d => new {
-        //            value = d.DiseaseId,
-        //            text = $"{d.DiseaseId} - {d.DiseaseName}",
-        //            description = d.DiseaseDesc ?? ""
-        //        });
-
-        //        // Log successful data loading with plant info
-        //        await _auditService.LogAsync("doctor_diagnosis", "PRESCDATA_OK", "system", null, null,
-        //            $"Prescription data loaded - Diseases: {diseases.Count}, Medicine Batches: {medicineStocks.Count}, Plant: {userPlantId}");
-
-        //        return Json(new
-        //        {
-        //            success = true,
-        //            diseases = diseaseDropdownItems,
-        //            medicines = medicineDropdownItems,
-        //            plantId = userPlantId,
-        //            summary = new
-        //            {
-        //                totalDiseases = diseases.Count,
-        //                totalMedicineBatches = medicineStocks.Count,
-        //                expiredBatches = medicineStocks.Count(m => m.DaysToExpiry < 0),
-        //                nearExpiryBatches = medicineStocks.Count(m => m.DaysToExpiry <= 30 && m.DaysToExpiry >= 0)
-        //            }
-        //        });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error loading prescription data with batch grouping");
-        //        await _auditService.LogAsync("doctor_diagnosis", "PRESCDATA_FAIL", "system", null, null,
-        //            $"Prescription data loading failed: {ex.Message}");
-        //        return Json(new
-        //        {
-        //            success = false,
-        //            diseases = new List<object>(),
-        //            medicines = new List<object>(),
-        //            message = "Error loading medicine data with batch grouping"
-        //        });
-        //    }
-        //}
+        
 
         [HttpPost]
         public async Task<IActionResult> DeletePrescription(int prescriptionId)
@@ -735,65 +524,6 @@ namespace EMS.WebApp.Controllers
                 return Json(new { success = false, message = "Error deleting prescription: " + ex.Message });
             }
         }
-
-        //[HttpPost]
-        //public async Task<IActionResult> DeletePrescription(int prescriptionId)
-        //{
-        //    try
-        //    {
-        //        var userPlantId = await GetCurrentUserPlantIdAsync();
-        //        var userRole = await GetUserRoleAsync();
-
-        //        // Log delete attempt (critical operation) with plant info
-        //        await _auditService.LogAsync("doctor_diagnosis", "DELETE_ATTEMPT", prescriptionId.ToString(), null, null,
-        //            $"Prescription deletion attempted for ID: {prescriptionId}, Plant: {userPlantId}");
-
-        //        // Check if user has permission to delete prescriptions
-        //        if (_maskingService.ShouldMaskData(userRole))
-        //        {
-        //            await _auditService.LogAsync("doctor_diagnosis", "DELETE_DENIED", prescriptionId.ToString(), null, null,
-        //                $"Prescription deletion denied for role: {userRole}");
-        //            return Json(new { success = false, message = "You don't have permission to delete prescriptions." });
-        //        }
-
-        //        // Verify prescription exists and belongs to user's plant
-        //        var prescriptionExists = await _doctorDiagnosisRepository.IsUserAuthorizedForPrescriptionAsync(prescriptionId, userPlantId ?? 0);
-        //        if (!prescriptionExists)
-        //        {
-        //            await _auditService.LogAsync("doctor_diagnosis", "DELETE_NOTFOUND", prescriptionId.ToString(), null, null,
-        //                $"Prescription not found or access denied for ID: {prescriptionId} in plant: {userPlantId}");
-        //            return Json(new { success = false, message = "Prescription not found or you don't have access to delete it." });
-        //        }
-
-        //        var deletedBy = User.FindFirst("user_id")?.Value ?? User.Identity?.Name + " - " + User.GetFullName() ?? "unknown";
-
-        //        // Perform deletion
-        //        var success = await _doctorDiagnosisRepository.DeletePrescriptionAsync(prescriptionId, userPlantId, deletedBy);
-
-        //        if (success)
-        //        {
-        //            // Log successful deletion (critical operation) with plant info
-        //            await _auditService.LogDeleteAsync("doctor_diagnosis", prescriptionId.ToString(),
-        //                new { PrescriptionId = prescriptionId, DeletedBy = deletedBy, PlantId = userPlantId },
-        //                $"Prescription deleted successfully by: {deletedBy} in plant: {userPlantId}");
-
-        //            return Json(new { success = true, message = "Prescription deleted successfully." });
-        //        }
-        //        else
-        //        {
-        //            await _auditService.LogAsync("doctor_diagnosis", "DELETE_FAILED", prescriptionId.ToString(), null, null,
-        //                $"Prescription deletion failed - database error for ID: {prescriptionId} in plant: {userPlantId}");
-        //            return Json(new { success = false, message = "Failed to delete prescription. It may have dependent records." });
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, $"Error deleting prescription {prescriptionId}");
-        //        await _auditService.LogAsync("doctor_diagnosis", "DELETE_ERROR", prescriptionId.ToString(), null, null,
-        //            $"Prescription deletion failed with error: {ex.Message}");
-        //        return Json(new { success = false, message = "Error deleting prescription: " + ex.Message });
-        //    }
-        //}
 
         [HttpGet]
         public async Task<IActionResult> CheckMedicineStock(int indentItemId)
@@ -894,8 +624,8 @@ namespace EMS.WebApp.Controllers
 
         [HttpPost]
         public async Task<IActionResult> SavePrescription(string empId, DateTime examDate,
-List<int> selectedDiseases, List<PrescriptionMedicine> medicines,
-string? bloodPressure, string? pulse, string? temperature, string? remarks = null, string? visitType = null, string? patientStatus = null, string? dependentName = null)
+        List<int> selectedDiseases, List<PrescriptionMedicine> medicines,
+        string? bloodPressure, string? pulse, string? temperature, string? remarks = null, string? visitType = null, string? patientStatus = null, string? dependentName = null)
         {
             try
             {
@@ -1531,69 +1261,7 @@ string? bloodPressure, string? pulse, string? temperature, string? remarks = nul
                 return RedirectToAction(nameof(Index));
             }
         }
-        //[HttpGet]
-        //public async Task<IActionResult> Edit(int id)
-        //{
-        //    try
-        //    {
-        //        var userPlantId = await GetCurrentUserPlantIdAsync();
-        //        var userRole = await GetUserRoleAsync();
-
-        //        ViewBag.UserRole = userRole;
-        //        ViewBag.UserPlantId = userPlantId;
-        //        ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
-
-        //        // Log edit attempt
-        //        await _auditService.LogAsync("doctor_diagnosis", "EDIT_ATTEMPT", id.ToString(), null, null,
-        //            $"Prescription edit form access attempted for ID: {id}, Plant: {userPlantId}");
-
-        //        // Check if user has permission to edit prescriptions
-        //        if (_maskingService.ShouldMaskData(userRole))
-        //        {
-        //            await _auditService.LogAsync("doctor_diagnosis", "EDIT_DENIED", id.ToString(), null, null,
-        //                $"Prescription edit denied - insufficient permissions for role: {userRole}");
-        //            TempData["Error"] = "You don't have permission to edit prescriptions.";
-        //            return RedirectToAction(nameof(Index));
-        //        }
-
-        //        // Check if prescription can be edited
-        //        var permissionResult = await _doctorDiagnosisRepository.CanEditPrescriptionAsync(id, userPlantId);
-        //        if (!permissionResult.CanEdit)
-        //        {
-        //            await _auditService.LogAsync("doctor_diagnosis", "EDIT_NOTALLOWED", id.ToString(), null, null,
-        //                $"Prescription edit not allowed: {permissionResult.Message}");
-        //            TempData["Error"] = permissionResult.Message;
-        //            return RedirectToAction(nameof(Index));
-        //        }
-
-        //        // Get prescription for editing
-        //        var editModel = await _doctorDiagnosisRepository.GetPrescriptionForEditAsync(id, userPlantId);
-        //        if (editModel == null)
-        //        {
-        //            await _auditService.LogAsync("doctor_diagnosis", "EDIT_NOTFOUND", id.ToString(), null, null,
-        //                $"Prescription not found for edit in plant: {userPlantId}");
-        //            TempData["Error"] = "Prescription not found or cannot be edited.";
-        //            return RedirectToAction(nameof(Index));
-        //        }
-
-        //        // Apply data masking if needed
-        //        _maskingService.MaskObject(editModel, userRole);
-
-        //        // Log successful access
-        //        await _auditService.LogViewAsync("doctor_diagnosis", id.ToString(),
-        //            $"Prescription edit form accessed - Employee: {editModel.EmployeeName}, Status: {editModel.ApprovalStatus}, Plant: {userPlantId}");
-
-        //        return View(editModel);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, $"Error loading edit form for prescription {id}");
-        //        await _auditService.LogAsync("doctor_diagnosis", "EDIT_ERROR", id.ToString(), null, null,
-        //            $"Edit form load failed: {ex.Message}");
-        //        TempData["Error"] = "Error loading prescription for editing.";
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //}
+        
 
         [HttpPost]
         public async Task<IActionResult> Edit(int prescriptionId, List<int>? selectedDiseases,
@@ -1844,7 +1512,8 @@ string? bloodPressure, string? pulse, string? temperature, string? remarks = nul
                     indentItemId = m.IndentItemId,
                     medItemId = m.MedItemId,
                     baseName = m.BaseName,
-                    text = $"{m.MedItemId} - {m.BaseName} - {m.MedItemName} | Batch: {m.BatchNo}",
+                    //text = $"{m.MedItemId} - {m.BaseName} - {m.MedItemName} | Batch: {m.BatchNo}",
+                    text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo}",
                     stockInfo = $"Stock: {m.AvailableStock}",
                     expiryInfo = m.ExpiryDateFormatted,
                     daysToExpiry = m.DaysToExpiry,

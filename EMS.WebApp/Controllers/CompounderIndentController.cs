@@ -2857,8 +2857,9 @@ namespace EMS.WebApp.Controllers
                     medicinesWithStock.Add(medicine);
                 }
             }
-
-            ViewBag.MedicineList = new SelectList(medicinesWithStock, "MedItemId", "MedItemName");
+            var orderedMedicines = medicinesWithStock.OrderBy(m => m.MedItemName).ToList();
+            ViewBag.MedicineList = new SelectList(orderedMedicines, "MedItemId", "MedItemName");
+            //ViewBag.MedicineList = new SelectList(medicinesWithStock, "MedItemId", "MedItemName");
         }
         private async Task PopulateIndentTypeDropdownAsync(string createdBy = null)
         {

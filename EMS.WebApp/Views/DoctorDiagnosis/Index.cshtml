@@ -856,11 +856,23 @@
             tbody.empty();
 
             if (medicines && medicines.length > 0) {
+                // medicines.forEach(function (medicine, index) {
+                //     const row = '<tr>' +
+                //         '<td>' + (index + 1) + '</td>' +
+                //         '<td>' + maskValue(medicine.baseName +' - '+ medicine.medicineName) + '</td>' +
+                //         '<td>' + medicine.quantity + '</td>' +
                 medicines.forEach(function (medicine, index) {
+                    // Logic to hide "Not Defined" base name
+                    let displayMedName = medicine.medicineName;
+                    if (medicine.baseName && medicine.baseName !== 'Not Defined' && medicine.baseName !== 'null') {
+                        displayMedName = medicine.baseName + ' - ' + medicine.medicineName;
+                    }
+
                     const row = '<tr>' +
                         '<td>' + (index + 1) + '</td>' +
-                        '<td>' + maskValue(medicine.baseName +' - '+ medicine.medicineName) + '</td>' +
+                        '<td>' + maskValue(displayMedName) + '</td>' +
                         '<td>' + medicine.quantity + '</td>' +
+
                         '<td>' + (medicine.dose || 'Not specified') + '</td>' +
                     '</tr>';
                     tbody.append(row);

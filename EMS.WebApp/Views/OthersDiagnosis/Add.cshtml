@@ -631,11 +631,25 @@
             var medicineOptions = '<option value="">-- Select Medicine (Base - Name - Batch) --</option>';
 
             if (prescriptionData.medicines && prescriptionData.medicines.length > 0) {
+                // prescriptionData.medicines.forEach(function (medicine) {
+                //     Safely extract the part after the first " - " (fallbacks included)
+                //     var txt = (medicine.text || '').toString();
+                //     var parts = txt.split(' - ');
+                //     var medName = (parts.length > 1 ? parts[1] : txt);
+
+                //     medicineOptions += `<option value="${medicine.medItemId}"
                 prescriptionData.medicines.forEach(function (medicine) {
-                    // Safely extract the part after the first " - " (fallbacks included)
+                    // Use the direct medicine name property if available, otherwise parse text
                     var txt = (medicine.text || '').toString();
-                    var parts = txt.split(' - ');
-                    var medName = (parts.length > 1 ? parts[1] : txt);
+                    var medName = medicine.medItemName || txt;
+
+                    // Fallback parsing if medItemName isn't set
+                    if (!medicine.medItemName) {
+                        var parts = txt.split(' - ');
+                        // If ID - Base - Name, name is at [2]. If ID - Name, name is at [1]
+                        // Use a heuristic or just default to the full text minus ID if complexity is high
+                        medName = (parts.length > 1 ? parts[parts.length - 1].split(' |')[0] : txt);
+                    }
 
                     medicineOptions += `<option value="${medicine.medItemId}"
                                                data-indent-item-id="${medicine.indentItemId}"
@@ -718,15 +732,17 @@
             $formatted.text(option.text);
 
             // Apply the expiry class for color coding
-            if (expiryClass.includes('text-danger')) {
-                $formatted.addClass('text-danger fw-bold');
-            } else if (expiryClass.includes('text-warning')) {
-                $formatted.addClass('text-warning fw-semibold');
-            } else if (expiryClass.includes('text-info')) {
-                $formatted.addClass('text-info');
-            } else if (expiryClass.includes('text-success')) {
-                $formatted.addClass('text-success');
-            }
+            // if (expiryClass.includes('text-danger')) {
+            //     $formatted.addClass('text-danger fw-bold');
+            // } else if (expiryClass.includes('text-warning')) {
+            //     $formatted.addClass('text-warning fw-semibold');
+            // } else if (expiryClass.includes('text-info')) {
+            //     $formatted.addClass('text-info');
+            // } else if (expiryClass.includes('text-success')) {
+            //     $formatted.addClass('text-success');
+            // }
+
+            $formatted.addClass('text-dark fw-medium');
 
             return $formatted;
         }

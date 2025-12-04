@@ -2058,7 +2058,8 @@ namespace EMS.WebApp.Controllers
             {
                 Value = m.MedItemId.ToString(),
                 Text = $"{m.MedItemId} - {m.MedItemName}"
-            }).OrderBy(m => m.Text).ToList();
+            }).ToList();
+        //}).OrderBy(m => m.Text).ToList();
 
             // Add a default "Select Medicine" option at the beginning
             medicineSelectList.Insert(0, new SelectListItem

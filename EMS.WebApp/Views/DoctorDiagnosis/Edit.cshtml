@@ -566,11 +566,23 @@
                  expiryClass = 'text-success';
              }
 
+             // const tr = $(`
+             //     <tr class="medicine-row existing-medicine" data-row-index="${rowIndex}" data-existing-medicine-id="${medItemId}">
+             //         <td class="text-center fw-bold">${rowIndex}</td>
+             //         <td>
+             //             <div class="fw-medium text-primary">${baseName} - ${medicineName}</div>
+             //             <small class="text-muted">Existing Medicine (ID: ${medItemId}) | Batch: ${batchNo}</small>
+             // Logic to hide "Not Defined" base name
+             let displayMedName = medicineName;
+             if (baseName && baseName !== 'Not Defined' && baseName !== 'Unknown Base' && baseName !== 'null') {
+                 displayMedName = `${baseName} - ${medicineName}`;
+             }
+
              const tr = $(`
                  <tr class="medicine-row existing-medicine" data-row-index="${rowIndex}" data-existing-medicine-id="${medItemId}">
                      <td class="text-center fw-bold">${rowIndex}</td>
                      <td>
-                         <div class="fw-medium text-primary">${baseName} - ${medicineName}</div>
+                          <div class="fw-medium text-darkf">${displayMedName}</div>
                          <small class="text-muted">Existing Medicine (ID: ${medItemId}) | Batch: ${batchNo}</small>
                          <input type="hidden" name="medicineId" value="${medItemId}" />
                          <input type="hidden" name="indentItemId" value="${indentItemId}" />
@@ -693,15 +705,18 @@
              $formatted.text(option.text);
 
              // Apply the expiry class for color coding
-             if (expiryClass.includes('text-danger')) {
-                 $formatted.addClass('text-danger fw-bold');
-             } else if (expiryClass.includes('text-warning')) {
-                 $formatted.addClass('text-warning fw-semibold');
-             } else if (expiryClass.includes('text-info')) {
-                 $formatted.addClass('text-info');
-             } else if (expiryClass.includes('text-success')) {
-                 $formatted.addClass('text-success');
-             }
+             // if (expiryClass.includes('text-danger')) {
+             //     $formatted.addClass('text-danger fw-bold');
+             // } else if (expiryClass.includes('text-warning')) {
+             //     $formatted.addClass('text-warning fw-semibold');
+             // } else if (expiryClass.includes('text-info')) {
+             //     $formatted.addClass('text-info');
+             // } else if (expiryClass.includes('text-success')) {
+             //     $formatted.addClass('text-success');
+             // }
+
+             // Apply standard black/dark color and weight
+                $formatted.addClass('text-dark fw-medium');
 
              return $formatted;
          }
