@@ -33,13 +33,30 @@ namespace EMS.WebApp.Services
                 return null;
             }
         }
-
-        // ======= NEW: Get medicines with batch information and stock, sorted by expiry date WITH PLANT FILTERING =======
-        public async Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null)
+        public async Task<string?> GetPlantCodeByIdAsync(int plantId)
         {
             try
             {
-                Console.WriteLine($"🔍 Getting medicines from compounder indent with FIFO logic for Others Diagnosis (Plant: {userPlantId})");
+                var plant = await _db.org_plants
+                    .FirstOrDefaultAsync(p => p.plant_id == plantId);
+                return plant?.plant_code;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error getting plant code for plant ID {plantId}: {ex.Message}");
+                return null;
+            }
+        }
+
+        // ======= NEW: Get medicines with batch information and stock, sorted by expiry date WITH PLANT FILTERING =======
+        public async Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(
+    int? userPlantId = null,
+    string? currentUser = null,
+    bool isDoctor = false)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 Getting medicines - Plant: {userPlantId}, User: {currentUser}, IsDoctor: {isDoctor}");
 
                 var query = _db.CompounderIndentItems
                     .Include(i => i.MedMaster)
@@ -51,6 +68,34 @@ namespace EMS.WebApp.Services
                 if (userPlantId.HasValue)
                 {
                     query = query.Where(i => i.CompounderIndent.plant_id == userPlantId.Value);
+
+                    // ============================================
+                    // BCM PLANT FILTERING LOGIC
+                    // ============================================
+                    if (!isDoctor)
+                    {
+                        var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                        if (plantCode?.ToUpper() == "BCM")
+                        {
+                            Console.WriteLine($"🔒 BCM Plant detected - Filtering medicines for user: {currentUser}");
+
+                            if (!string.IsNullOrEmpty(currentUser))
+                            {
+                                // BCM plant: Non-doctors can only see medicines from indents they created
+                                query = query.Where(i => i.CompounderIndent.CreatedBy == currentUser);
+                            }
+                            else
+                            {
+                                Console.WriteLine($"⚠️ BCM Plant but no current user - returning empty list");
+                                return new List<MedicineStockInfo>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"👨‍⚕️ Doctor user - showing all medicines regardless of indent creator");
+                    }
+                    // ============================================
                 }
 
                 var medicineStocks = await query
@@ -62,35 +107,31 @@ namespace EMS.WebApp.Services
                                    b.ExpiryDate >= DateTime.Today)
                         .Select(b => new MedicineStockInfo
                         {
-                            IndentItemId = i.IndentItemId, // FIXED: Keep actual IndentItemId for each batch
+                            IndentItemId = i.IndentItemId,
                             MedItemId = i.MedItemId,
                             MedItemName = i.MedMaster.MedItemName,
                             CompanyName = i.MedMaster.CompanyName ?? "Not Defined",
                             BatchNo = b.BatchNo,
                             ExpiryDate = b.ExpiryDate,
-                            AvailableStock = b.AvailableStock, // FIXED: Actual stock for this specific batch
+                            AvailableStock = b.AvailableStock,
                             BaseName = i.MedMaster.MedBase != null
                                 ? i.MedMaster.MedBase.BaseName
                                 : "Not Defined",
                             PlantId = i.CompounderIndent.plant_id
                         }))
-                    .OrderBy(m => m.ExpiryDate) // Order by medicine name
-                    .ThenBy(m => m.BatchNo) // Then by batch
-                    //.ThenBy(m => m.ExpiryDate ?? DateTime.MaxValue) // Then by expiry (FIFO)
+                    .OrderBy(m => m.ExpiryDate)
+                    .ThenBy(m => m.BatchNo)
                     .ToListAsync();
 
-                Console.WriteLine($"✅ Found {medicineStocks.Count} individual medicine batches with available stock for Others Diagnosis (Plant: {userPlantId})");
+                Console.WriteLine($"✅ Found {medicineStocks.Count} medicine batches for Others Diagnosis (Plant: {userPlantId})");
 
                 return medicineStocks;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Error getting medicines from compounder indent for Others Diagnosis: {ex.Message}");
+                Console.WriteLine($"❌ Error getting medicines from compounder indent: {ex.Message}");
 
-                // Enhanced fallback with plant filtering
-                var fallbackQuery = _db.med_masters.AsQueryable();
-                var fallbackMedicines = await fallbackQuery.ToListAsync();
-
+                var fallbackMedicines = await _db.med_masters.ToListAsync();
                 return fallbackMedicines.Select(m => new MedicineStockInfo
                 {
                     IndentItemId = 0,
@@ -105,6 +146,79 @@ namespace EMS.WebApp.Services
                 }).ToList();
             }
         }
+
+
+
+        //public async Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null)
+        //{
+        //    try
+        //    {
+        //        Console.WriteLine($"🔍 Getting medicines from compounder indent with FIFO logic for Others Diagnosis (Plant: {userPlantId})");
+
+        //        var query = _db.CompounderIndentItems
+        //            .Include(i => i.MedMaster)
+        //                .ThenInclude(m => m.MedBase)
+        //            .Include(i => i.CompounderIndent)
+        //            .AsQueryable();
+
+        //        // Plant-wise filtering for compounder indents
+        //        if (userPlantId.HasValue)
+        //        {
+        //            query = query.Where(i => i.CompounderIndent.plant_id == userPlantId.Value);
+        //        }
+
+        //        var medicineStocks = await query
+        //            .SelectMany(i => _db.CompounderIndentBatches
+        //                .Where(b => b.IndentItemId == i.IndentItemId &&
+        //                           i.ReceivedQuantity > 0 &&
+        //                           b.AvailableStock > 0 &&
+        //                           !string.IsNullOrEmpty(b.BatchNo) &&
+        //                           b.ExpiryDate >= DateTime.Today)
+        //                .Select(b => new MedicineStockInfo
+        //                {
+        //                    IndentItemId = i.IndentItemId, // FIXED: Keep actual IndentItemId for each batch
+        //                    MedItemId = i.MedItemId,
+        //                    MedItemName = i.MedMaster.MedItemName,
+        //                    CompanyName = i.MedMaster.CompanyName ?? "Not Defined",
+        //                    BatchNo = b.BatchNo,
+        //                    ExpiryDate = b.ExpiryDate,
+        //                    AvailableStock = b.AvailableStock, // FIXED: Actual stock for this specific batch
+        //                    BaseName = i.MedMaster.MedBase != null
+        //                        ? i.MedMaster.MedBase.BaseName
+        //                        : "Not Defined",
+        //                    PlantId = i.CompounderIndent.plant_id
+        //                }))
+        //            .OrderBy(m => m.ExpiryDate) // Order by medicine name
+        //            .ThenBy(m => m.BatchNo) // Then by batch
+        //            //.ThenBy(m => m.ExpiryDate ?? DateTime.MaxValue) // Then by expiry (FIFO)
+        //            .ToListAsync();
+
+        //        Console.WriteLine($"✅ Found {medicineStocks.Count} individual medicine batches with available stock for Others Diagnosis (Plant: {userPlantId})");
+
+        //        return medicineStocks;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"❌ Error getting medicines from compounder indent for Others Diagnosis: {ex.Message}");
+
+        //        // Enhanced fallback with plant filtering
+        //        var fallbackQuery = _db.med_masters.AsQueryable();
+        //        var fallbackMedicines = await fallbackQuery.ToListAsync();
+
+        //        return fallbackMedicines.Select(m => new MedicineStockInfo
+        //        {
+        //            IndentItemId = 0,
+        //            MedItemId = m.MedItemId,
+        //            MedItemName = m.MedItemName,
+        //            CompanyName = m.CompanyName ?? "Not Defined",
+        //            BatchNo = "FALLBACK",
+        //            ExpiryDate = DateTime.Now.AddYears(1),
+        //            AvailableStock = 999,
+        //            BaseName = "Not Defined",
+        //            PlantId = userPlantId ?? 1
+        //        }).ToList();
+        //    }
+        //}
 
         // ======= NEW: Get available stock for a specific medicine batch WITH PLANT FILTERING =======
         public async Task<int> GetAvailableStockAsync(int indentItemId, int? userPlantId = null)
@@ -471,20 +585,53 @@ namespace EMS.WebApp.Services
             }
         }
         // ======= UPDATED: GetAllDiagnosesAsync WITH PLANT FILTERING =======
-        public async Task<List<OthersDiagnosisListViewModel>> GetAllDiagnosesAsync(int? userPlantId = null)
+        public async Task<List<OthersDiagnosisListViewModel>> GetAllDiagnosesAsync(
+    int? userPlantId = null,
+    string? currentUser = null,
+    bool isDoctor = false)
         {
+            Console.WriteLine($"🔍 Getting all Others diagnoses - Plant: {userPlantId}, User: {currentUser}, IsDoctor: {isDoctor}");
+
             var query = _db.OthersDiagnoses
                 .Include(d => d.Patient)
-                .Include(d => d.OrgPlant) // NEW: Include plant info
+                .Include(d => d.OrgPlant)
                 .AsQueryable();
 
-            // NEW: Plant filtering
+            // Plant filtering
             if (userPlantId.HasValue)
             {
                 query = query.Where(d => d.PlantId == userPlantId.Value);
+
+                // ============================================
+                // BCM PLANT FILTERING LOGIC
+                // ============================================
+                if (!isDoctor)
+                {
+                    var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                    if (plantCode?.ToUpper() == "BCM")
+                    {
+                        Console.WriteLine($"🔒 BCM Plant detected - Filtering diagnoses for user: {currentUser}");
+
+                        if (!string.IsNullOrEmpty(currentUser))
+                        {
+                            // BCM plant: Non-doctors can only see diagnoses they created
+                            query = query.Where(d => d.CreatedBy == currentUser);
+                        }
+                        else
+                        {
+                            Console.WriteLine($"⚠️ BCM Plant but no current user - returning empty list");
+                            return new List<OthersDiagnosisListViewModel>();
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"👨‍⚕️ Doctor user - showing all diagnoses regardless of creator");
+                }
+                // ============================================
             }
 
-            return await query
+            var result = await query
                 .OrderByDescending(d => d.VisitDate)
                 .ThenByDescending(d => d.CreatedDate)
                 .ThenByDescending(d => d.DiagnosisId)
@@ -499,10 +646,47 @@ namespace EMS.WebApp.Services
                     DiagnosedBy = d.DiagnosedBy,
                     VisitType = d.VisitType,
                     ApprovalStatus = d.ApprovalStatus,
-                    PlantName = d.OrgPlant != null ? d.OrgPlant.plant_name : "Unknown Plant" // NEW: Plant name
+                    PlantName = d.OrgPlant != null ? d.OrgPlant.plant_name : "Unknown Plant"
                 })
                 .ToListAsync();
+
+            Console.WriteLine($"✅ Found {result.Count} Others diagnoses for plant {userPlantId}");
+            return result;
         }
+
+
+        //public async Task<List<OthersDiagnosisListViewModel>> GetAllDiagnosesAsync(int? userPlantId = null)
+        //{
+        //    var query = _db.OthersDiagnoses
+        //        .Include(d => d.Patient)
+        //        .Include(d => d.OrgPlant) // NEW: Include plant info
+        //        .AsQueryable();
+
+        //    // NEW: Plant filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(d => d.PlantId == userPlantId.Value);
+        //    }
+
+        //    return await query
+        //        .OrderByDescending(d => d.VisitDate)
+        //        .ThenByDescending(d => d.CreatedDate)
+        //        .ThenByDescending(d => d.DiagnosisId)
+        //        .Select(d => new OthersDiagnosisListViewModel
+        //        {
+        //            DiagnosisId = d.DiagnosisId,
+        //            TreatmentId = d.Patient!.TreatmentId,
+        //            PatientName = d.Patient.PatientName,
+        //            Age = d.Patient.Age == 0 ? null : d.Patient.Age,
+        //            Category = d.Patient.Category,
+        //            VisitDate = d.VisitDate,
+        //            DiagnosedBy = d.DiagnosedBy,
+        //            VisitType = d.VisitType,
+        //            ApprovalStatus = d.ApprovalStatus,
+        //            PlantName = d.OrgPlant != null ? d.OrgPlant.plant_name : "Unknown Plant" // NEW: Plant name
+        //        })
+        //        .ToListAsync();
+        //}
 
         // ======= KEEP ALL EXISTING METHODS BUT ADD PLANT FILTERING =======
 

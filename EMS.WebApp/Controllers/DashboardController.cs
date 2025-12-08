@@ -62,7 +62,7 @@ namespace EMS.WebApp.Controllers
         {
         var currentUserName = User.Identity?.Name;
             
-            string ScreenName = "Default";
+            string ScreenName = "Compounder";
             var currentUserRole = User.FindFirst("RoleName")?.Value ?? "";
 
             if (currentUserRole.ToLower().Contains("store")) 

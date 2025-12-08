@@ -7,11 +7,19 @@ namespace EMS.WebApp.Services
 {
     public interface ICompounderIndentRepository
     {
-        // Updated methods with plant filtering
+        Task<string?> GetUserPlantCodeAsync(string userName);
+        Task<string?> GetPlantCodeByIdAsync(int plantId);
+
+
         Task<CompounderIndent?> GetByIdWithItemsAsync(int id, int? userPlantId = null);
-        Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null);
-        Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null);
-        Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null);
+        //Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null);
+        //Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null);
+        //Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null);
+
+        Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null, bool isDoctor = false);
+        Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null, bool isDoctor = false);
+        Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null, bool isDoctor = false);
+
         Task<CompounderIndent?> GetByIdAsync(int id, int? userPlantId = null);
         Task AddAsync(CompounderIndent entity);
         Task UpdateAsync(CompounderIndent entity);

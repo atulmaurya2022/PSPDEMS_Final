@@ -34,24 +34,30 @@ namespace EMS.WebApp.Controllers
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var userRole = await GetUserRoleAsync();
+                var isDoctor = userRole?.ToLower() == "doctor";  // Determine if user is doctor
 
-                // NEW: Get current user identifier
+                // Get current user identifier
                 var currentUser = User.FindFirst("user_id")?.Value ??
                                  User.Identity?.Name + " - " + User.GetFullName() ??
                                  "unknown";
 
                 ViewBag.UserRole = userRole;
-                ViewBag.IsDoctor = userRole?.ToLower() == "doctor";
+                ViewBag.IsDoctor = isDoctor;
                 ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
-                ViewBag.CurrentUser = currentUser; // NEW: Pass current user to view
+                ViewBag.CurrentUser = currentUser;
 
                 await _auditService.LogAsync("others_diagnosis", "INDEX_VIEW", "main", null, null,
-                    $"Others diagnosis module accessed by user role: {userRole}, Plant: {userPlantId}");
+                    $"Others diagnosis module accessed by user role: {userRole}, Plant: {userPlantId}, IsDoctor: {isDoctor}");
 
-                var diagnoses = await _repository.GetAllDiagnosesAsync(userPlantId);
+                // UPDATED: Pass currentUser and isDoctor for BCM filtering
+                var diagnoses = await _repository.GetAllDiagnosesAsync(
+                    userPlantId,
+                    currentUser,  // NEW: Pass current user
+                    isDoctor      // NEW: Pass isDoctor flag
+                );
 
                 await _auditService.LogAsync("others_diagnosis", "INDEX_SUCCESS", "main", null, null,
-                    $"Others diagnosis list loaded - Count: {diagnoses.Count()}, Role: {userRole}, Plant: {userPlantId}");
+                    $"Others diagnosis list loaded - Count: {diagnoses.Count()}, Role: {userRole}, Plant: {userPlantId}, IsDoctor: {isDoctor}");
 
                 return View(diagnoses);
             }
@@ -64,41 +70,7 @@ namespace EMS.WebApp.Controllers
                 return View(new List<OthersDiagnosisListViewModel>());
             }
         }
-        //public async Task<IActionResult> Index()
-        //{
-        //    try
-        //    {
-        //        // NEW: Get user's plant ID for filtering
-        //        var userPlantId = await GetCurrentUserPlantIdAsync();
 
-        //        // Pass user role to view for client-side masking
-        //        var userRole = await GetUserRoleAsync();
-        //        ViewBag.UserRole = userRole;
-        //        ViewBag.IsDoctor = userRole?.ToLower() == "doctor";
-        //        ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
-
-        //        // Log index access for security monitoring
-        //        await _auditService.LogAsync("others_diagnosis", "INDEX_VIEW", "main", null, null,
-        //            $"Others diagnosis module accessed by user role: {userRole}, Plant: {userPlantId}");
-
-        //        // NEW: Pass plant filtering to repository
-        //        var diagnoses = await _repository.GetAllDiagnosesAsync(userPlantId);
-
-        //        // Log successful data loading
-        //        await _auditService.LogAsync("others_diagnosis", "INDEX_SUCCESS", "main", null, null,
-        //            $"Others diagnosis list loaded - Count: {diagnoses.Count()}, Role: {userRole}, Plant: {userPlantId}");
-
-        //        return View(diagnoses);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error loading others diagnosis list");
-        //        await _auditService.LogAsync("others_diagnosis", "INDEX_FAILED", "main", null, null,
-        //            $"Failed to load others diagnosis index: {ex.Message}");
-        //        TempData["Error"] = "Error loading diagnosis records.";
-        //        return View(new List<OthersDiagnosisListViewModel>());
-        //    }
-        //}
 
         public async Task<IActionResult> Add()
         {
@@ -418,58 +390,62 @@ namespace EMS.WebApp.Controllers
             }
         }
 
-        // ======= UPDATED: Enhanced prescription data with batch information and stock WITH PLANT FILTERING =======
-        [HttpGet]
+
         [HttpGet]
         public async Task<IActionResult> GetPrescriptionData()
         {
             try
             {
-                // Get user's plant ID
                 var userPlantId = await GetCurrentUserPlantIdAsync();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = userRole?.ToLower() == "doctor";
 
-                _logger.LogInformation("Getting prescription data with FIFO batch selection for Others Diagnosis, Plant: {PlantId}", userPlantId);
+                // NEW: Get current user identifier for BCM filtering
+                var currentUser = User.Identity?.Name + " - " + User.GetFullName();
 
-                // Log access to prescription/medicine data
+                _logger.LogInformation($"Getting prescription data - Plant: {userPlantId}, User: {currentUser}, IsDoctor: {isDoctor}");
+
                 await _auditService.LogAsync("others_diagnosis", "GET_PRESCDATA", "system", null, null,
-                    $"Prescription and medicine data access attempted, Plant: {userPlantId}");
+                    $"Prescription data access - Plant: {userPlantId}, IsDoctor: {isDoctor}");
 
-                // UPDATED: Get diseases filtered by plant
+                // Get diseases filtered by plant
                 var diseases = await _repository.GetDiseasesAsync(userPlantId);
-                // Get medicines filtered by plant with FIFO logic (no grouping - keep each IndentItemId-Batch separate)
-                var medicineStocks = await _repository.GetMedicinesFromCompounderIndentAsync(userPlantId);
 
-                _logger.LogInformation($"Found {diseases.Count} diseases and {medicineStocks.Count} individual medicine batches for plant {userPlantId}");
+                // UPDATED: Pass currentUser and isDoctor for BCM filtering
+                var medicineStocks = await _repository.GetMedicinesFromCompounderIndentAsync(
+                    userPlantId,
+                    currentUser,  // NEW
+                    isDoctor      // NEW
+                );
 
-                // FIXED: Convert to dropdown format - Keep each IndentItemId-Batch combination separate
+                _logger.LogInformation($"Found {diseases.Count} diseases and {medicineStocks.Count} medicine batches for plant {userPlantId}");
+
+                // Convert to dropdown format
                 var medicineDropdownItems = medicineStocks
-                    .Where(m => m.AvailableStock > 0) // Only show items with available stock
-                    .OrderBy(m => m.ExpiryDate) // Order by medicine name first
+                    .Where(m => m.AvailableStock > 0)
+                    .OrderBy(m => m.ExpiryDate)
                     .ThenBy(m => m.MedItemName)
-                    .ThenBy(m => m.BatchNo) // Then by batch number
-                                            //.ThenBy(m => m.ExpiryDate ?? DateTime.MaxValue) // Then by expiry date (FIFO)
+                    .ThenBy(m => m.BatchNo)
                     .Select(m => new
                     {
-                        indentItemId = m.IndentItemId, // FIXED: Use actual IndentItemId, not grouped
+                        indentItemId = m.IndentItemId,
                         medItemId = m.MedItemId,
                         baseName = m.BaseName,
                         medItemName = m.MedItemName,
-                        //text = $"{m.MedItemId} - {m.BaseName} - {m.MedItemName} | Batch: {m.BatchNo}",
                         text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo}",
                         stockInfo = $"Stock: {m.AvailableStock}",
                         expiryInfo = m.ExpiryDateFormatted,
                         daysToExpiry = m.DaysToExpiry,
-                        availableStock = m.AvailableStock, // FIXED: Use actual stock for this specific batch
+                        availableStock = m.AvailableStock,
                         batchNo = m.BatchNo,
                         expiryDate = m.ExpiryDate?.ToString("yyyy-MM-dd"),
                         companyName = m.CompanyName,
-                        // Add styling classes based on expiry
                         expiryClass = m.DaysToExpiry switch
                         {
-                            < 0 => "text-danger", // Expired
-                            <= 7 => "text-warning", // Expires within a week
-                            <= 30 => "text-info", // Expires within a month
-                            _ => "text-success" // Good
+                            < 0 => "text-danger",
+                            <= 7 => "text-warning",
+                            <= 30 => "text-info",
+                            _ => "text-success"
                         },
                         expiryLabel = m.DaysToExpiry switch
                         {
@@ -483,9 +459,8 @@ namespace EMS.WebApp.Controllers
                     })
                     .ToList();
 
-                // Log successful data loading
                 await _auditService.LogAsync("others_diagnosis", "PRESCDATA_OK", "system", null, null,
-                    $"Prescription data loaded - Diseases: {diseases.Count}, Medicine Batches: {medicineStocks.Count}, Plant: {userPlantId}");
+                    $"Prescription data loaded - Diseases: {diseases.Count}, Medicines: {medicineStocks.Count}, Plant: {userPlantId}");
 
                 return Json(new
                 {
@@ -498,30 +473,31 @@ namespace EMS.WebApp.Controllers
                     plantInfo = new
                     {
                         plantId = userPlantId,
-                        diseaseCount = diseases.Count,
-                        medicineCount = medicineStocks.Count,
-                        summary = new
-                        {
-                            totalMedicineBatches = medicineStocks.Count,
-                            expiredBatches = medicineStocks.Count(m => m.DaysToExpiry < 0),
-                            nearExpiryBatches = medicineStocks.Count(m => m.DaysToExpiry <= 30 && m.DaysToExpiry >= 0)
-                        }
+                        isDoctor = isDoctor
+                    },
+                    summary = new
+                    {
+                        totalDiseases = diseases.Count,
+                        totalMedicineBatches = medicineStocks.Count,
+                        expiredBatches = medicineStocks.Count(m => m.DaysToExpiry < 0),
+                        nearExpiryBatches = medicineStocks.Count(m => m.DaysToExpiry <= 30 && m.DaysToExpiry >= 0)
                     }
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading prescription data with FIFO batch selection for Others Diagnosis");
+                _logger.LogError(ex, "Error loading prescription data");
                 await _auditService.LogAsync("others_diagnosis", "PRESCDATA_FAIL", "system", null, null,
                     $"Prescription data loading failed: {ex.Message}");
                 return Json(new
                 {
                     diseases = new List<object>(),
                     medicines = new List<object>(),
-                    message = "Error loading medicine data with FIFO batch selection"
+                    message = "Error loading medicine data"
                 });
             }
         }
+
         // ======= NEW: Check available stock for a medicine batch WITH PLANT FILTERING =======
         [HttpGet]
         public async Task<IActionResult> CheckMedicineStock(int indentItemId)
@@ -1526,8 +1502,17 @@ namespace EMS.WebApp.Controllers
             {
                 _logger.LogInformation($"Getting stock info for {currentMedicines.Count} existing Others medicines in plant {userPlantId}");
 
-                // Get all available medicine stocks for the plant
-                var medicineStocks = await _repository.GetMedicinesFromCompounderIndentAsync(userPlantId);
+                // Get current user and role for BCM filtering
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = userRole?.ToLower() == "doctor";
+                var currentUser = User.Identity?.Name + " - " + User.GetFullName();
+
+                // UPDATED: Pass currentUser and isDoctor for BCM filtering
+                var medicineStocks = await _repository.GetMedicinesFromCompounderIndentAsync(
+                    userPlantId,
+                    currentUser,
+                    isDoctor
+                );
 
                 _logger.LogInformation($"Found {medicineStocks.Count} total medicine stock records for Others diagnosis");
 

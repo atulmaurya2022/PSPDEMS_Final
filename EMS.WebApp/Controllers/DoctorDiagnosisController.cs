@@ -31,28 +31,33 @@ namespace EMS.WebApp.Controllers
         }
 
 
-
         public async Task<IActionResult> Index()
         {
             try
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var userRole = await GetUserRoleAsync();
+                var isDoctor = userRole?.ToLower() == "doctor";  // Determine if user is doctor
 
-                // NEW: Get current user identifier
+                // Get current user identifier
                 var currentUser = User.FindFirst("user_id")?.Value ??
                                  User.Identity?.Name + " - " + User.GetFullName() ??
                                  "unknown";
 
                 ViewBag.UserRole = userRole;
-                ViewBag.IsDoctor = userRole?.ToLower() == "doctor";
+                ViewBag.IsDoctor = isDoctor;
                 ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
-                ViewBag.CurrentUser = currentUser; // NEW: Pass current user to view
+                ViewBag.CurrentUser = currentUser;
 
-                var diagnoses = await _doctorDiagnosisRepository.GetAllEmployeeDiagnosesAsync(userPlantId);
+                // UPDATED: Pass currentUser and isDoctor for BCM filtering
+                var diagnoses = await _doctorDiagnosisRepository.GetAllEmployeeDiagnosesAsync(
+                    userPlantId,
+                    currentUser,  // NEW: Pass current user
+                    isDoctor      // NEW: Pass isDoctor flag
+                );
 
                 await _auditService.LogAsync("doctor_diagnosis", "INDEX_VIEW", "main", null, null,
-                    $"Doctor diagnosis list loaded - Count: {diagnoses.Count()}, Role: {userRole}, Plant: {userPlantId}");
+                    $"Doctor diagnosis list loaded - Count: {diagnoses.Count()}, Role: {userRole}, Plant: {userPlantId}, IsDoctor: {isDoctor}");
 
                 return View(diagnoses);
             }
@@ -64,6 +69,38 @@ namespace EMS.WebApp.Controllers
                 return View(new List<EmployeeDiagnosisListViewModel>());
             }
         }
+        //public async Task<IActionResult> Index()
+        //{
+        //    try
+        //    {
+        //        var userPlantId = await GetCurrentUserPlantIdAsync();
+        //        var userRole = await GetUserRoleAsync();
+
+        //        // NEW: Get current user identifier
+        //        var currentUser = User.FindFirst("user_id")?.Value ??
+        //                         User.Identity?.Name + " - " + User.GetFullName() ??
+        //                         "unknown";
+
+        //        ViewBag.UserRole = userRole;
+        //        ViewBag.IsDoctor = userRole?.ToLower() == "doctor";
+        //        ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
+        //        ViewBag.CurrentUser = currentUser; // NEW: Pass current user to view
+
+        //        var diagnoses = await _doctorDiagnosisRepository.GetAllEmployeeDiagnosesAsync(userPlantId);
+
+        //        await _auditService.LogAsync("doctor_diagnosis", "INDEX_VIEW", "main", null, null,
+        //            $"Doctor diagnosis list loaded - Count: {diagnoses.Count()}, Role: {userRole}, Plant: {userPlantId}");
+
+        //        return View(diagnoses);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error loading doctor diagnosis list");
+        //        await _auditService.LogAsync("doctor_diagnosis", "INDEX_FAILED", "main", null, null,
+        //            $"Failed to load doctor diagnosis index: {ex.Message}");
+        //        return View(new List<EmployeeDiagnosisListViewModel>());
+        //    }
+        //}
 
         public async Task<IActionResult> Create()
         {
@@ -358,18 +395,27 @@ namespace EMS.WebApp.Controllers
             try
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = userRole?.ToLower() == "doctor";
 
-                _logger.LogInformation($"🔍 Getting prescription data with FIFO batch selection for plant: {userPlantId}");
+                // NEW: Get current user identifier for BCM filtering
+                var currentUser = User.Identity?.Name + " - " + User.GetFullName();
+
+                _logger.LogInformation($"🔍 Getting prescription data - Plant: {userPlantId}, User: {currentUser}, IsDoctor: {isDoctor}");
 
                 // Log access to prescription/medicine data with plant info
                 await _auditService.LogAsync("doctor_diagnosis", "GET_PRESCDATA", "system", null, null,
-                    $"Prescription and medicine data access attempted for plant: {userPlantId}");
+                    $"Prescription and medicine data access attempted for plant: {userPlantId}, IsDoctor: {isDoctor}");
 
                 // Get plant-wise diseases
                 var diseases = await _doctorDiagnosisRepository.GetDiseasesAsync(userPlantId);
 
-                // Get plant-wise medicines with batch information (no grouping - keep each IndentItemId-Batch separate)
-                var medicineStocks = await _doctorDiagnosisRepository.GetMedicinesFromCompounderIndentAsync(userPlantId);
+                // UPDATED: Pass currentUser and isDoctor for BCM filtering
+                var medicineStocks = await _doctorDiagnosisRepository.GetMedicinesFromCompounderIndentAsync(
+                    userPlantId,
+                    currentUser,  // NEW: Pass current user
+                    isDoctor      // NEW: Pass isDoctor flag
+                );
 
                 _logger.LogInformation($"✅ Found {diseases.Count} diseases and {medicineStocks.Count} medicine batches for plant: {userPlantId}");
 
@@ -455,7 +501,7 @@ namespace EMS.WebApp.Controllers
                 });
             }
         }
-        
+
 
         [HttpPost]
         public async Task<IActionResult> DeletePrescription(int prescriptionId)
@@ -1261,7 +1307,7 @@ namespace EMS.WebApp.Controllers
                 return RedirectToAction(nameof(Index));
             }
         }
-        
+
 
         [HttpPost]
         public async Task<IActionResult> Edit(int prescriptionId, List<int>? selectedDiseases,
@@ -1495,11 +1541,19 @@ namespace EMS.WebApp.Controllers
 
         private async Task<dynamic> GetPrescriptionDataForEdit(int? userPlantId)
         {
+            var userRole = await GetUserRoleAsync();
+            var isDoctor = userRole?.ToLower() == "doctor";
+            var currentUser = User.Identity?.Name + " - " + User.GetFullName();
+
             // Get plant-wise diseases
             var diseases = await _doctorDiagnosisRepository.GetDiseasesAsync(userPlantId);
 
-            // Get plant-wise medicines with batch information
-            var medicineStocks = await _doctorDiagnosisRepository.GetMedicinesFromCompounderIndentAsync(userPlantId);
+            // UPDATED: Pass currentUser and isDoctor for BCM filtering
+            var medicineStocks = await _doctorDiagnosisRepository.GetMedicinesFromCompounderIndentAsync(
+                userPlantId,
+                currentUser,  // NEW: Pass current user
+                isDoctor      // NEW: Pass isDoctor flag
+            );
 
             // Convert medicines to dropdown format
             var medicineDropdownItems = medicineStocks

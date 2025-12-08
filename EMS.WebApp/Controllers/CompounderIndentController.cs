@@ -77,17 +77,23 @@ namespace EMS.WebApp.Controllers
                 IEnumerable<CompounderIndent> list;
                 if (string.IsNullOrEmpty(indentType))
                 {
-                    list = await _repo.ListAsync(currentUser, userPlantId);
+                    //list = await _repo.ListAsync(currentUser, userPlantId);
+                    list = await _repo.ListAsync(currentUser, userPlantId, isDoctor);
                 }
                 else if (indentType == "Compounder Inventory")
                 {
-                    var approvedIndents = await _repo.ListByStatusAsync("Approved", currentUser, userPlantId);
-                    var pendingIndents = await _repo.ListByStatusAsync("Pending", currentUser, userPlantId);
+                    //var approvedIndents = await _repo.ListByStatusAsync("Approved", currentUser, userPlantId);
+                    //var pendingIndents = await _repo.ListByStatusAsync("Pending", currentUser, userPlantId);
+                    //list = approvedIndents.Concat(pendingIndents).OrderBy(x => x.IndentDate);
+                    // UPDATED: Pass isDoctor parameter to both calls
+                    var approvedIndents = await _repo.ListByStatusAsync("Approved", currentUser, userPlantId, isDoctor);
+                    var pendingIndents = await _repo.ListByStatusAsync("Pending", currentUser, userPlantId, isDoctor);
                     list = approvedIndents.Concat(pendingIndents).OrderBy(x => x.IndentDate);
                 }
                 else
                 {
-                    list = await _repo.ListByTypeAsync(indentType, currentUser, userPlantId);
+                    //list = await _repo.ListByTypeAsync(indentType, currentUser, userPlantId);
+                    list = await _repo.ListByTypeAsync(indentType, currentUser, userPlantId, isDoctor);
                 }
 
                 var result = new List<object>();

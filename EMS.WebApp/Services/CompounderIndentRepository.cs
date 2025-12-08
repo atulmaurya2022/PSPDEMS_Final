@@ -11,7 +11,52 @@ namespace EMS.WebApp.Services
 
         public CompounderIndentRepository(ApplicationDbContext db) => _db = db;
 
-        public async Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null)
+        // NEW: Get plant code by user name
+        public async Task<string?> GetUserPlantCodeAsync(string userName)
+        {
+            var user = await _db.SysUsers
+                .Include(u => u.OrgPlant) // Include OrgPlant navigation property
+                .FirstOrDefaultAsync(u => (u.adid == userName || u.email == userName || u.full_name == userName) && u.is_active);
+
+            return user?.OrgPlant?.plant_code;
+        }
+
+        // NEW: Get plant code by plant ID
+        public async Task<string?> GetPlantCodeByIdAsync(int plantId)
+        {
+            var plant = await _db.org_plants.FirstOrDefaultAsync(p => p.plant_id == plantId);
+            return plant?.plant_code;
+        }
+
+
+        //public async Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null)
+        //{
+        //    var query = _db.CompounderIndents.AsQueryable();
+
+        //    // Plant-wise filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(s => s.plant_id == userPlantId.Value);
+        //    }
+
+        //    // Filter drafts to show only to their creators
+        //    if (!string.IsNullOrEmpty(currentUser))
+        //    {
+        //        query = query.Where(s => s.IndentType != "Draft Indent" || s.CreatedBy == currentUser);
+        //    }
+        //    else
+        //    {
+        //        query = query.Where(s => s.IndentType != "Draft Indent");
+        //    }
+
+        //    return await query
+        //        .Include(s => s.OrgPlant)
+        //        .OrderByDescending(s => s.CreatedDate)
+        //        .ToListAsync();
+        //}
+
+        // UPDATED: ListAsync with BCM plant filtering
+        public async Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null, bool isDoctor = false)
         {
             var query = _db.CompounderIndents.AsQueryable();
 
@@ -19,6 +64,24 @@ namespace EMS.WebApp.Services
             if (userPlantId.HasValue)
             {
                 query = query.Where(s => s.plant_id == userPlantId.Value);
+
+                if (!isDoctor)
+                {
+                    var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                    if (plantCode?.ToUpper() == "BCM")
+                    {
+                        // BCM plant: Non-doctors can only see their own records
+                        if (!string.IsNullOrEmpty(currentUser))
+                        {
+                            query = query.Where(s => s.CreatedBy == currentUser);
+                        }
+                        else
+                        {
+                            // If no current user, return empty (safety measure)
+                            return new List<CompounderIndent>();
+                        }
+                    }
+                }
             }
 
             // Filter drafts to show only to their creators
@@ -37,7 +100,32 @@ namespace EMS.WebApp.Services
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null)
+        //public async Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null)
+        //{
+        //    var query = _db.CompounderIndents.Where(s => s.IndentType == indentType);
+
+        //    // Plant-wise filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(s => s.plant_id == userPlantId.Value);
+        //    }
+
+        //    // Additional filtering for Draft Indent - only show to creator
+        //    if (indentType == "Draft Indent" && !string.IsNullOrEmpty(currentUser))
+        //    {
+        //        query = query.Where(s => s.CreatedBy == currentUser);
+        //    }
+        //    else if (indentType == "Draft Indent" && string.IsNullOrEmpty(currentUser))
+        //    {
+        //        return new List<CompounderIndent>();
+        //    }
+
+        //    return await query
+        //        .Include(s => s.OrgPlant)
+        //        .OrderByDescending(s => s.CreatedDate)
+        //        .ToListAsync();
+        //}
+        public async Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null, bool isDoctor = false)
         {
             var query = _db.CompounderIndents.Where(s => s.IndentType == indentType);
 
@@ -45,6 +133,23 @@ namespace EMS.WebApp.Services
             if (userPlantId.HasValue)
             {
                 query = query.Where(s => s.plant_id == userPlantId.Value);
+
+                if (!isDoctor)
+                {
+                    var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                    if (plantCode?.ToUpper() == "BCM")
+                    {
+                        // BCM plant: Non-doctors can only see their own records
+                        if (!string.IsNullOrEmpty(currentUser))
+                        {
+                            query = query.Where(s => s.CreatedBy == currentUser);
+                        }
+                        else
+                        {
+                            return new List<CompounderIndent>();
+                        }
+                    }
+                }
             }
 
             // Additional filtering for Draft Indent - only show to creator
@@ -62,8 +167,23 @@ namespace EMS.WebApp.Services
                 .OrderByDescending(s => s.CreatedDate)
                 .ToListAsync();
         }
+        //public async Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null)
+        //{
+        //    var query = _db.CompounderIndents.Where(s => s.Status == status);
 
-        public async Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null)
+        //    // Plant-wise filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(s => s.plant_id == userPlantId.Value);
+        //    }
+
+        //    return await query
+        //        .Include(s => s.OrgPlant)
+        //        .OrderByDescending(s => s.CreatedDate)
+        //        .ToListAsync();
+        //}
+
+        public async Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null, bool isDoctor = false)
         {
             var query = _db.CompounderIndents.Where(s => s.Status == status);
 
@@ -71,6 +191,23 @@ namespace EMS.WebApp.Services
             if (userPlantId.HasValue)
             {
                 query = query.Where(s => s.plant_id == userPlantId.Value);
+
+                if (!isDoctor)
+                {
+                    var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                    if (plantCode?.ToUpper() == "BCM")
+                    {
+                        // BCM plant: Non-doctors can only see their own records
+                        if (!string.IsNullOrEmpty(currentUser))
+                        {
+                            query = query.Where(s => s.CreatedBy == currentUser);
+                        }
+                        else
+                        {
+                            return new List<CompounderIndent>();
+                        }
+                    }
+                }
             }
 
             return await query

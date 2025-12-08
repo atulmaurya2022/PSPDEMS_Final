@@ -20,7 +20,37 @@ namespace EMS.WebApp.Services
             _encryptionService = encryptionService;
         }
 
-        // UPDATED: Plant-wise employee filtering
+        public async Task<string?> GetUserPlantCodeAsync(string userName)
+        {
+            try
+            {
+                var user = await _db.SysUsers
+                    .Include(u => u.OrgPlant) // Include OrgPlant navigation property
+                    .FirstOrDefaultAsync(u => (u.adid == userName || u.email == userName || u.full_name == userName) && u.is_active);
+
+                return user?.OrgPlant?.plant_code;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error getting plant code for user {userName}: {ex.Message}");
+                return null;
+            }
+        }
+
+        // NEW: Get plant code by plant ID
+        public async Task<string?> GetPlantCodeByIdAsync(int plantId)
+        {
+            try
+            {
+                var plant = await _db.org_plants.FirstOrDefaultAsync(p => p.plant_id == plantId);
+                return plant?.plant_code;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error getting plant code for plant ID {plantId}: {ex.Message}");
+                return null;
+            }
+        }
         public async Task<HrEmployee?> GetEmployeeByEmpIdAsync(string empId, int? userPlantId = null)
         {
             var query = _db.HrEmployees
@@ -167,11 +197,84 @@ namespace EMS.WebApp.Services
         }
 
         // UPDATED: Plant-wise medicine stock filtering
-        public async Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null)
+        //public async Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null)
+        //{
+        //    try
+        //    {
+        //        Console.WriteLine($"🔍 Getting medicines from compounder indent with FIFO logic for plant: {userPlantId}");
+
+        //        var query = _db.CompounderIndentItems
+        //            .Include(i => i.MedMaster)
+        //                .ThenInclude(m => m.MedBase)
+        //            .Include(i => i.CompounderIndent)
+        //            .AsQueryable();
+
+        //        // Plant-wise filtering for compounder indents
+        //        if (userPlantId.HasValue)
+        //        {
+        //            query = query.Where(i => i.CompounderIndent.plant_id == userPlantId.Value);
+        //        }
+
+        //        var medicineStocks = query
+        //            .SelectMany(i => _db.CompounderIndentBatches
+        //                .Where(b => b.IndentItemId == i.IndentItemId &&
+        //                           i.ReceivedQuantity > 0 &&
+        //                           b.AvailableStock > 0 &&
+        //                           !string.IsNullOrEmpty(b.BatchNo) &&
+        //                           b.ExpiryDate >= DateTime.Today)
+        //                .Select(b => new MedicineStockInfo
+        //                {
+        //                    IndentItemId = i.IndentItemId, // FIXED: Keep actual IndentItemId for each batch
+        //                    MedItemId = i.MedItemId,
+        //                    MedItemName = i.MedMaster.MedItemName,
+        //                    CompanyName = i.MedMaster.CompanyName ?? "Not Defined",
+        //                    BatchNo = b.BatchNo,
+        //                    ExpiryDate = b.ExpiryDate,
+        //                    AvailableStock = b.AvailableStock, // FIXED: Actual stock for this specific batch
+        //                    BaseName = i.MedMaster.MedBase != null
+        //                        ? i.MedMaster.MedBase.BaseName
+        //                        : "Not Defined",
+        //                    PlantId = i.CompounderIndent.plant_id
+        //                }))
+        //            .OrderBy(m => m.MedItemName) // Order by medicine name
+        //            .ThenBy(m => m.BatchNo) // Then by batch
+        //            .ThenBy(m => m.ExpiryDate ?? DateTime.MaxValue) // Then by expiry (FIFO)
+        //            .ToList();
+
+        //        Console.WriteLine($"✅ Found {medicineStocks.Count} individual medicine batches with available stock for plant {userPlantId}");
+
+        //        return medicineStocks;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"❌ Error getting medicines from compounder indent: {ex.Message}");
+
+        //        // Enhanced fallback with plant filtering
+        //        var fallbackQuery = _db.med_masters.AsQueryable();
+        //        var fallbackMedicines = await fallbackQuery.ToListAsync();
+
+        //        return fallbackMedicines.Select(m => new MedicineStockInfo
+        //        {
+        //            IndentItemId = 0,
+        //            MedItemId = m.MedItemId,
+        //            MedItemName = m.MedItemName,
+        //            CompanyName = m.CompanyName ?? "Not Defined",
+        //            BatchNo = "FALLBACK",
+        //            ExpiryDate = DateTime.Now.AddYears(1),
+        //            AvailableStock = 999,
+        //            BaseName = "Not Defined",
+        //            PlantId = userPlantId ?? 1
+        //        }).ToList();
+        //    }
+        //}
+
+        public async Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(
+            int? userPlantId = null,
+            string? currentUser = null,
+            bool isDoctor = false)
         {
             try
             {
-                Console.WriteLine($"🔍 Getting medicines from compounder indent with FIFO logic for plant: {userPlantId}");
 
                 var query = _db.CompounderIndentItems
                     .Include(i => i.MedMaster)
@@ -183,6 +286,31 @@ namespace EMS.WebApp.Services
                 if (userPlantId.HasValue)
                 {
                     query = query.Where(i => i.CompounderIndent.plant_id == userPlantId.Value);
+
+                    if (!isDoctor)
+                    {
+                        var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                        if (plantCode?.ToUpper() == "BCM")
+                        {
+                            Console.WriteLine($"🔒 BCM Plant detected - Filtering medicines for user: {currentUser}");
+
+                            if (!string.IsNullOrEmpty(currentUser))
+                            {
+                                // BCM plant: Non-doctors can only see medicines from indents they created
+                                query = query.Where(i => i.CompounderIndent.CreatedBy == currentUser);
+                            }
+                            else
+                            {
+                                // Safety: If no current user, return empty list
+                                Console.WriteLine($"⚠️ BCM Plant but no current user - returning empty list");
+                                return new List<MedicineStockInfo>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"👨‍⚕️ Doctor user - showing all medicines regardless of creator");
+                    }
                 }
 
                 var medicineStocks = query
@@ -194,24 +322,24 @@ namespace EMS.WebApp.Services
                                    b.ExpiryDate >= DateTime.Today)
                         .Select(b => new MedicineStockInfo
                         {
-                            IndentItemId = i.IndentItemId, // FIXED: Keep actual IndentItemId for each batch
+                            IndentItemId = i.IndentItemId,
                             MedItemId = i.MedItemId,
                             MedItemName = i.MedMaster.MedItemName,
                             CompanyName = i.MedMaster.CompanyName ?? "Not Defined",
                             BatchNo = b.BatchNo,
                             ExpiryDate = b.ExpiryDate,
-                            AvailableStock = b.AvailableStock, // FIXED: Actual stock for this specific batch
+                            AvailableStock = b.AvailableStock,
                             BaseName = i.MedMaster.MedBase != null
                                 ? i.MedMaster.MedBase.BaseName
                                 : "Not Defined",
                             PlantId = i.CompounderIndent.plant_id
                         }))
-                    .OrderBy(m => m.MedItemName) // Order by medicine name
-                    .ThenBy(m => m.BatchNo) // Then by batch
-                    .ThenBy(m => m.ExpiryDate ?? DateTime.MaxValue) // Then by expiry (FIFO)
+                    .OrderBy(m => m.MedItemName)
+                    .ThenBy(m => m.BatchNo)
+                    .ThenBy(m => m.ExpiryDate ?? DateTime.MaxValue)
                     .ToList();
 
-                Console.WriteLine($"✅ Found {medicineStocks.Count} individual medicine batches with available stock for plant {userPlantId}");
+                Console.WriteLine($"✅ Found {medicineStocks.Count} individual medicine batches for plant {userPlantId}");
 
                 return medicineStocks;
             }
@@ -237,94 +365,7 @@ namespace EMS.WebApp.Services
                 }).ToList();
             }
         }
-        //public async Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null)
-        //{
-        //    try
-        //    {
-        //        Console.WriteLine($"🔍 Getting medicines from compounder indent with batch grouping for plant: {userPlantId}");
 
-        //        var query = _db.CompounderIndentItems
-        //            .Include(i => i.MedMaster)
-        //                .ThenInclude(m => m.MedBase)
-        //            .Include(i => i.CompounderIndent)
-        //            .AsQueryable();
-
-        //        // Plant-wise filtering for compounder indents
-        //        if (userPlantId.HasValue)
-        //        {
-        //            query = query.Where(i => i.CompounderIndent.plant_id == userPlantId.Value);
-        //        }
-
-        //        var medicineStocks = await query
-        //            .SelectMany(i => _db.CompounderIndentBatches
-        //                .Where(b => b.IndentItemId == i.IndentItemId &&
-        //                           i.ReceivedQuantity > 0 &&
-        //                           b.AvailableStock > 0 &&
-        //                           !string.IsNullOrEmpty(b.BatchNo) &&
-        //                           b.ExpiryDate >= DateTime.Today)
-        //                .Select(b => new MedicineStockInfo
-        //                {
-        //                    IndentItemId = i.IndentItemId,
-        //                    MedItemId = i.MedItemId,
-        //                    MedItemName = i.MedMaster.MedItemName,
-        //                    CompanyName = i.MedMaster.CompanyName ?? "Not Defined",
-        //                    BatchNo = b.BatchNo,
-        //                    ExpiryDate = b.ExpiryDate,
-        //                    AvailableStock = b.AvailableStock,
-        //                    BaseName = i.MedMaster.MedBase != null
-        //                        ? i.MedMaster.MedBase.BaseName
-        //                        : "Not Defined",
-        //                    PlantId = i.CompounderIndent.plant_id
-        //                }))
-        //            .ToListAsync();
-
-        //        // Group by Medicine ID and Batch Number, then sum available stock
-        //        var groupedMedicines = medicineStocks
-        //            //.GroupBy(m => new { m.MedItemId, m.BatchNo, m.MedItemName, m.CompanyName, m.BaseName, m.ExpiryDate })
-        //            .GroupBy(m => new { m.IndentItemId,m.MedItemId,m.BaseName,m.MedItemName,m.CompanyName, m.BatchNo,m.ExpiryDate})
-        //            .Select(g => new MedicineStockInfo
-        //            {
-        //                IndentItemId = g.First().IndentItemId, // Take first for reference
-        //                MedItemId = g.Key.MedItemId,
-        //                MedItemName = g.Key.MedItemName,
-        //                CompanyName = g.Key.CompanyName,
-        //                BatchNo = g.Key.BatchNo,
-        //                ExpiryDate = g.Key.ExpiryDate,
-        //                AvailableStock = g.Sum(x => x.AvailableStock), // Sum all stock for same batch
-        //                BaseName = g.Key.BaseName,
-        //                PlantId = userPlantId ?? 1
-        //            })
-        //            .OrderBy(m => m.MedItemName) // Group by medicine name first
-        //            .ThenBy(m => m.BatchNo) // Then by batch number
-        //            .ThenBy(m => m.ExpiryDate ?? DateTime.MaxValue) // Then by expiry date
-        //            .ToList();
-
-        //        Console.WriteLine($"✅ Found {groupedMedicines.Count} medicine batches with available stock for plant {userPlantId}");
-
-        //        return groupedMedicines;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"❌ Error getting medicines from compounder indent: {ex.Message}");
-
-        //        // Enhanced fallback with plant filtering
-        //        var fallbackQuery = _db.med_masters.AsQueryable();
-        //        var fallbackMedicines = await fallbackQuery.ToListAsync();
-
-        //        return fallbackMedicines.Select(m => new MedicineStockInfo
-        //        {
-        //            IndentItemId = 0,
-        //            MedItemId = m.MedItemId,
-        //            MedItemName = m.MedItemName,
-        //            CompanyName = m.CompanyName ?? "Not Defined",
-        //            BatchNo = "FALLBACK",
-        //            ExpiryDate = DateTime.Now.AddYears(1),
-        //            AvailableStock = 999,
-        //            BaseName = "Not Defined",
-        //            PlantId = userPlantId ?? 1
-        //        }).ToList();
-        //    }
-        //}
         // UPDATED: Plant-wise stock checking
 
         public async Task<int> GetAvailableStockAsync(int indentItemId, int? userPlantId = null)
@@ -373,31 +414,7 @@ namespace EMS.WebApp.Services
             }
         }
 
-        //public async Task<int> GetAvailableStockAsync(int indentItemId, int? userPlantId = null)
-        //{
-        //    try
-        //    {
-        //        var query = from batch in _db.CompounderIndentBatches
-        //                    join item in _db.CompounderIndentItems on batch.IndentItemId equals item.IndentItemId
-        //                    join indent in _db.CompounderIndents on item.IndentId equals indent.IndentId
-        //                    where batch.IndentItemId == indentItemId
-        //                    select new { batch.AvailableStock, indent.plant_id };
 
-        //        // Plant-wise filtering
-        //        if (userPlantId.HasValue)
-        //        {
-        //            query = query.Where(x => x.plant_id == userPlantId.Value);
-        //        }
-
-        //        var result = await query.FirstOrDefaultAsync();
-        //        return result?.AvailableStock ?? 0;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"❌ Error getting available stock for item {indentItemId}: {ex.Message}");
-        //        return 0;
-        //    }
-        //}
 
         // UPDATED: Plant-wise stock updates
 
@@ -460,53 +477,7 @@ namespace EMS.WebApp.Services
             }
         }
 
-        //public async Task<bool> UpdateAvailableStockAsync(int indentItemId, int quantityUsed, int? userPlantId = null)
-        //{
-        //    try
-        //    {
-        //        Console.WriteLine($"🔄 Updating available stock for item {indentItemId}, using {quantityUsed} units (Plant: {userPlantId})");
 
-        //        var query = from cib in _db.CompounderIndentBatches
-        //                    join item in _db.CompounderIndentItems on cib.IndentItemId equals item.IndentItemId
-        //                    join indent in _db.CompounderIndents on item.IndentId equals indent.IndentId
-        //                    where cib.IndentItemId == indentItemId
-        //                    select new { Batch = cib, indent.plant_id };
-
-        //        // Plant-wise filtering
-        //        if (userPlantId.HasValue)
-        //        {
-        //            query = query.Where(x => x.plant_id == userPlantId.Value);
-        //        }
-
-        //        var result = await query.FirstOrDefaultAsync();
-        //        if (result?.Batch == null)
-        //        {
-        //            Console.WriteLine($"❌ Compounder indent item {indentItemId} not found or access denied for plant {userPlantId}");
-        //            return false;
-        //        }
-
-        //        var batch = result.Batch;
-        //        if (batch.AvailableStock < quantityUsed)
-        //        {
-        //            Console.WriteLine($"❌ Insufficient stock. Available: {batch.AvailableStock}, Requested: {quantityUsed}");
-        //            return false;
-        //        }
-
-        //        var oldStock = batch.AvailableStock;
-        //        batch.AvailableStock = oldStock - quantityUsed;
-
-        //        _db.CompounderIndentBatches.Update(batch);
-        //        await _db.SaveChangesAsync();
-
-        //        Console.WriteLine($"✅ Stock updated for item {indentItemId}: {oldStock} → {batch.AvailableStock} (Plant: {userPlantId})");
-        //        return true;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Console.WriteLine($"❌ Error updating available stock for item {indentItemId}: {ex.Message}");
-        //        return false;
-        //    }
-        //}
 
         // NEW: Method to get plant code for determining approval requirements
         private async Task<string?> GetPlantCodeAsync(int? plantId)
@@ -530,9 +501,9 @@ namespace EMS.WebApp.Services
         // UPDATED: Plant-wise prescription saving with BCM plant approval logic
 
         public async Task<bool> SavePrescriptionAsync(string empId, DateTime examDate,
-    List<int> selectedDiseases, List<PrescriptionMedicine> medicines,
-    VitalSigns vitalSigns, string createdBy, int? userPlantId = null,
-    string? visitType = null, string? patientStatus = null, string? dependentName = null, string? userRemarks = null)
+        List<int> selectedDiseases, List<PrescriptionMedicine> medicines,
+        VitalSigns vitalSigns, string createdBy, int? userPlantId = null,
+        string? visitType = null, string? patientStatus = null, string? dependentName = null, string? userRemarks = null)
         {
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
@@ -852,53 +823,7 @@ namespace EMS.WebApp.Services
                         {
                             try
                             {
-                                //if (pm.Instructions.Contains(" - "))
-                                //{
-                                //    var parts = pm.Instructions.Split(" - ", 2);
-                                //    if (parts.Length > 0 && _encryptionService.IsEncrypted(parts[0]))
-                                //    {
-                                //        var decryptedPart = _encryptionService.Decrypt(parts[0]);
-                                //        if (!string.IsNullOrEmpty(decryptedPart))
-                                //        {
-                                //            // Extract medicine name from "ID:123 - MedicineName" format
-                                //            if (decryptedPart.StartsWith("ID:") && decryptedPart.Contains(" - "))
-                                //            {
-                                //                var idParts = decryptedPart.Split(" - ", 2);
-                                //                if (idParts.Length > 1)
-                                //                {
-                                //                    medicineName = idParts[1]; // Get the medicine name part
-                                //                }
-                                //            }
-                                //            else
-                                //            {
-                                //                medicineName = decryptedPart;
-                                //            }
-                                //        }
-                                //    }
-                                //}
-                                //else
-                                //{
-                                //    // Try to decrypt the entire instructions if no " - " separator
-                                //    if (_encryptionService.IsEncrypted(pm.Instructions))
-                                //    {
-                                //        var decrypted = _encryptionService.Decrypt(pm.Instructions);
-                                //        if (!string.IsNullOrEmpty(decrypted))
-                                //        {
-                                //            if (decrypted.StartsWith("ID:") && decrypted.Contains(" - "))
-                                //            {
-                                //                var idParts = decrypted.Split(" - ", 2);
-                                //                if (idParts.Length > 1)
-                                //                {
-                                //                    medicineName = idParts[1];
-                                //                }
-                                //            }
-                                //            else
-                                //            {
-                                //                medicineName = decrypted;
-                                //            }
-                                //        }
-                                //    }
-                                //}
+
 
                                 if (!string.IsNullOrEmpty(pm.Instructions) && pm.Instructions.Contains(" - "))
                                 {
@@ -1314,11 +1239,14 @@ namespace EMS.WebApp.Services
             return "First Aid or Emergency";
         }
 
-        public async Task<IEnumerable<EmployeeDiagnosisListViewModel>> GetAllEmployeeDiagnosesAsync(int? userPlantId = null)
+        public async Task<IEnumerable<EmployeeDiagnosisListViewModel>> GetAllEmployeeDiagnosesAsync(
+        int? userPlantId = null,
+        string? currentUser = null,
+        bool isDoctor = false)
         {
             try
             {
-                Console.WriteLine($"🔍 Getting all employee diagnoses for plant: {userPlantId}");
+                Console.WriteLine($"🔍 Getting all employee diagnoses - Plant: {userPlantId}, User: {currentUser}, IsDoctor: {isDoctor}");
 
                 var query = _db.MedPrescriptions
                     .Include(p => p.HrEmployee)
@@ -1336,12 +1264,43 @@ namespace EMS.WebApp.Services
                 if (userPlantId.HasValue && userPlantId.Value > 0)
                 {
                     query = query.Where(p => p.PlantId == userPlantId.Value);
+
+                    // ============================================
+                    // NEW: BCM PLANT FILTERING LOGIC
+                    // ============================================
+                    if (!isDoctor)
+                    {
+                        var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                        if (plantCode?.ToUpper() == "BCM")
+                        {
+                            Console.WriteLine($"🔒 BCM Plant detected - Filtering prescriptions for user: {currentUser}");
+
+                            if (!string.IsNullOrEmpty(currentUser))
+                            {
+                                // BCM plant: Non-doctors can only see prescriptions they created
+                                query = query.Where(p => p.CreatedBy == currentUser);
+                            }
+                            else
+                            {
+                                // Safety: If no current user, return empty list
+                                Console.WriteLine($"⚠️ BCM Plant but no current user - returning empty list");
+                                return new List<EmployeeDiagnosisListViewModel>();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"👨‍⚕️ Doctor user - showing all prescriptions regardless of creator");
+                    }
+                    // ============================================
+                    // END BCM FILTERING
+                    // ============================================
                 }
 
                 var prescriptions = await query
-                    .OrderByDescending(p => p.PrescriptionDate)      // Primary: By date (newest first)
-                    .ThenByDescending(p => p.CreatedDate)            // Secondary: By creation time
-                    .ThenByDescending(p => p.PrescriptionId)         // Tertiary: By ID for consistency
+                    .OrderByDescending(p => p.PrescriptionDate)
+                    .ThenByDescending(p => p.CreatedDate)
+                    .ThenByDescending(p => p.PrescriptionId)
                     .ToListAsync();
 
                 var result = prescriptions.Select(p => new EmployeeDiagnosisListViewModel
@@ -1365,7 +1324,6 @@ namespace EMS.WebApp.Services
                     RejectionReason = p.RejectionReason,
                     Remarks = p.Remarks,
                     PatientStatus = p.PatientStatus ?? "On Duty",
-                    // NEW: Extract dependent name from remarks or use database field if available
                     DependentName = ExtractDependentNameFromRemarks(p.Remarks) ?? p.DependentName ?? "Self"
                 }).ToList();
 
@@ -1379,6 +1337,71 @@ namespace EMS.WebApp.Services
                 return new List<EmployeeDiagnosisListViewModel>();
             }
         }
+        //public async Task<IEnumerable<EmployeeDiagnosisListViewModel>> GetAllEmployeeDiagnosesAsync(int? userPlantId = null)
+        //{
+        //    try
+        //    {
+        //        Console.WriteLine($"🔍 Getting all employee diagnoses for plant: {userPlantId}");
+
+        //        var query = _db.MedPrescriptions
+        //            .Include(p => p.HrEmployee)
+        //                .ThenInclude(e => e.org_department)
+        //            .Include(p => p.HrEmployee)
+        //                .ThenInclude(e => e.org_plant)
+        //            .Include(p => p.PrescriptionDiseases)
+        //                .ThenInclude(pd => pd.MedDisease)
+        //            .Include(p => p.PrescriptionMedicines)
+        //                .ThenInclude(pm => pm.MedMaster)
+        //            .Include(p => p.OrgPlant)
+        //            .AsQueryable();
+
+        //        // Apply plant filtering only if userPlantId is provided and valid
+        //        if (userPlantId.HasValue && userPlantId.Value > 0)
+        //        {
+        //            query = query.Where(p => p.PlantId == userPlantId.Value);
+        //        }
+
+        //        var prescriptions = await query
+        //            .OrderByDescending(p => p.PrescriptionDate)      // Primary: By date (newest first)
+        //            .ThenByDescending(p => p.CreatedDate)            // Secondary: By creation time
+        //            .ThenByDescending(p => p.PrescriptionId)         // Tertiary: By ID for consistency
+        //            .ToListAsync();
+
+        //        var result = prescriptions.Select(p => new EmployeeDiagnosisListViewModel
+        //        {
+        //            PrescriptionId = p.PrescriptionId,
+        //            EmployeeId = p.HrEmployee?.emp_id ?? "N/A",
+        //            EmployeeName = p.HrEmployee?.emp_name ?? "N/A",
+        //            Department = p.HrEmployee?.org_department?.dept_name ?? "N/A",
+        //            Plant = p.OrgPlant?.plant_name ?? p.HrEmployee?.org_plant?.plant_name ?? "N/A",
+        //            PrescriptionDate = p.PrescriptionDate,
+        //            VisitType = ExtractVisitTypeFromRemarks(p.Remarks) ?? "Regular Visitor",
+        //            ApprovalStatus = p.ApprovalStatus ?? "Completed",
+        //            CreatedBy = p.CreatedBy ?? "N/A",
+        //            DiseaseCount = p.PrescriptionDiseases?.Count ?? 0,
+        //            MedicineCount = p.PrescriptionMedicines?.Count ?? 0,
+        //            BloodPressure = SafeDecrypt(p.BloodPressure),
+        //            Pulse = SafeDecrypt(p.Pulse),
+        //            Temperature = SafeDecrypt(p.Temperature),
+        //            ApprovedBy = p.ApprovedBy,
+        //            ApprovedDate = p.ApprovedDate,
+        //            RejectionReason = p.RejectionReason,
+        //            Remarks = p.Remarks,
+        //            PatientStatus = p.PatientStatus ?? "On Duty",
+        //            // NEW: Extract dependent name from remarks or use database field if available
+        //            DependentName = ExtractDependentNameFromRemarks(p.Remarks) ?? p.DependentName ?? "Self"
+        //        }).ToList();
+
+        //        Console.WriteLine($"✅ Found {result.Count} employee diagnoses for plant {userPlantId}");
+        //        return result;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"❌ Error getting all employee diagnoses: {ex.Message}");
+        //        Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+        //        return new List<EmployeeDiagnosisListViewModel>();
+        //    }
+        //}
 
         // NEW: Helper method to extract dependent name from remarks
         private string? ExtractDependentNameFromRemarks(string? remarks)

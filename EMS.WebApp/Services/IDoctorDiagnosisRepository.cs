@@ -3,6 +3,9 @@ namespace EMS.WebApp.Services
 {
     public interface IDoctorDiagnosisRepository
     {
+        Task<string?> GetUserPlantCodeAsync(string userName);
+        Task<string?> GetPlantCodeByIdAsync(int plantId);
+
         // Employee and search methods
         Task<HrEmployee?> GetEmployeeByEmpIdAsync(string empId, int? userPlantId = null);
         Task<List<RefMedCondition>> GetMedicalConditionsAsync();
@@ -12,8 +15,8 @@ namespace EMS.WebApp.Services
         // Disease and medicine methods
         Task<List<MedDisease>> GetDiseasesAsync(int? userPlantId = null);
         Task<List<MedMaster>> GetMedicinesAsync();
-        Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null);
-
+        //Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null);
+        Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null, string? currentUser = null, bool isDoctor = false);
         // Stock methods
         Task<int> GetAvailableStockAsync(int indentItemId, int? userPlantId = null);
         Task<bool> UpdateAvailableStockAsync(int indentItemId, int quantityUsed, int? userPlantId = null);
@@ -26,7 +29,8 @@ namespace EMS.WebApp.Services
 
         Task<List<DiagnosisEntry>> GetEmployeeDiagnosesAsync(string empId, int? userPlantId = null);
         Task<PrescriptionDetailsViewModel?> GetPrescriptionDetailsAsync(int prescriptionId, int? userPlantId = null);
-        Task<IEnumerable<EmployeeDiagnosisListViewModel>> GetAllEmployeeDiagnosesAsync(int? userPlantId = null);
+        //Task<IEnumerable<EmployeeDiagnosisListViewModel>> GetAllEmployeeDiagnosesAsync(int? userPlantId = null);
+        Task<IEnumerable<EmployeeDiagnosisListViewModel>> GetAllEmployeeDiagnosesAsync(int? userPlantId = null, string? currentUser = null, bool isDoctor = false);
         Task<bool> DeletePrescriptionAsync(int prescriptionId, int? userPlantId = null, string? deletedBy = null);
 
         // Approval methods

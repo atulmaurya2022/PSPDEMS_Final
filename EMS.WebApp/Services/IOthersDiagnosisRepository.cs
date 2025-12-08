@@ -5,11 +5,18 @@ namespace EMS.WebApp.Services
 {
     public interface IOthersDiagnosisRepository
     {
+
+        /// <summary>
+        /// Gets plant code by plant ID for BCM filtering
+        /// </summary>
+        Task<string?> GetPlantCodeByIdAsync(int plantId);
+
+
         /// <summary>
         /// Gets all diagnosis records for listing with plant filtering
         /// </summary>
-        Task<List<OthersDiagnosisListViewModel>> GetAllDiagnosesAsync(int? userPlantId = null);
-
+        //Task<List<OthersDiagnosisListViewModel>> GetAllDiagnosesAsync(int? userPlantId = null);
+        Task<List<OthersDiagnosisListViewModel>> GetAllDiagnosesAsync(int? userPlantId = null, string? currentUser = null, bool isDoctor = false);
         /// <summary>
         /// Generates a new treatment ID
         /// </summary>
@@ -65,8 +72,8 @@ namespace EMS.WebApp.Services
         /// <summary>
         /// Gets medicines available from compounder indent with batch information and stock, grouped by batch with plant filtering
         /// </summary>
-        Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null);
-
+        //Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null);
+        Task<List<MedicineStockInfo>> GetMedicinesFromCompounderIndentAsync(int? userPlantId = null, string? currentUser = null, bool isDoctor = false);
         /// <summary>
         /// Checks available stock for a specific medicine batch with plant filtering
         /// </summary>
