@@ -4,12 +4,22 @@ namespace EMS.WebApp.Services
 {
     public interface IExpiredMedicineRepository
     {
-        // Basic CRUD operations with plant filtering and source type support
-        Task<ExpiredMedicine?> GetByIdAsync(int id, int? userPlantId = null, string? userRole = null);
+        /// <summary>
+        /// Gets plant code by plant ID for BCM filtering
+        /// </summary>
+        Task<string?> GetPlantCodeByIdAsync(int plantId);
+
+        //Task<ExpiredMedicine?> GetByIdAsync(int id, int? userPlantId = null, string? userRole = null);
+        Task<ExpiredMedicine?> GetByIdAsync(int id, int? userPlantId = null, string? userRole = null, string? currentUser = null);
         Task<ExpiredMedicine?> GetByIdWithDetailsAsync(int id, int? userPlantId = null, string? userRole = null);
-        Task<IEnumerable<ExpiredMedicine>> ListAsync(int? userPlantId = null, string? userRole = null);
-        Task<IEnumerable<ExpiredMedicine>> ListPendingDisposalAsync(int? userPlantId = null, string? userRole = null);
-        Task<IEnumerable<ExpiredMedicine>> ListDisposedAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, string? userRole = null);
+        //Task<IEnumerable<ExpiredMedicine>> ListAsync(int? userPlantId = null, string? userRole = null);
+        //Task<IEnumerable<ExpiredMedicine>> ListPendingDisposalAsync(int? userPlantId = null, string? userRole = null);
+        //Task<IEnumerable<ExpiredMedicine>> ListDisposedAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, string? userRole = null);
+
+        Task<IEnumerable<ExpiredMedicine>> ListAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null);
+        Task<IEnumerable<ExpiredMedicine>> ListPendingDisposalAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null);
+        Task<IEnumerable<ExpiredMedicine>> ListDisposedAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, string? userRole = null, string? currentUser = null);
+
         Task AddAsync(ExpiredMedicine entity);
         Task UpdateAsync(ExpiredMedicine entity);
         Task DeleteAsync(int id, int? userPlantId = null, string? userRole = null);
@@ -35,9 +45,12 @@ namespace EMS.WebApp.Services
         Task SyncExpiredMedicinesAsync(string detectedBy, int? userPlantId = null, string? sourceType = null);
 
         // Statistics and reporting with plant filtering and role-based access
-        Task<int> GetTotalExpiredCountAsync(int? userPlantId = null, string? userRole = null);
-        Task<int> GetPendingDisposalCountAsync(int? userPlantId = null, string? userRole = null);
-        Task<int> GetDisposedCountAsync(int? userPlantId = null, string? userRole = null);
+        //Task<int> GetTotalExpiredCountAsync(int? userPlantId = null, string? userRole = null);
+        Task<int> GetTotalExpiredCountAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null);
+        //Task<int> GetPendingDisposalCountAsync(int? userPlantId = null, string? userRole = null);
+        Task<int> GetPendingDisposalCountAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null);
+        //Task<int> GetDisposedCountAsync(int? userPlantId = null, string? userRole = null);
+        Task<int> GetDisposedCountAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null);
         Task<decimal> GetTotalExpiredValueAsync(int? userPlantId = null, string? userRole = null);
         Task<IEnumerable<ExpiredMedicine>> GetExpiredMedicinesForPrintAsync(List<int> ids, int? userPlantId = null, string? userRole = null);
 
@@ -54,6 +67,11 @@ namespace EMS.WebApp.Services
         Task<List<string>> GetAccessibleSourceTypesAsync(string? userRole);
 
         // NEW: Role-based statistics
-        Task<Dictionary<string, int>> GetStatisticsBySourceTypeAsync(int? userPlantId = null, string? userRole = null);
+        //Task<Dictionary<string, int>> GetStatisticsBySourceTypeAsync(int? userPlantId = null, string? userRole = null);
+        Task<Dictionary<string, int>> GetStatisticsBySourceTypeAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null);
     }
 }
+
+
+
+

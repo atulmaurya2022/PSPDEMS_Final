@@ -23,6 +23,7 @@ namespace EMS.WebApp.Services
         public DateTime ExpiryDate { get; set; }
         public int AvailableStock { get; set; }
         public string VendorCode { get; set; } = string.Empty;
+        public string Source { get; set; }
     }
 
     public sealed class ExpiredMedicineDto

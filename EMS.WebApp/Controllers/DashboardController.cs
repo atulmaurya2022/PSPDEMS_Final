@@ -104,8 +104,8 @@ namespace EMS.WebApp.Controllers
             var today = DateTime.Today;
             var upto = today.AddDays(days);
 
-            // Join: batches -> items -> header -> med master (for name)
-            var rows = await _db.CompounderIndentBatches
+            // Query Compounder Inventory
+            var compounderRows = await _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
@@ -114,7 +114,6 @@ namespace EMS.WebApp.Controllers
                     x.b.ExpiryDate >= today &&
                     x.b.ExpiryDate <= upto &&
                     (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value))
-                .OrderBy(x => x.b.ExpiryDate)
                 .Select(x => new NearExpiryDto
                 {
                     BatchId = x.b.BatchId,
@@ -122,13 +121,84 @@ namespace EMS.WebApp.Controllers
                     BatchNo = x.b.BatchNo,
                     ExpiryDate = x.b.ExpiryDate,
                     AvailableStock = x.b.AvailableStock,
-                    VendorCode = x.b.VendorCode
+                    VendorCode = x.b.VendorCode,
+                    Source = "Compounder"
                 })
-                .Take(top)
                 .ToListAsync();
 
-            return Json(rows);
+            // Query Store Inventory
+            var storeRows = await _db.StoreIndentBatches
+                .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
+                .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+                .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
+                .Where(x =>
+                    x.b.AvailableStock > 0 &&
+                    x.b.ExpiryDate >= today &&
+                    x.b.ExpiryDate <= upto &&
+                    x.Header.Status == "Approved" &&
+                    (!userPlantId.HasValue || x.Header.PlantId == userPlantId.Value))
+                .Select(x => new NearExpiryDto
+                {
+                    BatchId = x.b.BatchId,
+                    MedicineName = x.Med.MedItemName,
+                    BatchNo = x.b.BatchNo,
+                    ExpiryDate = x.b.ExpiryDate,
+                    AvailableStock = x.b.AvailableStock,
+                    VendorCode = x.b.VendorCode,
+                    Source = "Store"
+                })
+                .ToListAsync();
+
+            // Combine and sort by expiry date, then take top records
+            var combinedRows = compounderRows
+                .Concat(storeRows)
+                .OrderBy(x => x.ExpiryDate)
+                .Take(top)
+                .ToList();
+
+            return Json(combinedRows);
         }
+
+        //[HttpGet]
+        //[Authorize]
+        //public async Task<IActionResult> GetNearExpiry(int days = 30, int top = 10)
+        //{
+        //    // Resolve plant
+        //    int? userPlantId = null;
+        //    var userName = User.Identity?.Name;
+        //    if (!string.IsNullOrWhiteSpace(userName))
+        //    {
+        //        userPlantId = await _storeRepo.GetUserPlantIdAsync(userName);
+        //    }
+
+        //    var today = DateTime.Today;
+        //    var upto = today.AddDays(days);
+
+        //    // Join: batches -> items -> header -> med master (for name)
+        //    var rows = await _db.CompounderIndentBatches
+        //        .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
+        //        .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+        //        .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
+        //        .Where(x =>
+        //            x.b.AvailableStock > 0 &&
+        //            x.b.ExpiryDate >= today &&
+        //            x.b.ExpiryDate <= upto &&
+        //            (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value))
+        //        .OrderBy(x => x.b.ExpiryDate)
+        //        .Select(x => new NearExpiryDto
+        //        {
+        //            BatchId = x.b.BatchId,
+        //            MedicineName = x.Med.MedItemName,
+        //            BatchNo = x.b.BatchNo,
+        //            ExpiryDate = x.b.ExpiryDate,
+        //            AvailableStock = x.b.AvailableStock,
+        //            VendorCode = x.b.VendorCode
+        //        })
+        //        .Take(top)
+        //        .ToListAsync();
+
+        //    return Json(rows);
+        //}
 
         [HttpGet]
         [Authorize]
@@ -160,6 +230,41 @@ namespace EMS.WebApp.Controllers
             return Json(payload);
         }
 
+        //[HttpGet]
+        //[Authorize]
+        //public async Task<IActionResult> GetExpired(int top = 10)
+        //{
+        //    // Resolve plant
+        //    int? userPlantId = null;
+        //    var userName = User.Identity?.Name;
+        //    if (!string.IsNullOrWhiteSpace(userName))
+        //    {
+        //        userPlantId = await _storeRepo.GetUserPlantIdAsync(userName);
+        //    }
+        //    var today = DateTime.Today;
+
+        //    var rows = await _db.CompounderIndentBatches
+        //        .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
+        //        .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+        //        .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
+        //        .Where(x => x.b.AvailableStock > 0 &&
+        //                    x.b.ExpiryDate < today &&
+        //                    (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value))
+        //        .OrderBy(x => x.b.ExpiryDate)
+        //         .Select(x => new NearExpiryDto
+        //         {
+        //             BatchId = x.b.BatchId,
+        //             MedicineName = x.Med.MedItemName,
+        //             BatchNo = x.b.BatchNo,
+        //             ExpiryDate = x.b.ExpiryDate,
+        //             AvailableStock = x.b.AvailableStock,
+        //             VendorCode = x.b.VendorCode
+        //         })
+        //        .Take(top)
+        //        .ToListAsync();
+
+        //    return Json(rows);
+        //}
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetExpired(int top = 10)
@@ -173,28 +278,57 @@ namespace EMS.WebApp.Controllers
             }
             var today = DateTime.Today;
 
-            var rows = await _db.CompounderIndentBatches
+            // Query Compounder Inventory - Expired
+            var compounderRows = await _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate < today &&
                             (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value))
-                .OrderBy(x => x.b.ExpiryDate)
-                 .Select(x => new NearExpiryDto
-                 {
-                     BatchId = x.b.BatchId,
-                     MedicineName = x.Med.MedItemName,
-                     BatchNo = x.b.BatchNo,
-                     ExpiryDate = x.b.ExpiryDate,
-                     AvailableStock = x.b.AvailableStock,
-                     VendorCode = x.b.VendorCode
-                 })
-                .Take(top)
+                .Select(x => new NearExpiryDto
+                {
+                    BatchId = x.b.BatchId,
+                    MedicineName = x.Med.MedItemName,
+                    BatchNo = x.b.BatchNo,
+                    ExpiryDate = x.b.ExpiryDate,
+                    AvailableStock = x.b.AvailableStock,
+                    VendorCode = x.b.VendorCode,
+                    Source = "Compounder"
+                })
                 .ToListAsync();
 
-            return Json(rows);
+            // Query Store Inventory - Expired
+            var storeRows = await _db.StoreIndentBatches
+                .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
+                .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+                .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
+                .Where(x => x.b.AvailableStock > 0 &&
+                            x.b.ExpiryDate < today &&
+                            x.Header.Status == "Approved" &&
+                            (!userPlantId.HasValue || x.Header.PlantId == userPlantId.Value))
+                .Select(x => new NearExpiryDto
+                {
+                    BatchId = x.b.BatchId,
+                    MedicineName = x.Med.MedItemName,
+                    BatchNo = x.b.BatchNo,
+                    ExpiryDate = x.b.ExpiryDate,
+                    AvailableStock = x.b.AvailableStock,
+                    VendorCode = x.b.VendorCode,
+                    Source = "Store"
+                })
+                .ToListAsync();
+
+            // Combine and sort by expiry date, then take top records
+            var combinedRows = compounderRows
+                .Concat(storeRows)
+                .OrderBy(x => x.ExpiryDate)
+                .Take(top)
+                .ToList();
+
+            return Json(combinedRows);
         }
+
 
         private async Task<int?> ResolveUserPlantIdAsync()
         {

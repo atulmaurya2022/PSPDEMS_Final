@@ -12,7 +12,20 @@ namespace EMS.WebApp.Services
 
         public ExpiredMedicineRepository(ApplicationDbContext db) => _db = db;
 
-        // ======= UPDATED: Helper method for role-based source filtering =======
+        public async Task<string?> GetPlantCodeByIdAsync(int plantId)
+        {
+            try
+            {
+                var plant = await _db.org_plants.FirstOrDefaultAsync(p => p.plant_id == plantId);
+                return plant?.plant_code;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting plant code for plant ID {plantId}: {ex.Message}");
+                return null;
+            }
+        }
+
         private IQueryable<ExpiredMedicine> ApplyRoleBasedFilter(IQueryable<ExpiredMedicine> query, string? userRole)
         {
             if (string.IsNullOrEmpty(userRole))
@@ -35,7 +48,47 @@ namespace EMS.WebApp.Services
 
             return query; // Default: show all if role doesn't match known patterns
         }
+        /// <summary>
+        /// Applies BCM plant-specific creator filtering for Compounder users
+        /// For BCM plant + Compounder role: Filter by who created the source CompounderIndent
+        /// </summary>
+        private async Task<IQueryable<ExpiredMedicine>> ApplyBcmFilterAsync(
+            IQueryable<ExpiredMedicine> query,
+            int? userPlantId,
+            string? userRole,
+            string? currentUser)
+        {
+            // Only apply BCM filtering if we have all required parameters
+            if (!userPlantId.HasValue || string.IsNullOrEmpty(userRole) || string.IsNullOrEmpty(currentUser))
+                return query;
 
+            // Check if user is a Compounder (doctors see all, store users only see store)
+            var roleLower = userRole.ToLower();
+            if (!roleLower.Contains("compounder"))
+                return query; // Non-compounders don't get this BCM filtering
+
+            // Check if plant is BCM
+            var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+            if (plantCode?.ToUpper() != "BCM")
+                return query; // Non-BCM plants: no creator filtering
+
+            // BCM plant + Compounder role: Filter by CompounderIndent.CreatedBy
+            System.Diagnostics.Debug.WriteLine($"🔒 BCM Plant + Compounder: Filtering expired medicines by indent creator: {currentUser}");
+
+            // Get list of CompounderIndentItemIds where the parent indent was created by this user
+            var userIndentItemIds = await _db.CompounderIndentItems
+                .Include(i => i.CompounderIndent)
+                .Where(i => i.CompounderIndent.CreatedBy == currentUser &&
+                            i.CompounderIndent.plant_id == userPlantId.Value)
+                .Select(i => i.IndentItemId)
+                .ToListAsync();
+
+            System.Diagnostics.Debug.WriteLine($"🔍 Found {userIndentItemIds.Count} indent items created by {currentUser}");
+
+            // Filter expired medicines to only those from user's indents
+            return query.Where(e => e.CompounderIndentItemId.HasValue &&
+                                   userIndentItemIds.Contains(e.CompounderIndentItemId.Value));
+        }
         // Helper method to safely load navigation properties
         private async Task LoadNavigationPropertiesAsync(ExpiredMedicine item)
         {
@@ -80,22 +133,39 @@ namespace EMS.WebApp.Services
         }
 
         // ======= FIXED: Basic CRUD operations WITH PLANT FILTERING AND ROLE-BASED ACCESS =======
-        public async Task<ExpiredMedicine?> GetByIdAsync(int id, int? userPlantId = null, string? userRole = null)
+        //public async Task<ExpiredMedicine?> GetByIdAsync(int id, int? userPlantId = null, string? userRole = null)
+        //{
+        //    var query = _db.ExpiredMedicines.AsQueryable();
+
+        //    // Plant filtering - handle nullable PlantId
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(e => e.PlantId.HasValue && e.PlantId.Value == userPlantId.Value);
+        //    }
+
+        //    // Role-based filtering
+        //    query = ApplyRoleBasedFilter(query, userRole);
+
+        //    return await query.FirstOrDefaultAsync(e => e.ExpiredMedicineId == id);
+        //}
+        public async Task<ExpiredMedicine?> GetByIdAsync(int id, int? userPlantId = null, string? userRole = null, string? currentUser = null)
         {
             var query = _db.ExpiredMedicines.AsQueryable();
 
-            // Plant filtering - handle nullable PlantId
+            // Plant filtering
             if (userPlantId.HasValue)
             {
                 query = query.Where(e => e.PlantId.HasValue && e.PlantId.Value == userPlantId.Value);
             }
 
-            // Role-based filtering
+            // Role-based source type filtering
             query = ApplyRoleBasedFilter(query, userRole);
+
+            // BCM plant-specific creator filtering
+            query = await ApplyBcmFilterAsync(query, userPlantId, userRole, currentUser);
 
             return await query.FirstOrDefaultAsync(e => e.ExpiredMedicineId == id);
         }
-
         public async Task<ExpiredMedicine?> GetByIdWithDetailsAsync(int id, int? userPlantId = null, string? userRole = null)
         {
             var query = _db.ExpiredMedicines.AsQueryable();
@@ -119,7 +189,33 @@ namespace EMS.WebApp.Services
             return item;
         }
 
-        public async Task<IEnumerable<ExpiredMedicine>> ListAsync(int? userPlantId = null, string? userRole = null)
+        //public async Task<IEnumerable<ExpiredMedicine>> ListAsync(int? userPlantId = null, string? userRole = null)
+        //{
+        //    var query = _db.ExpiredMedicines.AsQueryable();
+
+        //    // Plant filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(e => e.PlantId == userPlantId.Value);
+        //    }
+
+        //    // Role-based filtering
+        //    query = ApplyRoleBasedFilter(query, userRole);
+
+        //    var results = await query
+        //        .OrderByDescending(e => e.DetectedDate)
+        //        .ThenBy(e => e.MedicineName)
+        //        .ToListAsync();
+
+        //    // Load navigation properties for each item
+        //    foreach (var item in results)
+        //    {
+        //        await LoadNavigationPropertiesAsync(item);
+        //    }
+
+        //    return results;
+        //}
+        public async Task<IEnumerable<ExpiredMedicine>> ListAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null)
         {
             var query = _db.ExpiredMedicines.AsQueryable();
 
@@ -129,8 +225,11 @@ namespace EMS.WebApp.Services
                 query = query.Where(e => e.PlantId == userPlantId.Value);
             }
 
-            // Role-based filtering
+            // Role-based source type filtering (Store vs Compounder)
             query = ApplyRoleBasedFilter(query, userRole);
+
+            // BCM plant-specific creator filtering
+            query = await ApplyBcmFilterAsync(query, userPlantId, userRole, currentUser);
 
             var results = await query
                 .OrderByDescending(e => e.DetectedDate)
@@ -146,7 +245,35 @@ namespace EMS.WebApp.Services
             return results;
         }
 
-        public async Task<IEnumerable<ExpiredMedicine>> ListPendingDisposalAsync(int? userPlantId = null, string? userRole = null)
+        //public async Task<IEnumerable<ExpiredMedicine>> ListPendingDisposalAsync(int? userPlantId = null, string? userRole = null)
+        //{
+        //    var query = _db.ExpiredMedicines
+        //        .Where(e => e.Status == "Pending Disposal")
+        //        .AsQueryable();
+
+        //    // Plant filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(e => e.PlantId == userPlantId.Value);
+        //    }
+
+        //    // Role-based filtering
+        //    query = ApplyRoleBasedFilter(query, userRole);
+
+        //    var results = await query
+        //        .OrderBy(e => e.ExpiryDate)
+        //        .ThenBy(e => e.MedicineName)
+        //        .ToListAsync();
+
+        //    // Load navigation properties for each item
+        //    foreach (var item in results)
+        //    {
+        //        await LoadNavigationPropertiesAsync(item);
+        //    }
+
+        //    return results;
+        //}
+        public async Task<IEnumerable<ExpiredMedicine>> ListPendingDisposalAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null)
         {
             var query = _db.ExpiredMedicines
                 .Where(e => e.Status == "Pending Disposal")
@@ -158,8 +285,11 @@ namespace EMS.WebApp.Services
                 query = query.Where(e => e.PlantId == userPlantId.Value);
             }
 
-            // Role-based filtering
+            // Role-based source type filtering
             query = ApplyRoleBasedFilter(query, userRole);
+
+            // BCM plant-specific creator filtering
+            query = await ApplyBcmFilterAsync(query, userPlantId, userRole, currentUser);
 
             var results = await query
                 .OrderBy(e => e.ExpiryDate)
@@ -174,8 +304,47 @@ namespace EMS.WebApp.Services
 
             return results;
         }
+        //public async Task<IEnumerable<ExpiredMedicine>> ListDisposedAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, string? userRole = null)
+        //{
+        //    var query = _db.ExpiredMedicines
+        //        .Where(e => e.Status == "Issued to Biomedical Waste")
+        //        .AsQueryable();
 
-        public async Task<IEnumerable<ExpiredMedicine>> ListDisposedAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, string? userRole = null)
+        //    // Plant filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(e => e.PlantId == userPlantId.Value);
+        //    }
+
+        //    // Role-based filtering
+        //    query = ApplyRoleBasedFilter(query, userRole);
+
+        //    // Date filtering
+        //    if (fromDate.HasValue)
+        //    {
+        //        query = query.Where(e => e.BiomedicalWasteIssuedDate >= fromDate.Value.Date);
+        //    }
+
+        //    if (toDate.HasValue)
+        //    {
+        //        var endDate = toDate.Value.Date.AddDays(1);
+        //        query = query.Where(e => e.BiomedicalWasteIssuedDate < endDate);
+        //    }
+
+        //    var results = await query
+        //        .OrderByDescending(e => e.BiomedicalWasteIssuedDate)
+        //        .ThenBy(e => e.MedicineName)
+        //        .ToListAsync();
+
+        //    // Load navigation properties for each item
+        //    foreach (var item in results)
+        //    {
+        //        await LoadNavigationPropertiesAsync(item);
+        //    }
+
+        //    return results;
+        //}
+        public async Task<IEnumerable<ExpiredMedicine>> ListDisposedAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, string? userRole = null, string? currentUser = null)
         {
             var query = _db.ExpiredMedicines
                 .Where(e => e.Status == "Issued to Biomedical Waste")
@@ -187,8 +356,11 @@ namespace EMS.WebApp.Services
                 query = query.Where(e => e.PlantId == userPlantId.Value);
             }
 
-            // Role-based filtering
+            // Role-based source type filtering
             query = ApplyRoleBasedFilter(query, userRole);
+
+            // BCM plant-specific creator filtering
+            query = await ApplyBcmFilterAsync(query, userPlantId, userRole, currentUser);
 
             // Date filtering
             if (fromDate.HasValue)
@@ -726,54 +898,99 @@ namespace EMS.WebApp.Services
         }
 
         // ======= UPDATED: Statistics and reporting WITH ROLE-BASED ACCESS =======
-        public async Task<int> GetTotalExpiredCountAsync(int? userPlantId = null, string? userRole = null)
+        //public async Task<int> GetTotalExpiredCountAsync(int? userPlantId = null, string? userRole = null)
+        //{
+        //    var query = _db.ExpiredMedicines.AsQueryable();
+
+        //    // Plant filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(e => e.PlantId == userPlantId.Value);
+        //    }
+
+        //    // Role-based filtering
+        //    query = ApplyRoleBasedFilter(query, userRole);
+
+        //    return await query.CountAsync();
+        //}
+        public async Task<int> GetTotalExpiredCountAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null)
         {
             var query = _db.ExpiredMedicines.AsQueryable();
 
-            // Plant filtering
             if (userPlantId.HasValue)
             {
                 query = query.Where(e => e.PlantId == userPlantId.Value);
             }
 
-            // Role-based filtering
             query = ApplyRoleBasedFilter(query, userRole);
+            query = await ApplyBcmFilterAsync(query, userPlantId, userRole, currentUser);
 
             return await query.CountAsync();
         }
+        //public async Task<int> GetPendingDisposalCountAsync(int? userPlantId = null, string? userRole = null)
+        //{
+        //    var query = _db.ExpiredMedicines
+        //        .Where(e => e.Status == "Pending Disposal")
+        //        .AsQueryable();
 
-        public async Task<int> GetPendingDisposalCountAsync(int? userPlantId = null, string? userRole = null)
+        //    // Plant filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(e => e.PlantId == userPlantId.Value);
+        //    }
+
+        //    // Role-based filtering
+        //    query = ApplyRoleBasedFilter(query, userRole);
+
+        //    return await query.CountAsync();
+        //}
+        public async Task<int> GetPendingDisposalCountAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null)
         {
             var query = _db.ExpiredMedicines
                 .Where(e => e.Status == "Pending Disposal")
                 .AsQueryable();
 
-            // Plant filtering
             if (userPlantId.HasValue)
             {
                 query = query.Where(e => e.PlantId == userPlantId.Value);
             }
 
-            // Role-based filtering
             query = ApplyRoleBasedFilter(query, userRole);
+            query = await ApplyBcmFilterAsync(query, userPlantId, userRole, currentUser);
 
             return await query.CountAsync();
         }
 
-        public async Task<int> GetDisposedCountAsync(int? userPlantId = null, string? userRole = null)
+        //public async Task<int> GetDisposedCountAsync(int? userPlantId = null, string? userRole = null)
+        //{
+        //    var query = _db.ExpiredMedicines
+        //        .Where(e => e.Status == "Issued to Biomedical Waste")
+        //        .AsQueryable();
+
+        //    // Plant filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(e => e.PlantId == userPlantId.Value);
+        //    }
+
+        //    // Role-based filtering
+        //    query = ApplyRoleBasedFilter(query, userRole);
+
+        //    return await query.CountAsync();
+        //}
+        public async Task<int> GetDisposedCountAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null)
         {
             var query = _db.ExpiredMedicines
                 .Where(e => e.Status == "Issued to Biomedical Waste")
                 .AsQueryable();
 
-            // Plant filtering
             if (userPlantId.HasValue)
             {
                 query = query.Where(e => e.PlantId == userPlantId.Value);
             }
 
-            // Role-based filtering
             query = ApplyRoleBasedFilter(query, userRole);
+            query = await ApplyBcmFilterAsync(query, userPlantId, userRole, currentUser);
 
             return await query.CountAsync();
         }
@@ -913,25 +1130,52 @@ namespace EMS.WebApp.Services
         }
 
         // ======= NEW: Role-based statistics =======
-        public async Task<Dictionary<string, int>> GetStatisticsBySourceTypeAsync(int? userPlantId = null, string? userRole = null)
+        //public async Task<Dictionary<string, int>> GetStatisticsBySourceTypeAsync(int? userPlantId = null, string? userRole = null)
+        //{
+        //    var query = _db.ExpiredMedicines.AsQueryable();
+
+        //    // Plant filtering
+        //    if (userPlantId.HasValue)
+        //    {
+        //        query = query.Where(e => e.PlantId == userPlantId.Value);
+        //    }
+
+        //    // Role-based filtering
+        //    query = ApplyRoleBasedFilter(query, userRole);
+
+        //    var stats = await query
+        //        .GroupBy(e => e.SourceType)
+        //        .Select(g => new { SourceType = g.Key, Count = g.Count() })
+        //        .ToDictionaryAsync(x => x.SourceType, x => x.Count);
+
+        //    // Ensure both source types are represented based on user role
+        //    var accessibleSourceTypes = await GetAccessibleSourceTypesAsync(userRole);
+
+        //    foreach (var sourceType in accessibleSourceTypes)
+        //    {
+        //        if (!stats.ContainsKey(sourceType))
+        //            stats[sourceType] = 0;
+        //    }
+
+        //    return stats;
+        //}
+        public async Task<Dictionary<string, int>> GetStatisticsBySourceTypeAsync(int? userPlantId = null, string? userRole = null, string? currentUser = null)
         {
             var query = _db.ExpiredMedicines.AsQueryable();
 
-            // Plant filtering
             if (userPlantId.HasValue)
             {
                 query = query.Where(e => e.PlantId == userPlantId.Value);
             }
 
-            // Role-based filtering
             query = ApplyRoleBasedFilter(query, userRole);
+            query = await ApplyBcmFilterAsync(query, userPlantId, userRole, currentUser);
 
             var stats = await query
                 .GroupBy(e => e.SourceType)
                 .Select(g => new { SourceType = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.SourceType, x => x.Count);
 
-            // Ensure both source types are represented based on user role
             var accessibleSourceTypes = await GetAccessibleSourceTypesAsync(userRole);
 
             foreach (var sourceType in accessibleSourceTypes)

@@ -374,9 +374,9 @@
                         { data: 'companyName' },
                         {
                             data: 'sourceType',
-                            render: function(data, type, row) {
-                                return `<span class="badge ${row.sourceBadgeClass}">${row.sourceDisplay}</span>`;
-                            },
+                            // render: function(data, type, row) {
+                            //     return `<span class="badge ${row.sourceBadgeClass}">${row.sourceDisplay}</span>`;
+                            // },
                             orderable: true,
                             className: 'text-center'
                         },
@@ -1122,7 +1122,7 @@
             };
         });
     </script>
-}
+
 }
 <style>
     .modal-backdrop {

@@ -20,14 +20,16 @@ public class DailyMedicineConsumptionReportController : Controller
         return View("DailyMedicineConsumptionReport");
     }
 
+
+
     [HttpGet]
     public async Task<IActionResult> GetReport(DateTime? fromDate, DateTime? toDate)
     {
         try
         {
             // Get current user's plant information
-            var currentUserName = User.Identity?.Name;
-            var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
+            var currentUserName = User.Identity?.Name + " - " + User.GetFullName();
+            var userPlantId = await _repo.GetUserPlantIdAsync(User.Identity?.Name);
 
             // Get plant details for display
             using var scope = HttpContext.RequestServices.CreateScope();
@@ -42,8 +44,26 @@ public class DailyMedicineConsumptionReportController : Controller
             var effectiveFromDate = fromDate ?? DateTime.Today;
             var effectiveToDate = toDate ?? DateTime.Today;
 
-            // Pass date filtering to repository
-            var reportData = await _repo.GetDailyMedicineConsumptionReportAsync(effectiveFromDate, effectiveToDate, userPlantId);
+            // Check if current user is a doctor for BCM plant-specific filtering
+            var userRole = await GetUserRoleAsync();
+            bool isDoctor = userRole?.ToLower() == "doctor";
+           // bool isDoctor = User.IsInRole("Doctor");
+
+            // DEBUG: Log role information
+            var userRoles = User.Claims.Where(c => c.Type == System.Security.Claims.ClaimTypes.Role).Select(c => c.Value).ToList();
+            Console.WriteLine($"👤 User: {currentUserName}");
+            Console.WriteLine($"🔑 User Roles: [{string.Join(", ", userRoles)}]");
+            Console.WriteLine($"👨‍⚕️ Is Doctor: {isDoctor}");
+            Console.WriteLine($"🏭 Plant Code: {plantInfo?.plant_code}");
+
+            // Pass date filtering and BCM parameters to repository
+            var reportData = await _repo.GetDailyMedicineConsumptionReportAsync(
+                effectiveFromDate,
+                effectiveToDate,
+                userPlantId,
+                currentUserName,
+                isDoctor
+            );
 
             // Determine report period description
             string reportPeriod;
@@ -63,6 +83,14 @@ public class DailyMedicineConsumptionReportController : Controller
                 reportPeriod = $"Period: {effectiveFromDate:dd/MM/yyyy} to {effectiveToDate:dd/MM/yyyy}";
             }
 
+            // Add compounder-wise indicator for BCM plant (only for non-doctors)
+            string reportScope = "";
+            bool isBcmPlant = plantInfo?.plant_code?.ToUpper() == "BCM";
+            if (isBcmPlant && !isDoctor)
+            {
+                reportScope = $" (My Consumption Only - {User.GetFullName()})";
+            }
+
             var result = new
             {
                 success = true,
@@ -71,7 +99,7 @@ public class DailyMedicineConsumptionReportController : Controller
                     slNo = index + 1,
                     medicineName = item.MedicineName,
                     totalStockInCompounderInventory = item.TotalStockInCompounderInventory,
-                    issuedQty = item.IssuedQty, // Now shows date-filtered consumption
+                    issuedQty = item.IssuedQty,
                     expiredQty = item.ExpiredQty
                 }),
                 reportInfo = new
@@ -85,14 +113,23 @@ public class DailyMedicineConsumptionReportController : Controller
                     totalStockInInventory = reportData.Sum(r => r.TotalStockInCompounderInventory),
                     totalIssuedQty = reportData.Sum(r => r.IssuedQty),
                     totalExpiredQty = reportData.Sum(r => r.ExpiredQty),
-                    // NEW: Date range information
-                    reportPeriod = reportPeriod,
+                    reportPeriod = reportPeriod + reportScope,
                     fromDate = effectiveFromDate.ToString("yyyy-MM-dd"),
                     toDate = effectiveToDate.ToString("yyyy-MM-dd"),
                     fromDateDisplay = effectiveFromDate.ToString("dd/MM/yyyy"),
                     toDateDisplay = effectiveToDate.ToString("dd/MM/yyyy"),
                     isToday = effectiveFromDate.Date == DateTime.Today && effectiveToDate.Date == DateTime.Today,
-                    isSingleDay = effectiveFromDate.Date == effectiveToDate.Date
+                    isSingleDay = effectiveFromDate.Date == effectiveToDate.Date,
+                    // BCM plant-specific information
+                    isBcmPlant = isBcmPlant,
+                    isCompounderView = isBcmPlant && !isDoctor,
+                    compounderName = !isDoctor ? User.GetFullName() : null,
+                    // DEBUG info (can remove in production)
+                    debugInfo = new
+                    {
+                        userRoles = string.Join(", ", userRoles),
+                        isDoctorDetected = isDoctor
+                    }
                 }
             };
 
@@ -118,11 +155,23 @@ public class DailyMedicineConsumptionReportController : Controller
             var currentUserName = User.Identity?.Name;
             var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
 
+            // Get plant code for BCM check
+            var plantCode = await _repo.GetPlantCodeByIdAsync(userPlantId ?? 0);
+            var userRole = await GetUserRoleAsync();
+            bool isDoctor = userRole?.ToLower() == "doctor";
+
             // Default to current date if no dates provided
             var effectiveFromDate = fromDate ?? DateTime.Today;
             var effectiveToDate = toDate ?? DateTime.Today;
 
-            var reportData = await _repo.GetDailyMedicineConsumptionReportAsync(effectiveFromDate, effectiveToDate, userPlantId);
+            // Pass BCM parameters to repository
+            var reportData = await _repo.GetDailyMedicineConsumptionReportAsync(
+                effectiveFromDate,
+                effectiveToDate,
+                userPlantId,
+                currentUserName,
+                isDoctor
+            );
 
             // CSV format with date range in header
             var csv = new System.Text.StringBuilder();
@@ -136,9 +185,17 @@ public class DailyMedicineConsumptionReportController : Controller
             {
                 csv.AppendLine($"MEDICINE CONSUMPTION REPORT - {effectiveFromDate:dd/MM/yyyy} to {effectiveToDate:dd/MM/yyyy}");
             }
+
+            // Add compounder-specific indicator for BCM plant
+            bool isBcmPlant = plantCode?.ToUpper() == "BCM";
+            if (isBcmPlant && !isDoctor)
+            {
+                csv.AppendLine($"Compounder: {User.GetFullName()} (My Consumption Only)");
+            }
+
             csv.AppendLine($"Generated: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
             csv.AppendLine($"Generated By: {User.Identity?.Name + " - " + User.GetFullName() ?? "System"}");
-            csv.AppendLine(); // Empty line
+            csv.AppendLine();
             csv.AppendLine("MEDICINE NAME,TOTAL STOCK IN COMPOUNDER INVENTORY,ISSUED QTY,EXPIRED QTY");
 
             foreach (var item in reportData)
@@ -146,15 +203,17 @@ public class DailyMedicineConsumptionReportController : Controller
                 csv.AppendLine($"{item.MedicineName},{item.TotalStockInCompounderInventory},{item.IssuedQty},{item.ExpiredQty}");
             }
 
-            // Generate filename with date range
+            // Generate filename
             string fileName;
+            string compounderSuffix = (isBcmPlant && !isDoctor) ? $"_{currentUserName}" : "";
+
             if (effectiveFromDate.Date == effectiveToDate.Date)
             {
-                fileName = $"MedicineConsumptionReport_{effectiveFromDate:ddMMyyyy}.csv";
+                fileName = $"MedicineConsumptionReport{compounderSuffix}_{effectiveFromDate:ddMMyyyy}.csv";
             }
             else
             {
-                fileName = $"MedicineConsumptionReport_{effectiveFromDate:ddMMyyyy}_to_{effectiveToDate:ddMMyyyy}.csv";
+                fileName = $"MedicineConsumptionReport{compounderSuffix}_{effectiveFromDate:ddMMyyyy}_to_{effectiveToDate:ddMMyyyy}.csv";
             }
 
             return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", fileName);
@@ -169,5 +228,28 @@ public class DailyMedicineConsumptionReportController : Controller
             });
         }
     }
-    
+
+    private async Task<string?> GetUserRoleAsync()
+    {
+        try
+        {
+            var userName = User.Identity?.Name;
+            if (string.IsNullOrEmpty(userName))
+                return null;
+
+            using var scope = HttpContext.RequestServices.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var user = await dbContext.SysUsers
+                .Include(u => u.SysRole)
+                .FirstOrDefaultAsync(u => u.full_name == userName || u.email == userName || u.adid == userName);
+
+            return user?.SysRole?.role_name;
+        }
+        catch (Exception ex)
+        {
+           
+            return null;
+        }
+    }
 }

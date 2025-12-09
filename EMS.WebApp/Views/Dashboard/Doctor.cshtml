@@ -916,6 +916,7 @@
                                     <th>Expiry</th>
                                     <th>Available</th>
                                     <th>Vendor</th>
+                                    <th>Source</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1455,6 +1456,7 @@
                                 <td>${formatDate(r.expiryDate)}</td>
                                 <td>${r.availableStock}</td>
                                 <td>${html(r.vendorCode || '')}</td>
+                                <td>${html(r.source || '')}</td>
                             </tr>`;
                             $tb.append(tr);
                         });
@@ -1464,28 +1466,51 @@
                         showAlert('warning', 'Failed to load near-expiry medicines data.', 'Data Loading Warning');
                     });
 
-                $.getJSON('@Url.Action("GetExpired", "Dashboard")')
-                    .done(function (rows) {
-                        const $tb = $('#tbl-expired tbody').empty();
-                        if (!rows || rows.length === 0) {
-                            $tb.append('<tr><td colspan="5" class="text-muted">No records.</td></tr>');
-                            return;
-                        }
-                        rows.forEach(r => {
-                            const tr = `<tr>
-                                <td>${html(r.medicineName)}</td>
-                                <td>${html(r.batchNo)}</td>
-                                <td>${html(r.typeOfMedicine)}</td>
-                                <td>${html(r.status)}</td>
-                                <td>${formatDate(r.expiredOn)}</td>
-                            </tr>`;
-                            $tb.append(tr);
-                        });
-                    })
-                    .fail(function (xhr) {
-                        console.error('Expired load failed', xhr);
-                        showAlert('danger', 'Failed to load expired medicines data.', 'Critical Data Error');
+                // $.getJSON('@Url.Action("GetExpired", "Dashboard")')
+                //     .done(function (rows) {
+                //         const $tb = $('#tbl-expired tbody').empty();
+                //         if (!rows || rows.length === 0) {
+                //             $tb.append('<tr><td colspan="5" class="text-muted">No records.</td></tr>');
+                //             return;
+                //         }
+                //         rows.forEach(r => {
+                //             const tr = `<tr>
+                //                 <td>${html(r.medicineName)}</td>
+                //                 <td>${html(r.batchNo)}</td>
+                //                 <td>${html(r.typeOfMedicine)}</td>
+                //                 <td>${html(r.status)}</td>
+                //                 <td>${formatDate(r.expiredOn)}</td>
+                //             </tr>`;
+                //             $tb.append(tr);
+                //         });
+                //     })
+                //     .fail(function (xhr) {
+                //         console.error('Expired load failed', xhr);
+                //         showAlert('danger', 'Failed to load expired medicines data.', 'Critical Data Error');
+                //     });
+                $.getJSON('@Url.Action("GetPendingDisposal", "Dashboard")', { top: 10 })
+                .done(function (rows) {
+                    const $tb = $('#tbl-expired tbody').empty();
+                    if (!rows || rows.length === 0) {
+                        $tb.append('<tr><td colspan="5" class="text-muted">No records.</td></tr>');
+                        return;
+                    }
+                    rows.forEach(r => {
+                        const statusClass = r.status === 'Pending' ? 'bg-warning text-dark' : 'bg-secondary';
+                        const tr = `<tr>
+                            <td>${html(r.medicineName)}</td>
+                            <td>${html(r.batchNo)}</td>
+                            <td>${html(r.typeOfMedicine || 'N/A')}</td>
+                            <td><span class="badge ${statusClass}">${html(r.status || 'N/A')}</span></td>
+                            <td>${formatDate(r.expiredOn)}</td>
+                        </tr>`;
+                        $tb.append(tr);
                     });
+                })
+                .fail(function (xhr) {
+                    console.error('Expired load failed', xhr);
+                    showAlert('danger', 'Failed to load expired medicines data.', 'Critical Data Error');
+                });
             }
 
             $nearDays.on('change', loadSummary);
@@ -1780,13 +1805,13 @@
                         }
 
                         rows.forEach(r => {
-                            const href = routes.batchDetails + r.batchId;
-                            $tb.append(`<tr title="Click to view batch details for ${html(r.batchNo)}">
+                            const statusClass = r.status === 'Pending Disposal' ? 'bg-warning text-dark' : 'bg-secondary';
+                            $tb.append(`<tr onclick="viewExpiredDetails(${r.id},'mdl-expired');" style="cursor:pointer;" title="Click to view details">
                                 <td>${html(r.medicineName)}</td>
                                 <td><strong>${html(r.batchNo)}</strong></td>
-                                <td><span class="status-badge near-expiry">${formatDate(r.expiryDate)}</span></td>
-                                <td>${r.availableStock}</td>
-                                <td>${html(r.vendorCode || 'N/A')}</td>
+                                <td>${html(r.typeOfMedicine || 'N/A')}</td>
+                                <td><span class="badge ${statusClass}">${html(r.status || 'N/A')}</span></td>
+                                <td>${formatDate(r.expiredOn)}</td>
                             </tr>`);
                         });
                     })

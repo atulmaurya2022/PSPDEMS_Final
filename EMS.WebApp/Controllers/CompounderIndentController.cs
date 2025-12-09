@@ -56,12 +56,13 @@ namespace EMS.WebApp.Controllers
             {
                 var currentUser = User.Identity?.Name + " - " + User.GetFullName();
                 var userPlantId = await GetCurrentUserPlantIdAsync();
-                await _auditService.LogAsync("compounder*indent", "LOAD_DATA", "multiple", null, null,
-                    $"Load data attempted - IndentType: {indentType ?? "all"}, User: {currentUser}, Plant: {userPlantId}");
-                var userRole = await GetUserRoleAsync();
+                var userRole = await GetUserRoleAsync();  // Get the actual role name
                 var isDoctor = userRole?.ToLower() == "doctor";
                 var isStoreUser = await IsStoreUserAsync();
                 var isCompounderUser = await IsCompounderUserAsync();
+
+                await _auditService.LogAsync("compounder*indent", "LOAD_DATA", "multiple", null, null,
+                    $"Load data attempted - IndentType: {indentType ?? "all"}, User: {currentUser}, Plant: {userPlantId}, Role: {userRole}");
 
                 if (isStoreUser)
                 {
@@ -78,22 +79,19 @@ namespace EMS.WebApp.Controllers
                 if (string.IsNullOrEmpty(indentType))
                 {
                     //list = await _repo.ListAsync(currentUser, userPlantId);
-                    list = await _repo.ListAsync(currentUser, userPlantId, isDoctor);
+                    list = await _repo.ListAsync(currentUser, userPlantId, isDoctor, userRole);
                 }
                 else if (indentType == "Compounder Inventory")
                 {
-                    //var approvedIndents = await _repo.ListByStatusAsync("Approved", currentUser, userPlantId);
-                    //var pendingIndents = await _repo.ListByStatusAsync("Pending", currentUser, userPlantId);
-                    //list = approvedIndents.Concat(pendingIndents).OrderBy(x => x.IndentDate);
-                    // UPDATED: Pass isDoctor parameter to both calls
-                    var approvedIndents = await _repo.ListByStatusAsync("Approved", currentUser, userPlantId, isDoctor);
-                    var pendingIndents = await _repo.ListByStatusAsync("Pending", currentUser, userPlantId, isDoctor);
+                    
+                    var approvedIndents = await _repo.ListByStatusAsync("Approved", currentUser, userPlantId, isDoctor, userRole);
+                    var pendingIndents = await _repo.ListByStatusAsync("Pending", currentUser, userPlantId, isDoctor, userRole);
                     list = approvedIndents.Concat(pendingIndents).OrderBy(x => x.IndentDate);
                 }
                 else
                 {
                     //list = await _repo.ListByTypeAsync(indentType, currentUser, userPlantId);
-                    list = await _repo.ListByTypeAsync(indentType, currentUser, userPlantId, isDoctor);
+                    list = await _repo.ListByTypeAsync(indentType, currentUser, userPlantId, isDoctor, userRole);
                 }
 
                 var result = new List<object>();

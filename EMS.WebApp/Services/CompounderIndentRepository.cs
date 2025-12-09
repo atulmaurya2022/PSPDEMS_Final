@@ -28,35 +28,7 @@ namespace EMS.WebApp.Services
             return plant?.plant_code;
         }
 
-
-        //public async Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null)
-        //{
-        //    var query = _db.CompounderIndents.AsQueryable();
-
-        //    // Plant-wise filtering
-        //    if (userPlantId.HasValue)
-        //    {
-        //        query = query.Where(s => s.plant_id == userPlantId.Value);
-        //    }
-
-        //    // Filter drafts to show only to their creators
-        //    if (!string.IsNullOrEmpty(currentUser))
-        //    {
-        //        query = query.Where(s => s.IndentType != "Draft Indent" || s.CreatedBy == currentUser);
-        //    }
-        //    else
-        //    {
-        //        query = query.Where(s => s.IndentType != "Draft Indent");
-        //    }
-
-        //    return await query
-        //        .Include(s => s.OrgPlant)
-        //        .OrderByDescending(s => s.CreatedDate)
-        //        .ToListAsync();
-        //}
-
-        // UPDATED: ListAsync with BCM plant filtering
-        public async Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null, bool isDoctor = false)
+        public async Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null, bool isDoctor = false, string? userRole = null)
         {
             var query = _db.CompounderIndents.AsQueryable();
 
@@ -65,23 +37,24 @@ namespace EMS.WebApp.Services
             {
                 query = query.Where(s => s.plant_id == userPlantId.Value);
 
-                if (!isDoctor)
+                // BCM filtering: Apply ONLY for Compounder role, NOT for Store or Doctor
+                if (!isDoctor && IsCompounderRole(userRole))
                 {
                     var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
                     if (plantCode?.ToUpper() == "BCM")
                     {
-                        // BCM plant: Non-doctors can only see their own records
+                        // BCM plant + Compounder role: Can only see their own records
                         if (!string.IsNullOrEmpty(currentUser))
                         {
                             query = query.Where(s => s.CreatedBy == currentUser);
                         }
                         else
                         {
-                            // If no current user, return empty (safety measure)
                             return new List<CompounderIndent>();
                         }
                     }
                 }
+                // Store users and Doctors see ALL records (no CreatedBy filter)
             }
 
             // Filter drafts to show only to their creators
@@ -100,32 +73,7 @@ namespace EMS.WebApp.Services
                 .ToListAsync();
         }
 
-        //public async Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null)
-        //{
-        //    var query = _db.CompounderIndents.Where(s => s.IndentType == indentType);
-
-        //    // Plant-wise filtering
-        //    if (userPlantId.HasValue)
-        //    {
-        //        query = query.Where(s => s.plant_id == userPlantId.Value);
-        //    }
-
-        //    // Additional filtering for Draft Indent - only show to creator
-        //    if (indentType == "Draft Indent" && !string.IsNullOrEmpty(currentUser))
-        //    {
-        //        query = query.Where(s => s.CreatedBy == currentUser);
-        //    }
-        //    else if (indentType == "Draft Indent" && string.IsNullOrEmpty(currentUser))
-        //    {
-        //        return new List<CompounderIndent>();
-        //    }
-
-        //    return await query
-        //        .Include(s => s.OrgPlant)
-        //        .OrderByDescending(s => s.CreatedDate)
-        //        .ToListAsync();
-        //}
-        public async Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null, bool isDoctor = false)
+        public async Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null, bool isDoctor = false, string? userRole = null)
         {
             var query = _db.CompounderIndents.Where(s => s.IndentType == indentType);
 
@@ -134,12 +82,13 @@ namespace EMS.WebApp.Services
             {
                 query = query.Where(s => s.plant_id == userPlantId.Value);
 
-                if (!isDoctor)
+                // BCM filtering: Apply ONLY for Compounder role, NOT for Store or Doctor
+                if (!isDoctor && IsCompounderRole(userRole))
                 {
                     var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
                     if (plantCode?.ToUpper() == "BCM")
                     {
-                        // BCM plant: Non-doctors can only see their own records
+                        // BCM plant + Compounder role: Can only see their own records
                         if (!string.IsNullOrEmpty(currentUser))
                         {
                             query = query.Where(s => s.CreatedBy == currentUser);
@@ -150,6 +99,7 @@ namespace EMS.WebApp.Services
                         }
                     }
                 }
+                // Store users and Doctors see ALL records (no CreatedBy filter)
             }
 
             // Additional filtering for Draft Indent - only show to creator
@@ -167,23 +117,7 @@ namespace EMS.WebApp.Services
                 .OrderByDescending(s => s.CreatedDate)
                 .ToListAsync();
         }
-        //public async Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null)
-        //{
-        //    var query = _db.CompounderIndents.Where(s => s.Status == status);
-
-        //    // Plant-wise filtering
-        //    if (userPlantId.HasValue)
-        //    {
-        //        query = query.Where(s => s.plant_id == userPlantId.Value);
-        //    }
-
-        //    return await query
-        //        .Include(s => s.OrgPlant)
-        //        .OrderByDescending(s => s.CreatedDate)
-        //        .ToListAsync();
-        //}
-
-        public async Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null, bool isDoctor = false)
+        public async Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null, bool isDoctor = false, string? userRole = null)
         {
             var query = _db.CompounderIndents.Where(s => s.Status == status);
 
@@ -192,12 +126,13 @@ namespace EMS.WebApp.Services
             {
                 query = query.Where(s => s.plant_id == userPlantId.Value);
 
-                if (!isDoctor)
+                // BCM filtering: Apply ONLY for Compounder role, NOT for Store or Doctor
+                if (!isDoctor && IsCompounderRole(userRole))
                 {
                     var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
                     if (plantCode?.ToUpper() == "BCM")
                     {
-                        // BCM plant: Non-doctors can only see their own records
+                        // BCM plant + Compounder role: Can only see their own records
                         if (!string.IsNullOrEmpty(currentUser))
                         {
                             query = query.Where(s => s.CreatedBy == currentUser);
@@ -208,6 +143,17 @@ namespace EMS.WebApp.Services
                         }
                     }
                 }
+                // Store users and Doctors see ALL records (no CreatedBy filter)
+            }
+
+            // Additional filtering for Draft Indent - only show to creator
+            if (!string.IsNullOrEmpty(currentUser))
+            {
+                query = query.Where(s => s.IndentType != "Draft Indent" || s.CreatedBy == currentUser);
+            }
+            else
+            {
+                query = query.Where(s => s.IndentType != "Draft Indent");
             }
 
             return await query
@@ -926,25 +872,52 @@ namespace EMS.WebApp.Services
             if (availableStock <= (receivedQuantity * 0.2)) return "Low Stock";
             return "In Stock";
         }
-        public async Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null)
+
+        public async Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(
+     DateTime? fromDate = null,
+     DateTime? toDate = null,
+     int? userPlantId = null,
+     string currentUser = null,
+     bool isDoctor = false)
         {
-            // FIXED: Proper date range calculation
-            var startDate = fromDate ?? DateTime.Today;
-            var endDate = toDate ?? DateTime.Today;
-
-            // CRITICAL FIX: Ensure we capture the full day
-            if (fromDate.HasValue)
-                startDate = fromDate.Value.Date; // Start of from date
-            else
-                startDate = DateTime.Today; // Start of today
-
-            if (toDate.HasValue)
-                endDate = toDate.Value.Date.AddDays(1).AddTicks(-1); // End of to date
-            else
-                endDate = DateTime.Today.AddDays(1).AddTicks(-1); // End of today
+            // Date range calculation
+            var startDate = fromDate?.Date ?? DateTime.Today;
+            var endDate = (toDate?.Date ?? DateTime.Today).AddDays(1).AddTicks(-1);
 
             try
             {
+                // Check if BCM plant filtering should be applied
+                bool applyBcmFilter = false;
+                List<string> userIdentifiers = new List<string>();
+
+                if (userPlantId.HasValue && !isDoctor && !string.IsNullOrEmpty(currentUser))
+                {
+                    var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                    applyBcmFilter = plantCode?.ToUpper() == "BCM";
+
+                    if (applyBcmFilter)
+                    {
+                        // Get all possible user identifiers (adid, email, full_name) for matching
+                        var userRecord = await _db.SysUsers
+                            .Where(u => (u.adid == currentUser || u.email == currentUser || u.full_name == currentUser) && u.is_active)
+                            .Select(u => new { u.adid, u.email, u.full_name })
+                            .FirstOrDefaultAsync();
+
+                        if (userRecord != null)
+                        {
+                            if (!string.IsNullOrEmpty(userRecord.adid))
+                                userIdentifiers.Add(userRecord.adid);
+                            if (!string.IsNullOrEmpty(userRecord.email))
+                                userIdentifiers.Add(userRecord.email);
+                            if (!string.IsNullOrEmpty(userRecord.full_name))
+                                userIdentifiers.Add(userRecord.full_name);
+                        }
+
+                        if (!userIdentifiers.Contains(currentUser))
+                            userIdentifiers.Add(currentUser);
+                    }
+                }
+
                 // Get consumption from Doctor Prescriptions
                 var doctorConsumptionQuery = from pm in _db.MedPrescriptionMedicines
                                              join p in _db.MedPrescriptions on pm.PrescriptionId equals p.PrescriptionId
@@ -952,12 +925,18 @@ namespace EMS.WebApp.Services
                                              where p.PrescriptionDate >= startDate
                                                    && p.PrescriptionDate <= endDate
                                                    && (p.ApprovalStatus == "Approved" || p.ApprovalStatus == "Completed" || p.ApprovalStatus == "Pending")
-                                             select new { pm.MedItemId, mm.MedItemName, pm.Quantity, p.PlantId };
+                                             select new { pm.MedItemId, mm.MedItemName, pm.Quantity, p.PlantId, p.CreatedBy };
 
-                // Apply plant filtering for doctor prescriptions
+                // Apply plant filtering
                 if (userPlantId.HasValue)
                 {
                     doctorConsumptionQuery = doctorConsumptionQuery.Where(x => x.PlantId == userPlantId.Value);
+                }
+
+                // Apply BCM compounder-wise filtering
+                if (applyBcmFilter && userIdentifiers.Any())
+                {
+                    doctorConsumptionQuery = doctorConsumptionQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
                 }
 
                 var doctorConsumption = await doctorConsumptionQuery
@@ -968,21 +947,25 @@ namespace EMS.WebApp.Services
                         ConsumedQty = g.Sum(x => x.Quantity)
                     }).ToListAsync();
 
-                Console.WriteLine($"📋 Doctor prescriptions consumption: {doctorConsumption.Count} medicines, Total qty: {doctorConsumption.Sum(x => x.ConsumedQty)}");
-
-                // FIXED: Get consumption from Others Diagnoses with proper date range
+                // Get consumption from Others Diagnoses
                 var othersConsumptionQuery = from dm in _db.OthersDiagnosisMedicines
                                              join d in _db.OthersDiagnoses on dm.DiagnosisId equals d.DiagnosisId
                                              join mm in _db.med_masters on dm.MedItemId equals mm.MedItemId
                                              where d.VisitDate >= startDate
-                                                   && d.VisitDate <= endDate  // Now this will work correctly
+                                                   && d.VisitDate <= endDate
                                                    && (d.ApprovalStatus == "Approved" || d.ApprovalStatus == "Completed" || d.ApprovalStatus == "Pending")
-                                             select new { dm.MedItemId, mm.MedItemName, dm.Quantity, d.PlantId };
+                                             select new { dm.MedItemId, mm.MedItemName, dm.Quantity, d.PlantId, d.CreatedBy };
 
-                // Apply plant filtering for others diagnoses
+                // Apply plant filtering
                 if (userPlantId.HasValue)
                 {
                     othersConsumptionQuery = othersConsumptionQuery.Where(x => x.PlantId == userPlantId.Value);
+                }
+
+                // Apply BCM compounder-wise filtering
+                if (applyBcmFilter && userIdentifiers.Any())
+                {
+                    othersConsumptionQuery = othersConsumptionQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
                 }
 
                 var othersConsumption = await othersConsumptionQuery
@@ -993,11 +976,6 @@ namespace EMS.WebApp.Services
                         ConsumedQty = g.Sum(x => x.Quantity)
                     }).ToListAsync();
 
-                // DEBUG: Also check raw Others data to confirm
-                var rawOthersCheck = await _db.OthersDiagnoses
-                    .Where(d => d.VisitDate >= startDate && d.VisitDate <= endDate)
-                    .CountAsync();
-                
                 // Combine consumption data from both sources
                 var combinedConsumption = doctorConsumption.Concat(othersConsumption)
                                                           .GroupBy(x => new { x.MedItemId, x.MedicineName })
@@ -1007,26 +985,18 @@ namespace EMS.WebApp.Services
                                                               ConsumedQty = g.Sum(x => x.ConsumedQty)
                                                           }).ToList();
 
-                // Get all medicines with current stock and expired quantities (plant filtered)
+                // Get all medicines (plant filtered)
                 var medicinesQuery = _db.med_masters.AsQueryable();
-
                 if (userPlantId.HasValue)
                 {
                     medicinesQuery = medicinesQuery.Where(m => m.plant_id == userPlantId.Value);
                 }
 
                 var allMedicines = await medicinesQuery
-                    .Select(m => new
-                    {
-                        m.MedItemId,
-                        m.MedItemName,
-                        m.plant_id
-                    })
+                    .Select(m => new { m.MedItemId, m.MedItemName, m.plant_id })
                     .ToListAsync();
 
                 var reportData = new List<DailyMedicineConsumptionReportDto>();
-
-                // Get all medicines that have consumption (even if no stock)
                 var medicinesWithConsumption = combinedConsumption.Select(c => c.MedItemId).ToList();
                 var allRelevantMedicineIds = allMedicines.Select(m => m.MedItemId).Union(medicinesWithConsumption).ToList();
 
@@ -1079,7 +1049,7 @@ namespace EMS.WebApp.Services
                         {
                             MedicineName = medicineName,
                             TotalStockInCompounderInventory = currentStock,
-                            IssuedQty = consumedQty, // Now correctly includes Others consumption!
+                            IssuedQty = consumedQty,
                             ExpiredQty = expiredStock,
                             PlantName = "N/A"
                         });
@@ -1088,13 +1058,13 @@ namespace EMS.WebApp.Services
 
                 return reportData.OrderBy(r => r.MedicineName);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                
                 return new List<DailyMedicineConsumptionReportDto>();
             }
         }
-        
+
+
         public async Task<IEnumerable<MedicineMasterCompounderReportDto>> GetMedicineMasterCompounderReportAsync(int? userPlantId = null)
         {
             var today = DateTime.Today;
@@ -1161,7 +1131,16 @@ namespace EMS.WebApp.Services
             return reportData.OrderBy(r => r.MedName);
         }
 
+        /// <summary>
+        /// Checks if the user role is Compounder (for BCM-specific filtering)
+        /// </summary>
+        private bool IsCompounderRole(string? userRole)
+        {
+            if (string.IsNullOrEmpty(userRole))
+                return false;
 
+            return userRole.ToLower().Contains("compounder");
+        }
         private class StoreStockUpdate
         {
             public int BatchId { get; set; }

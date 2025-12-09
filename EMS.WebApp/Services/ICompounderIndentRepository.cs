@@ -12,13 +12,9 @@ namespace EMS.WebApp.Services
 
 
         Task<CompounderIndent?> GetByIdWithItemsAsync(int id, int? userPlantId = null);
-        //Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null);
-        //Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null);
-        //Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null);
-
-        Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null, bool isDoctor = false);
-        Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null, bool isDoctor = false);
-        Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null, bool isDoctor = false);
+        Task<IEnumerable<CompounderIndent>> ListAsync(string currentUser = null, int? userPlantId = null, bool isDoctor = false, string? userRole = null);
+        Task<IEnumerable<CompounderIndent>> ListByTypeAsync(string indentType, string currentUser = null, int? userPlantId = null, bool isDoctor = false, string? userRole = null);
+        Task<IEnumerable<CompounderIndent>> ListByStatusAsync(string status, string currentUser = null, int? userPlantId = null, bool isDoctor = false, string? userRole = null);
 
         Task<CompounderIndent?> GetByIdAsync(int id, int? userPlantId = null);
         Task AddAsync(CompounderIndent entity);
@@ -58,8 +54,16 @@ namespace EMS.WebApp.Services
 
         // Updated Report methods with plant filtering
         Task<IEnumerable<CompounderIndentReportDto>> GetCompounderIndentReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null);
-        Task<IEnumerable<CompounderInventoryReportDto>> GetCompounderInventoryReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, bool showOnlyAvailable =false);
-        Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null);
+        Task<IEnumerable<CompounderInventoryReportDto>> GetCompounderInventoryReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, bool showOnlyAvailable = false);
+
+        // UPDATED: Added currentUser and isDoctor parameters for BCM plant-specific compounder-wise filtering
+        Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? userPlantId = null,
+            string currentUser = null,
+            bool isDoctor = false);
+
         Task<IEnumerable<MedicineMasterCompounderReportDto>> GetMedicineMasterCompounderReportAsync(int? userPlantId = null);
     }
 

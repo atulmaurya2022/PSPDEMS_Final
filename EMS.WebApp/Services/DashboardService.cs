@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
 using EMS.WebApp.Data;
@@ -46,11 +45,12 @@ namespace EMS.WebApp.Services
             // Expired (pending disposal)
             var expiredPending = await _expiredRepo.ListPendingDisposalAsync(userPlantId);
 
-            // Near-expiry (compounder batches with positive stock within window)
+            // Near-expiry calculation
             var today = DateTime.Today;
             var upto = today.AddDays(nearExpiryDays);
 
-            var nearExpiryCount = await _db.CompounderIndentBatches
+            // Near-expiry count from Compounder Inventory
+            var compounderNearExpiryCount = await _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, Header = h })
                 .Where(x =>
@@ -60,13 +60,28 @@ namespace EMS.WebApp.Services
                     (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value))
                 .CountAsync();
 
+            // Near-expiry count from Store Inventory
+            var storeNearExpiryCount = await _db.StoreIndentBatches
+                .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
+                .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, Header = h })
+                .Where(x =>
+                    x.b.AvailableStock > 0 &&
+                    x.b.ExpiryDate >= today &&
+                    x.b.ExpiryDate <= upto &&
+                    x.Header.Status == "Approved" &&
+                    (!userPlantId.HasValue || x.Header.PlantId == userPlantId.Value))
+                .CountAsync();
+
+            // Total near-expiry count (Store + Compounder)
+            var totalNearExpiryCount = compounderNearExpiryCount + storeNearExpiryCount;
+
             return new DoctorDashboardDto
             {
                 PendingStoreIndentApprovals = storePending.Count(),
                 PendingCompounderIndentApprovals = compounderPending.Count(),
                 PendingPrescriptionApprovals = prescPending,
                 ExpiredMedicinesPendingDisposal = expiredPending.Count(),
-                NearExpiryMedicineCount = nearExpiryCount,
+                NearExpiryMedicineCount = totalNearExpiryCount,
                 NearExpiryDays = nearExpiryDays
             };
         }

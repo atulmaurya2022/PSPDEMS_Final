@@ -1,4 +1,5 @@
 ﻿using EMS.WebApp.Data;
+using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -61,23 +62,24 @@ namespace EMS.WebApp.Controllers
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var userRole = await GetCurrentUserRoleAsync();
+                var currentUser = GetCurrentUserIdentifier();  // NEW: Get current user
 
                 // DEBUG: Log what we're searching for
                 _logger.LogInformation($"LoadData called - Status: {status}, SourceType: {sourceType}, UserRole: '{userRole}', PlantId: {userPlantId}");
 
                 // DEBUG: Let's also test the statistics method that works
-                var testStats = await _repo.GetStatisticsBySourceTypeAsync(userPlantId, userRole);
+                var testStats = await _repo.GetStatisticsBySourceTypeAsync(userPlantId, userRole, currentUser);
                 _logger.LogInformation($"DEBUG - Statistics by source type: {string.Join(", ", testStats.Select(kvp => $"{kvp.Key}: {kvp.Value}"))}");
 
                 IEnumerable<ExpiredMedicine> expiredMedicines;
 
                 if (status.ToLower() == "disposed")
                 {
-                    expiredMedicines = await _repo.ListDisposedAsync(fromDate, toDate, userPlantId, userRole);
+                    expiredMedicines = await _repo.ListDisposedAsync(fromDate, toDate, userPlantId, userRole, currentUser);
                 }
                 else
                 {
-                    expiredMedicines = await _repo.ListPendingDisposalAsync(userPlantId, userRole);
+                    expiredMedicines = await _repo.ListPendingDisposalAsync(userPlantId, userRole, currentUser);
                 }
 
                 // DEBUG: Log what we found before filtering
@@ -146,8 +148,9 @@ namespace EMS.WebApp.Controllers
                 // Get user's plant ID and role for filtering
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var userRole = await GetCurrentUserRoleAsync();
+                var currentUser = GetCurrentUserIdentifier();
 
-                var currentUser = User.Identity?.Name;
+                //var currentUser = User.Identity?.Name;
                 if (string.IsNullOrEmpty(currentUser))
                 {
                     await _auditService.LogAsync("expired_medicine", "ISSUE_NO_USER", id.ToString(), null, null,
@@ -160,7 +163,7 @@ namespace EMS.WebApp.Controllers
                     $"Issue to biomedical waste attempted for ID: {id}, Plant: {userPlantId}, Role: {userRole}");
 
                 // Get the item to verify it's pending disposal WITH PLANT AND ROLE FILTERING
-                var item = await _repo.GetByIdAsync(id, userPlantId, userRole);
+                var item = await _repo.GetByIdAsync(id, userPlantId, userRole, currentUser);
                 if (item == null)
                 {
                     await _auditService.LogAsync("expired_medicine", "ISSUE_NOTFOUND", id.ToString(), null, null,
@@ -535,6 +538,7 @@ namespace EMS.WebApp.Controllers
                 // Get user's plant ID and role for filtering
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var userRole = await GetCurrentUserRoleAsync();
+                var currentUser = GetCurrentUserIdentifier();
 
                 // Validate the medicine type
                 var validTypes = new[] { "Select Type of Medicine", "Solid", "Liquid", "Gel" };
@@ -548,7 +552,7 @@ namespace EMS.WebApp.Controllers
                     $"Medicine type update attempted - ID: {id}, Type: {typeOfMedicine}, Plant: {userPlantId}, Role: {userRole}");
 
                 // Get the item to verify it exists and is editable WITH ROLE FILTERING
-                var item = await _repo.GetByIdAsync(id, userPlantId, userRole);
+                var item = await _repo.GetByIdAsync(id, userPlantId, userRole, currentUser);
                 if (item == null)
                 {
                     await _auditService.LogAsync("expired_medicine", "UPDATE_NOTFOUND", id.ToString(), null, null,
@@ -646,9 +650,10 @@ namespace EMS.WebApp.Controllers
                 // Get user's plant ID and role for filtering
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var userRole = await GetCurrentUserRoleAsync();
+                var currentUser = GetCurrentUserIdentifier();
 
                 // Simple test to check if database is accessible WITH ROLE-BASED FILTERING
-                var count = await _repo.GetTotalExpiredCountAsync(userPlantId, userRole);
+                var count = await _repo.GetTotalExpiredCountAsync(userPlantId, userRole, currentUser);
                 return Json(new { success = true, message = "Database connection successful", count = count, plantId = userPlantId, userRole = userRole });
             }
             catch (Exception ex)
@@ -693,6 +698,20 @@ namespace EMS.WebApp.Controllers
                 return null;
             }
         }
-        
+        private string GetCurrentUserIdentifier()
+        {
+            // Use the same format as CompounderIndent.CreatedBy
+            // This is typically: User.Identity.Name + " - " + User.GetFullName()
+            var userName = User.Identity?.Name;
+            var fullName = User.GetFullName();  // Extension method
+
+            if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(fullName))
+            {
+                return $"{userName} - {fullName}";
+            }
+
+            return userName ?? "unknown";
+        }
+
     }
 }
