@@ -874,11 +874,11 @@ namespace EMS.WebApp.Services
         }
 
         public async Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(
-     DateTime? fromDate = null,
-     DateTime? toDate = null,
-     int? userPlantId = null,
-     string currentUser = null,
-     bool isDoctor = false)
+         DateTime? fromDate = null,
+         DateTime? toDate = null,
+         int? userPlantId = null,
+         string currentUser = null,
+         bool isDoctor = false)
         {
             // Date range calculation
             var startDate = fromDate?.Date ?? DateTime.Today;
@@ -1011,31 +1011,47 @@ namespace EMS.WebApp.Services
                     var medicineName = medicine?.MedItemName ?? consumption?.MedicineName ?? "Unknown Medicine";
 
                     // Get current available stock (non-expired) from CompounderIndentBatches
+                    // UPDATED: Added CreatedBy for BCM compounder-wise filtering
                     var currentStockQuery = from ci in _db.CompounderIndents
                                             join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
                                             join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
                                             where cii.MedItemId == medicineId
                                                   && cib.ExpiryDate >= DateTime.Today
-                                            select new { cib.AvailableStock, ci.plant_id };
+                                            select new { cib.AvailableStock, ci.plant_id, ci.CreatedBy };
 
+                    // Apply plant filtering
                     if (userPlantId.HasValue)
                     {
                         currentStockQuery = currentStockQuery.Where(x => x.plant_id == userPlantId.Value);
                     }
 
+                    // NEW: Apply BCM compounder-wise filtering for current stock
+                    if (applyBcmFilter && userIdentifiers.Any())
+                    {
+                        currentStockQuery = currentStockQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
+                    }
+
                     var currentStock = await currentStockQuery.SumAsync(x => x.AvailableStock);
 
                     // Get expired quantity from CompounderIndentBatches
+                    // UPDATED: Added CreatedBy for BCM compounder-wise filtering
                     var expiredStockQuery = from ci in _db.CompounderIndents
                                             join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
                                             join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
                                             where cii.MedItemId == medicineId
                                                   && cib.ExpiryDate < DateTime.Today
-                                            select new { cib.AvailableStock, ci.plant_id };
+                                            select new { cib.AvailableStock, ci.plant_id, ci.CreatedBy };
 
+                    // Apply plant filtering
                     if (userPlantId.HasValue)
                     {
                         expiredStockQuery = expiredStockQuery.Where(x => x.plant_id == userPlantId.Value);
+                    }
+
+                    // NEW: Apply BCM compounder-wise filtering for expired stock
+                    if (applyBcmFilter && userIdentifiers.Any())
+                    {
+                        expiredStockQuery = expiredStockQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
                     }
 
                     var expiredStock = await expiredStockQuery.SumAsync(x => x.AvailableStock);
@@ -1051,7 +1067,9 @@ namespace EMS.WebApp.Services
                             TotalStockInCompounderInventory = currentStock,
                             IssuedQty = consumedQty,
                             ExpiredQty = expiredStock,
-                            PlantName = "N/A"
+                            PlantName = "N/A",
+                            // NEW: Calculate Total Available at Compounder Inventory = TotalStock + IssuedQty + ExpiredQty
+                            TotalAvailableAtCompounderInventory = currentStock + consumedQty + expiredStock
                         });
                     }
                 }

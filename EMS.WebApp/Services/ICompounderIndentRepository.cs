@@ -111,6 +111,9 @@ namespace EMS.WebApp.Services
         public int IssuedQty { get; set; }
         public int ExpiredQty { get; set; }
         public string PlantName { get; set; } = string.Empty; // NEW: Plant information
+
+        // NEW: Total Available at Compounder Inventory = TotalStock + IssuedQty + ExpiredQty
+        public int TotalAvailableAtCompounderInventory { get; set; }
     }
 
     public class MedicineMasterCompounderReportDto

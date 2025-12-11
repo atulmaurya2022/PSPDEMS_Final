@@ -1,5 +1,4 @@
-﻿
-using EMS.WebApp.Data;
+﻿using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -35,11 +34,40 @@ namespace EMS.WebApp.Controllers
             _db = db;
         }
 
+        /// <summary>
+        /// Gets the plant ID for the current user.
+        /// </summary>
         private async Task<int?> ResolvePlantAsync()
         {
             var user = User.Identity?.Name;
             if (string.IsNullOrWhiteSpace(user)) return null;
             return await _compounderRepo.GetUserPlantIdAsync(user);
+        }
+
+        /// <summary>
+        /// Gets the full username in format "loginName - FullName".
+        /// </summary>
+        private string GetFullUserName()
+        {
+            return User.Identity?.Name + " - " + User.GetFullName();
+        }
+
+        /// <summary>
+        /// Checks if the current user's plant is BCM.
+        /// </summary>
+        private async Task<bool> IsBcmPlantAsync(int? plantId)
+        {
+            return await _svc.IsBcmPlantAsync(plantId);
+        }
+
+        /// <summary>
+        /// Gets the current user's role.
+        /// </summary>
+        private async Task<string?> GetUserRoleAsync()
+        {
+            var user = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(user)) return null;
+            return await _svc.GetUserRoleAsync(user);
         }
 
         [HttpGet]
@@ -48,7 +76,7 @@ namespace EMS.WebApp.Controllers
         [HttpGet]
         public async Task<IActionResult> GetSummary(int nearDays = 30)
         {
-            var dto = await _svc.GetSummaryAsync(User.Identity?.Name + " - " + User.GetFullName(), User.Identity?.Name, nearDays);
+            var dto = await _svc.GetSummaryAsync(GetFullUserName(), User.Identity?.Name, nearDays);
             return Json(dto);
         }
 
@@ -58,7 +86,10 @@ namespace EMS.WebApp.Controllers
         public async Task<IActionResult> ListPending()
         {
             var plant = await ResolvePlantAsync();
-            var list = await _compounderRepo.ListByStatusAsync("Pending", currentUser: null, userPlantId: plant);
+            var isBcm = await IsBcmPlantAsync(plant);
+            var currentUser = isBcm ? GetFullUserName() : null;
+
+            var list = await _compounderRepo.ListByStatusAsync("Pending", currentUser: currentUser, userPlantId: plant);
 
             var payload = list
                 .OrderByDescending(h => h.IndentDate)
@@ -80,7 +111,10 @@ namespace EMS.WebApp.Controllers
         public async Task<IActionResult> ListApprovedAwaitingReceipt()
         {
             var plant = await ResolvePlantAsync();
-            var list = await _compounderRepo.ListByStatusAsync("Approved", currentUser: null, userPlantId: plant);
+            var isBcm = await IsBcmPlantAsync(plant);
+            var currentUser = isBcm ? GetFullUserName() : null;
+
+            var list = await _compounderRepo.ListByStatusAsync("Approved", currentUser: currentUser, userPlantId: plant);
 
             var payload = list
                 .Where(h => h.CompounderIndentItems != null && h.CompounderIndentItems.Any(i => i.RaisedQuantity > i.ReceivedQuantity))
@@ -99,13 +133,13 @@ namespace EMS.WebApp.Controllers
             return Json(payload);
         }
 
-
-
         [HttpGet]
         public async Task<IActionResult> ListMyDrafts()
         {
             var plant = await ResolvePlantAsync();
-            var user = User.Identity?.Name + " - " + User.GetFullName() ?? "";
+            var user = GetFullUserName();
+
+            // My Drafts is always filtered by current user regardless of plant
             var rows = await _db.CompounderIndents
                 .Where(h =>
                     (h.Status == "Draft" || h.IndentType == "Draft Indent") &&
@@ -130,15 +164,27 @@ namespace EMS.WebApp.Controllers
         public async Task<IActionResult> GetNearExpiry(int days = 30, int top = 100)
         {
             var plant = await ResolvePlantAsync();
-            var today = DateTime.Today; var upto = today.AddDays(days);
+            var isBcm = await IsBcmPlantAsync(plant);
+            var currentUser = isBcm ? GetFullUserName() : null;
 
-            var rows = await _db.CompounderIndentBatches
+            var today = DateTime.Today;
+            var upto = today.AddDays(days);
+
+            var query = _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate >= today && x.b.ExpiryDate <= upto &&
-                            (!plant.HasValue || x.Header.plant_id == plant.Value))
+                            (!plant.HasValue || x.Header.plant_id == plant.Value));
+
+            // Apply BCM user filter
+            if (isBcm && !string.IsNullOrEmpty(currentUser))
+            {
+                query = query.Where(x => x.Header.CreatedBy == currentUser);
+            }
+
+            var rows = await query
                 .OrderBy(x => x.b.ExpiryDate)
                 .Select(x => new NearExpiryDto
                 {
@@ -155,12 +201,17 @@ namespace EMS.WebApp.Controllers
             return Json(rows);
         }
 
-
         [HttpGet]
         public async Task<IActionResult> GetPendingDisposal(int top = 100)
         {
             var plant = await ResolvePlantAsync();
-            var rows = (await _expiredRepo.ListPendingDisposalAsync(plant))
+            var isBcm = await IsBcmPlantAsync(plant);
+            var userRole = await GetUserRoleAsync();
+            var currentUser = isBcm ? GetFullUserName() : null;
+
+            // Pass userRole AND currentUser for BCM filtering
+            // Repository signature: ListPendingDisposalAsync(int? userPlantId, string? userRole, string? currentUser)
+            var rows = (await _expiredRepo.ListPendingDisposalAsync(plant, userRole, currentUser))
                 .OrderByDescending(e => e.ExpiryDate)
                 .Take(top)
                 .Select(e => new ExpiredMedicineDto
@@ -181,15 +232,26 @@ namespace EMS.WebApp.Controllers
         public async Task<IActionResult> GetExpired(int top = 100)
         {
             var plant = await ResolvePlantAsync();
+            var isBcm = await IsBcmPlantAsync(plant);
+            var currentUser = isBcm ? GetFullUserName() : null;
+
             var today = DateTime.Today;
 
-            var rows = await _db.CompounderIndentBatches
+            var query = _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate < today &&
-                            (!plant.HasValue || x.Header.plant_id == plant.Value))
+                            (!plant.HasValue || x.Header.plant_id == plant.Value));
+
+            // Apply BCM user filter
+            if (isBcm && !string.IsNullOrEmpty(currentUser))
+            {
+                query = query.Where(x => x.Header.CreatedBy == currentUser);
+            }
+
+            var rows = await query
                 .OrderBy(x => x.b.ExpiryDate)
                 .Select(x => new NearExpiryDto
                 {
@@ -210,19 +272,28 @@ namespace EMS.WebApp.Controllers
         public async Task<IActionResult> GetLowStock(int fallback = 10, int top = 100)
         {
             var plant = await ResolvePlantAsync();
+            var isBcm = await IsBcmPlantAsync(plant);
+            var currentUser = isBcm ? GetFullUserName() : null;
 
-            var stocks = await _db.CompounderIndentBatches
+            var stocksQuery = _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+                .Where(x => !plant.HasValue || x.Header.plant_id == plant.Value);
+
+            // Apply BCM user filter
+            if (isBcm && !string.IsNullOrEmpty(currentUser))
+            {
+                stocksQuery = stocksQuery.Where(x => x.Header.CreatedBy == currentUser);
+            }
+
+            var stocks = await stocksQuery
                 .GroupBy(x => new { x.i.MedItemId, x.Header.plant_id })
                 .Select(g => new
                 {
                     g.Key.MedItemId,
                     PlantId = g.Key.plant_id,
-                    // AvailableStock is int -> Sum returns int; DO NOT coalesce with ?? 0
                     Total = g.Sum(z => z.b.AvailableStock)
                 })
-                .Where(s => !plant.HasValue || s.PlantId == plant.Value)
                 .ToListAsync();
 
             var meds = await _db.med_masters
@@ -233,7 +304,7 @@ namespace EMS.WebApp.Controllers
                 .Select(s =>
                 {
                     var m = meds.FirstOrDefault(mm => mm.MedItemId == s.MedItemId);
-                    var reorder = m?.ReorderLevel; // int?
+                    var reorder = m?.ReorderLevel;
                     int threshold = reorder.HasValue ? reorder.Value : fallback;
 
                     return new CompounderLowStockDto
@@ -253,24 +324,32 @@ namespace EMS.WebApp.Controllers
             return Json(rows);
         }
 
-
         [HttpGet]
         public async Task<IActionResult> GetOutOfStock(int top = 100)
         {
             var plant = await ResolvePlantAsync();
+            var isBcm = await IsBcmPlantAsync(plant);
+            var currentUser = isBcm ? GetFullUserName() : null;
 
-            var stocks = await _db.CompounderIndentBatches
+            var stocksQuery = _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+                .Where(x => !plant.HasValue || x.Header.plant_id == plant.Value);
+
+            // Apply BCM user filter
+            if (isBcm && !string.IsNullOrEmpty(currentUser))
+            {
+                stocksQuery = stocksQuery.Where(x => x.Header.CreatedBy == currentUser);
+            }
+
+            var stocks = await stocksQuery
                 .GroupBy(x => new { x.i.MedItemId, x.Header.plant_id })
                 .Select(g => new
                 {
                     g.Key.MedItemId,
                     PlantId = g.Key.plant_id,
-                    // NOTE: AvailableStock is non-nullable int -> Sum returns int; do not use ?? 0
                     Total = g.Sum(z => z.b.AvailableStock)
                 })
-                .Where(s => !plant.HasValue || s.PlantId == plant.Value)
                 .ToListAsync();
 
             var meds = await _db.med_masters
@@ -292,7 +371,5 @@ namespace EMS.WebApp.Controllers
 
             return Json(rows);
         }
-
-
     }
 }

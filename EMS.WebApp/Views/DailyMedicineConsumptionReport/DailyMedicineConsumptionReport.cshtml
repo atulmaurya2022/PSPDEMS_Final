@@ -146,6 +146,20 @@
                 <div class="summary-subtitle">Units expired</div>
             </div>
         </div>
+
+        <!-- NEW: Total Available at Compounder Inventory Summary Card -->
+        <div class="summary-card" data-category="total-available">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Available at Inventory</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-archive"></i>
+                    </div>
+                </div>
+                <div class="summary-value total-available-value" id="totalAvailableAtInventory">0</div>
+                <div class="summary-subtitle">Stock + Issued + Expired</div>
+            </div>
+        </div>
     </div>
 
     <!-- Enhanced Plant Information -->
@@ -222,9 +236,13 @@
                         <tr>
                             <th class="col-sl">SL NO</th>
                             <th class="col-medicine-name">MEDICINE NAME</th>
-                            <th class="col-available">TOTAL STOCK IN COMPOUNDER INVENTORY</th>
+                            <!-- NEW: Added new column -->
+                            <th class="col-total-available total-available-header">TOTAL AVAILABLE AT COMPOUNDER INVENTORY</th>
                             <th class="col-consumed consumption-header">ISSUED QTY</th>
                             <th class="col-expired text-center">EXPIRED QTY</th>
+                            <!-- UPDATED: Renamed column -->
+                            <th class="col-available">TOTAL AVAILABLE AT COMPOUNDER STOCK</th>
+                            
                         </tr>
                     </thead>
                     <tbody id="reportData">
@@ -233,9 +251,12 @@
                     <tfoot>
                         <tr class="inventory-table-footer">
                             <th colspan="2" class="text-end">Totals:</th>
-                            <th id="footerTotalStock" class="total-value">0</th>
+                            <!-- NEW: Added footer for new column -->
+                            <th id="footerTotalAvailable" class="total-value total-available-total">0</th>
                             <th id="footerTotalConsumed" class="total-value consumed-total">0</th>
                             <th id="footerTotalExpired" class="total-value expired-total">0</th>
+                            <th id="footerTotalStock" class="total-value">0</th>
+                            
                         </tr>
                     </tfoot>
                 </table>
@@ -343,6 +364,27 @@
         font-weight: bold;
     }
 
+    /* NEW: Styles for Total Available at Compounder Inventory column */
+    .total-available-header {
+        background: linear-gradient(135deg, #6f42c1, #9d7bd8);
+        color: white;
+    }
+
+    .total-available-value {
+        color: #6f42c1;
+        font-weight: bold;
+    }
+
+    .total-available-total {
+        color: #6f42c1;
+        font-weight: bold;
+    }
+
+    .col-total-available {
+        min-width: 180px;
+        text-align: center;
+    }
+
     .period-display {
         background: rgba(13, 110, 253, 0.1);
         padding: 4px 8px;
@@ -356,22 +398,19 @@
     }
 
     @@media (max-width: 768px) {
-        .date-inputs
+        .date-inputs {
+            flex-direction: column;
+            gap: 10px;
+        }
 
-    {
-        flex-direction: column;
-        gap: 10px;
-    }
+        .date-separator {
+            transform: rotate(90deg);
+            margin: 0;
+        }
 
-    .date-separator {
-        transform: rotate(90deg);
-        margin: 0;
-    }
-
-    .date-buttons {
-        justify-content: center;
-    }
-
+        .date-buttons {
+            justify-content: center;
+        }
     }
 </style>
 
@@ -602,6 +641,7 @@
             var totalStock = 0;
             var totalConsumed = 0;
             var totalExpired = 0;
+            var totalAvailable = 0; // NEW: Track total available at compounder inventory
 
             $.each(data, function(index, item) {
                 var rowClass = '';
@@ -623,14 +663,16 @@
                 totalStock += Number(item.totalStockInCompounderInventory || 0);
                 totalConsumed += Number(item.issuedQty || 0);
                 totalExpired += Number(item.expiredQty || 0);
+                totalAvailable += Number(item.totalAvailableAtCompounderInventory || 0); // NEW: Sum total available
 
                 var row = `<tr class="inventory-table-row ${rowClass}">
                     <td class="sl-cell">${index + 1}</td>
                     <td class="medicine-cell">
                         <span class="medicine-name">${item.medicineName || ''}</span>
                     </td>
+                    <!-- NEW: Added total available at compounder inventory column -->
                     <td class="quantity-cell">
-                        <span class="quantity-badge available">${item.totalStockInCompounderInventory || 0}</span>
+                        <span class="quantity-badge total-available-badge">${item.totalAvailableAtCompounderInventory || 0}</span>
                     </td>
                     <td class="quantity-cell">
                         <span class="${consumedBadgeClass}">${item.issuedQty || 0}</span>
@@ -639,6 +681,10 @@
                         <span class="${expiredBadgeClass}">${item.expiredQty || 0}</span>
                         ${item.expiredQty > 0 ? '<i class="bi bi-exclamation-triangle ms-1 text-danger"></i>' : ''}
                     </td>
+                    <td class="quantity-cell">
+                        <span class="quantity-badge available">${item.totalStockInCompounderInventory || 0}</span>
+                    </td>
+                    
                 </tr>`;
                 tbody.append(row);
             });
@@ -647,6 +693,7 @@
             animateFooterValue('footerTotalStock', totalStock);
             animateFooterValue('footerTotalConsumed', totalConsumed);
             animateFooterValue('footerTotalExpired', totalExpired);
+            animateFooterValue('footerTotalAvailable', totalAvailable); // NEW: Update total available footer
         }
 
         function animateFooterValue(elementId, newValue) {
@@ -680,6 +727,8 @@
             animateValue('totalStockInInventory', 0, reportInfo.totalStockInInventory, 1100);
             animateValue('totalIssuedQty', 0, reportInfo.totalIssuedQty, 1200);
             animateValue('totalExpiredQty', 0, reportInfo.totalExpiredQty, 1300);
+            // NEW: Animate total available at compounder inventory
+            animateValue('totalAvailableAtInventory', 0, reportInfo.totalAvailableAtCompounderInventory, 1400);
         }
 
         function animateValue(elementId, start, end, duration) {

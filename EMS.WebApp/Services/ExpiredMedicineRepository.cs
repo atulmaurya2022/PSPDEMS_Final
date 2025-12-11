@@ -666,12 +666,10 @@ namespace EMS.WebApp.Services
                     // CHANGED: Reduce quantity instead of removing the record
                     var quantityToReduce = expiredMedicine.QuantityExpired ?? 0;
 
-                    System.Diagnostics.Debug.WriteLine($"Reducing compounder batch: {batchToUpdate.BatchNo}, " +
-                                                     $"Current Stock: {batchToUpdate.AvailableStock}, " +
-                                                     $"Reducing by: {quantityToReduce}, Plant: {userPlantId}");
-
+                    
+                    // COMMENTED OUT: Don't reduce stock
                     // Ensure we don't go below zero
-                    batchToUpdate.AvailableStock = Math.Max(0, batchToUpdate.AvailableStock - quantityToReduce);
+                    //batchToUpdate.AvailableStock = Math.Max(0, batchToUpdate.AvailableStock - quantityToReduce);
 
                     // Optional: Add disposal tracking fields to batch table if needed
                     batchToUpdate.LastDisposalDate = DateTime.Now;
@@ -712,12 +710,9 @@ namespace EMS.WebApp.Services
                     // CHANGED: Reduce quantity instead of removing the record
                     var quantityToReduce = expiredMedicine.QuantityExpired ?? 0;
 
-                    System.Diagnostics.Debug.WriteLine($"Reducing store batch: {batchToUpdate.BatchNo}, " +
-                                                     $"Current Stock: {batchToUpdate.AvailableStock}, " +
-                                                     $"Reducing by: {quantityToReduce}, Plant: {userPlantId}");
-
+                    // COMMENTED OUT: Don't reduce stock
                     // Ensure we don't go below zero
-                    batchToUpdate.AvailableStock = Math.Max(0, batchToUpdate.AvailableStock - quantityToReduce);
+                    //batchToUpdate.AvailableStock = Math.Max(0, batchToUpdate.AvailableStock - quantityToReduce);
 
                     // Optional: Add disposal tracking fields to batch table if needed
                      batchToUpdate.LastDisposalDate = DateTime.Now;
