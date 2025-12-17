@@ -1,0 +1,625 @@
+@{
+    ViewData["Title"] = "Disease Trend Analysis - Age Wise";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/css/report.css" rel="stylesheet" />
+<link href="~/css/report-inventory.css" rel="stylesheet" />
+
+<link href="~/css/select2.min.css" rel="stylesheet" />
+<link href="~/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<!-- Enhanced Dashboard Header -->
+<div class="dashboard-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item">Reports</li>
+            <li class="breadcrumb-item">Disease Trend Analysis</li>
+            <li class="breadcrumb-item active" aria-current="page">Age Wise</li>
+        </ol>
+    </nav>
+    <h1 class="dashboard-title">
+        <i class="bi bi-graph-up-arrow"></i>
+        Disease Trend Analysis - Age Wise
+    </h1>
+    <p class="dashboard-subtitle">Comprehensive disease trend analysis grouped by employee age ranges</p>
+</div>
+
+<div class="container-fluid">
+    <!-- Enhanced Filter Controls Section -->
+    <div class="report-controls-section">
+        <div class="controls-row">
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-calendar-range me-2"></i>
+                    Date Range
+                </label>
+                <div class="date-range-inputs">
+                    <input type="date" class="form-control form-control-enhanced" id="fromDate" />
+                    <span class="date-separator">to</span>
+                    <input type="date" class="form-control form-control-enhanced" id="toDate" />
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-building me-2"></i>
+                    Department
+                </label>
+                <select class="form-select form-control-enhanced" id="departmentFilter">
+                    <option value="">ALL</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-heart-pulse me-2"></i>
+                    Disease
+                </label>
+                <select class="form-select form-control-enhanced select2-disease" id="diseaseFilter" multiple="multiple" style="width: 100%;">
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-person-badge me-2"></i>
+                    Employee Type
+                </label>
+                <select class="form-select form-control-enhanced" id="employeeTypeFilter">
+                    <option value="">ALL</option>
+                </select>
+            </div>
+
+            <div class="control-actions">
+                <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
+                    <i class="bi bi-search"></i>
+                    View Report
+                </button>
+                <div class="action-buttons" id="actionButtons" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
+                        <i class="bi bi-download"></i>
+                        Export
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="printReport()">
+                        <i class="bi bi-printer"></i>
+                        Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Summary Cards -->
+    <div id="reportSummary" class="inventory-summary-grid" style="display: none;">
+        <div class="summary-card" data-category="total-records">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Records</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-list-ul"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalRecords">0</div>
+                <div class="summary-subtitle">Report entries</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-employees">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Employees</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-people"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalEmployees">0</div>
+                <div class="summary-subtitle">Affected employees</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-diseases">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Diseases</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-heart-pulse"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalDiseases">0</div>
+                <div class="summary-subtitle">Unique diseases</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-age-groups">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Age Groups</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-calendar-check"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalAgeGroups">0</div>
+                <div class="summary-subtitle">Age categories</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Plant Information -->
+    <div id="plantInfo" class="plant-info-section" style="display: none;">
+        <div class="plant-info-content">
+            <div class="plant-info-header">
+                <i class="bi bi-building me-2"></i>
+                <h6 class="plant-info-title">Plant Information</h6>
+            </div>
+            <div class="plant-info-details">
+                <div class="plant-detail-item">
+                    <span class="plant-detail-label">Plant Code:</span>
+                    <span class="plant-detail-value" id="currentPlantCode">-</span>
+                </div>
+                <div class="plant-detail-separator"></div>
+                <div class="plant-detail-item">
+                    <span class="plant-detail-label">Plant Name:</span>
+                    <span class="plant-detail-value" id="currentPlantName">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Header -->
+    <div id="reportHeader" class="report-header-section" style="display: none;">
+        <div class="report-header-content">
+            <div class="company-info">
+                <h4 id="unitHeader">Unit: ITC LIMITED - PSPD-N/A</h4>
+                <div class="report-meta">
+                    <span class="meta-item">
+                        <i class="bi bi-clock me-1"></i>
+                        Generated: <span id="runDateTime"></span>
+                    </span>
+                    <span class="meta-item">
+                        <i class="bi bi-person me-1"></i>
+                        By: <span id="generatedBy"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="report-title">
+                <h3 class="text-danger">DISEASE TREND ANALYSIS AGE WISE REPORT</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Search Section -->
+    <div id="searchSection" class="search-controls-section" style="display: none;">
+        <div class="search-wrapper">
+            <div class="search-input-group">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control search-input-enhanced" id="searchInput"
+                       placeholder="Search by disease name, age group...">
+                <button type="button" class="btn btn-clear" onclick="clearSearch()">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="search-results-info">
+                <small class="text-muted" id="searchResultCount">No search applied</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Table -->
+    <div id="reportTableSection" class="inventory-table-section" style="display: none;">
+        <div class="table-container">
+            <div class="table-responsive">
+                <table class="table table-striped table-glass glass-table table-sm" id="reportTable">
+                    <thead>
+                        <tr>
+                            <th class="col-sl">SL</th>
+                            <th class="col-disease-name">DISEASE NAME</th>
+                            <th class="col-count">COUNT OF EMP</th>
+                            <th class="col-age">AGE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportData">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="inventory-table-footer">
+                            <th colspan="2" class="text-end">Totals:</th>
+                            <th id="footerTotalCount" class="total-value">0</th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced No Data State -->
+    <div id="noDataMessage" class="empty-state-section" style="display: none;">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-clipboard-x"></i>
+            </div>
+            <h6 class="empty-state-title text-danger">NO DATA FOUND</h6>
+            <p class="empty-state-description">
+                No disease trend data found for the selected filters.<br>
+                Try adjusting your date range or filter criteria.
+            </p>
+            <p class="text-muted">No Data Available</p>
+            <button type="button" class="btn btn-outline-primary btn-enhanced" onclick="$('#fromDate').focus()">
+                <i class="bi bi-funnel"></i>
+                Adjust Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Enhanced Loading State -->
+    <div id="loadingSpinner" class="loading-state-section" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner-inventory"></div>
+            <h6 class="loading-title">Generating Report</h6>
+            <p class="loading-description">Processing disease trend analysis data...</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @* <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script> *@
+    <script src="~/js/select2.min.js"></script>
+    <script>
+        var allReportData = [];
+        var currentFilteredData = [];
+
+        $(document).ready(function() {
+            // Initialize Select2 for Disease dropdown
+            $('#diseaseFilter').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Select Disease(s)',
+                allowClear: true,
+                closeOnSelect: false,
+                width: '100%'
+            });
+
+            // Set default dates (current month)
+            var now = new Date();
+            var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            var today = new Date();
+
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(today.toISOString().split('T')[0]);
+
+            // Load filter dropdowns
+            loadFilters();
+
+            // Search input event with debounce
+            $('#searchInput').on('input', debounce(function() {
+                applyFilters();
+            }, 300));
+
+            // Date validation
+            $('#fromDate, #toDate').on('change', function() {
+                validateDateRange();
+            });
+        });
+
+        function loadFilters() {
+            // Load Departments
+            $.get('@Url.Action("GetDepartments", "DiseaseTrendReport")', function(data) {
+                var select = $('#departmentFilter');
+                select.find('option:not(:first)').remove();
+                $.each(data, function(i, item) {
+                    select.append($('<option>', { value: item.id, text: item.name }));
+                });
+            });
+
+            // Load Diseases
+            $.get('@Url.Action("GetDiseases", "DiseaseTrendReport")', function(data) {
+                var select = $('#diseaseFilter');
+                select.empty();
+                $.each(data, function(i, item) {
+                    select.append($('<option>', { value: item.id, text: item.name }));
+                });
+            });
+
+            // Load Employee Types
+            $.get('@Url.Action("GetEmployeeTypes", "DiseaseTrendReport")', function(data) {
+                var select = $('#employeeTypeFilter');
+                select.find('option:not(:first)').remove();
+                $.each(data, function(i, item) {
+                    select.append($('<option>', { value: item.name, text: item.name }));
+                });
+            });
+        }
+
+        function validateDateRange() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                showAlert('warning', 'From Date cannot be greater than To Date', 'Invalid Date Range');
+                return false;
+            }
+            return true;
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function loadReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select both From Date and To Date', 'Missing Required Fields');
+                return;
+            }
+
+            if (!validateDateRange()) {
+                return;
+            }
+
+            // Show loading state
+            $('#loadingSpinner').show();
+            $('#reportTableSection').hide();
+            $('#reportHeader').hide();
+            $('#reportSummary').hide();
+            $('#plantInfo').hide();
+            $('#searchSection').hide();
+            $('#noDataMessage').hide();
+            $('#actionButtons').hide();
+
+            var params = {
+                fromDate: fromDate,
+                toDate: toDate,
+                departmentId: $('#departmentFilter').val() || null,
+                diseaseId: $('#diseaseFilter').val() ? $('#diseaseFilter').val().join(',') : null,
+                employeeType: $('#employeeTypeFilter').val() || null
+            };
+
+            $.ajax({
+                url: '@Url.Action("GetAgeWiseData", "DiseaseTrendReport")',
+                type: 'GET',
+                data: params,
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+
+                    if (response.data && response.data.length > 0) {
+                        allReportData = response.data;
+                        currentFilteredData = response.data;
+
+                        updateReportHeader(response.reportInfo);
+                        updateSummaryCards(response.summary);
+                        updatePlantInfo(response.reportInfo);
+                        populateTable(response.data);
+
+                        $('#reportSummary').show();
+                        $('#plantInfo').show();
+                        $('#reportHeader').show();
+                        $('#searchSection').show();
+                        $('#reportTableSection').show();
+                        $('#actionButtons').show();
+                    } else {
+                        $('#noDataMessage').show();
+                        updateReportHeader(response.reportInfo);
+                        $('#reportHeader').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#loadingSpinner').hide();
+                    showAlert('danger', 'Failed to load report data: ' + error, 'Error');
+                }
+            });
+        }
+
+        function populateTable(data) {
+            var tbody = $('#reportData');
+            tbody.empty();
+
+            var totalCount = 0;
+
+            $.each(data, function(index, item) {
+                totalCount += item.employeeCount;
+
+                var row = `<tr class="inventory-table-row">
+                    <td class="sl-cell">${item.slNo}</td>
+                    <td class="disease-cell">
+                        <span class="disease-name">${item.diseaseName || ''}</span>
+                    </td>
+                    <td class="count-cell">
+                        <span class="quantity-badge">${item.employeeCount || 0}</span>
+                    </td>
+                    <td class="age-cell">
+                        <span class="age-badge">${item.ageGroup || ''}</span>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            });
+
+            animateFooterValue('footerTotalCount', totalCount);
+        }
+
+        function animateFooterValue(elementId, newValue) {
+            $('#' + elementId).fadeOut(150, function() {
+                $(this).text(newValue.toLocaleString()).fadeIn(150);
+            });
+        }
+
+        function updateReportHeader(reportInfo) {
+            $('#runDateTime').text(reportInfo.generatedOn);
+            $('#generatedBy').text(reportInfo.generatedBy);
+
+            var unitText = 'Unit: ITC LIMITED - PSPD-' + (reportInfo.plantCode || 'N/A');
+            if (reportInfo.plantName && reportInfo.plantName !== 'Unknown Plant') {
+                unitText += ' (' + reportInfo.plantName + ')';
+            }
+            $('#unitHeader').text(unitText);
+        }
+
+        function updateSummaryCards(summary) {
+            animateValue('totalRecords', 0, summary.totalRecords, 1000);
+            animateValue('totalEmployees', 0, summary.totalEmployees, 1100);
+            animateValue('totalDiseases', 0, summary.totalDiseases, 1200);
+            animateValue('totalAgeGroups', 0, summary.totalAgeGroups, 1300);
+        }
+
+        function animateValue(elementId, start, end, duration) {
+            const element = document.getElementById(elementId);
+            const startTime = performance.now();
+
+            function updateValue(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (end - start) * progress);
+
+                element.textContent = current.toLocaleString();
+
+                if (progress < 1) {
+                    requestAnimationFrame(updateValue);
+                }
+            }
+
+            requestAnimationFrame(updateValue);
+        }
+
+        function updatePlantInfo(reportInfo) {
+            $('#currentPlantCode').text(reportInfo.plantCode || 'N/A');
+            $('#currentPlantName').text(reportInfo.plantName || 'Unknown Plant');
+        }
+
+        function applyFilters() {
+            var searchTerm = $('#searchInput').val().toLowerCase();
+
+            if (!searchTerm) {
+                currentFilteredData = allReportData;
+                $('#searchResultCount').text('No search applied');
+            } else {
+                currentFilteredData = allReportData.filter(function(item) {
+                    return (item.diseaseName && item.diseaseName.toLowerCase().includes(searchTerm)) ||
+                           (item.ageGroup && item.ageGroup.toLowerCase().includes(searchTerm));
+                });
+                $('#searchResultCount').text(currentFilteredData.length + ' results found');
+            }
+
+            populateTable(currentFilteredData);
+        }
+
+        function clearSearch() {
+            $('#searchInput').val('');
+            applyFilters();
+        }
+
+        function exportReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select date range first', 'Export Failed');
+                return;
+            }
+
+            showAlert('info', 'Preparing export file...', 'Export Started');
+
+            var params = new URLSearchParams({
+                fromDate: fromDate,
+                toDate: toDate,
+                departmentId: $('#departmentFilter').val() || '',
+                diseaseId: $('#diseaseFilter').val() ? $('#diseaseFilter').val().join(',') : '',
+                employeeType: $('#employeeTypeFilter').val() || ''
+            });
+
+            window.location.href = '@Url.Action("ExportAgeWise", "DiseaseTrendReport")?' + params.toString();
+        }
+
+        function printReport() {
+            if ($('#reportTableSection').is(':visible')) {
+                showAlert('info', 'Preparing print view...', 'Print Started');
+                setTimeout(() => window.print(), 500);
+            } else {
+                showAlert('warning', 'Please generate the report first', 'Print Failed');
+            }
+        }
+
+        function showAlert(type, message, title = null) {
+            console.log(`${title || type.toUpperCase()}: ${message}`);
+        }
+    </script>
+}
+
+@* <style>
+    .disease-name {
+        font-weight: 500;
+        color: #1a365d;
+    }
+
+    .age-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .quantity-badge {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .text-danger {
+        color: #dc3545 !important;
+    }
+
+    /* Select2 Custom Styling */
+    .select2-container--bootstrap-5 .select2-selection {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        min-height: 38px;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__rendered {
+        padding: 4px 8px;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        border-radius: 15px;
+        padding: 2px 10px;
+        font-size: 0.85rem;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove {
+        color: white;
+        margin-right: 5px;
+    }
+
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove:hover {
+        color: #ffcccc;
+        background: transparent;
+    }
+
+    .select2-container--bootstrap-5 .select2-dropdown {
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .select2-container--bootstrap-5 .select2-results__option--highlighted[aria-selected] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .select2-container--bootstrap-5 .select2-search--dropdown .select2-search__field {
+        border-radius: 6px;
+    }
+</style> *@

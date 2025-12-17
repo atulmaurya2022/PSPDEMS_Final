@@ -28,6 +28,8 @@ namespace EMS.WebApp.Controllers
 
         /// <summary>
         /// Generate Compounder Inventory Report with plant filtering and batch details
+        /// BCM plant: Compounders see only their own records, Doctors see all records
+        /// Other plants: All users see all records
         /// </summary>
         /// <param name="fromDate">Start date for filtering (optional)</param>
         /// <param name="toDate">End date for filtering (optional)</param>
@@ -39,8 +41,11 @@ namespace EMS.WebApp.Controllers
             try
             {
                 // Get current user's plant information
-                var currentUserName = User.Identity?.Name;
-                var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
+                var currentUserName = User.Identity?.Name + " - " + User.GetFullName();
+                var userPlantId = await _repo.GetUserPlantIdAsync(User.Identity?.Name);
+
+                // Check if user is a Doctor (for BCM plant-specific access control)
+                var isDoctor = User.IsInRole("Doctor");
 
                 // Get plant details for display
                 using var scope = HttpContext.RequestServices.CreateScope();
@@ -51,8 +56,14 @@ namespace EMS.WebApp.Controllers
                     .Select(p => new { p.plant_name, p.plant_code })
                     .FirstOrDefaultAsync();
 
-                // Pass plant filtering and optional date filters to repository
-                var reportData = await _repo.GetCompounderInventoryReportAsync(fromDate, toDate, userPlantId, showOnlyAvailable);
+                // Pass plant filtering with BCM compounder-wise access control to repository
+                var reportData = await _repo.GetCompounderInventoryReportAsync(
+                    fromDate,
+                    toDate,
+                    userPlantId,
+                    showOnlyAvailable,
+                    currentUserName,  // NEW: Pass current user for BCM filtering
+                    isDoctor);        // NEW: Pass isDoctor flag for BCM filtering
 
                 var result = new
                 {
@@ -105,6 +116,7 @@ namespace EMS.WebApp.Controllers
 
         /// <summary>
         /// Export Compounder Inventory Report to Excel with plant filtering and batch details
+        /// BCM plant: Compounders see only their own records, Doctors see all records
         /// </summary>
         /// <param name="fromDate">Start date for filtering (optional)</param>
         /// <param name="toDate">End date for filtering (optional)</param>
@@ -119,7 +131,17 @@ namespace EMS.WebApp.Controllers
                 var currentUserName = User.Identity?.Name;
                 var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
 
-                var reportData = await _repo.GetCompounderInventoryReportAsync(fromDate, toDate, userPlantId, showOnlyAvailable);
+                // Check if user is a Doctor (for BCM plant-specific access control)
+                var isDoctor = User.IsInRole("Doctor");
+
+                // Pass plant filtering with BCM compounder-wise access control to repository
+                var reportData = await _repo.GetCompounderInventoryReportAsync(
+                    fromDate,
+                    toDate,
+                    userPlantId,
+                    showOnlyAvailable,
+                    currentUserName,  // NEW: Pass current user for BCM filtering
+                    isDoctor);        // NEW: Pass isDoctor flag for BCM filtering
 
                 // CSV format with batch details
                 var csv = new System.Text.StringBuilder();

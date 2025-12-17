@@ -52,9 +52,22 @@ namespace EMS.WebApp.Services
         Task<int?> GetUserPlantIdAsync(string userName);
         Task<bool> IsUserAuthorizedForIndentAsync(int indentId, int userPlantId);
 
-        // Updated Report methods with plant filtering
-        Task<IEnumerable<CompounderIndentReportDto>> GetCompounderIndentReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null);
-        Task<IEnumerable<CompounderInventoryReportDto>> GetCompounderInventoryReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, bool showOnlyAvailable = false);
+        // UPDATED: Report methods with plant filtering AND BCM compounder-wise filtering
+        // Added currentUser and isDoctor parameters for BCM plant-specific access control
+        Task<IEnumerable<CompounderIndentReportDto>> GetCompounderIndentReportAsync(
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? userPlantId = null,
+            string currentUser = null,
+            bool isDoctor = false);
+
+        Task<IEnumerable<CompounderInventoryReportDto>> GetCompounderInventoryReportAsync(
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? userPlantId = null,
+            bool showOnlyAvailable = false,
+            string currentUser = null,
+            bool isDoctor = false);
 
         // UPDATED: Added currentUser and isDoctor parameters for BCM plant-specific compounder-wise filtering
         Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(

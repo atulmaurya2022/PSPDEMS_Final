@@ -1,0 +1,548 @@
+@{
+    ViewData["Title"] = "Medicines Consumption";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/css/report.css" rel="stylesheet" />
+<link href="~/css/report-inventory.css" rel="stylesheet" />
+
+<!-- Enhanced Dashboard Header -->
+<div class="dashboard-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item">Reports</li>
+            <li class="breadcrumb-item">Disease Trend Analysis</li>
+            <li class="breadcrumb-item active" aria-current="page">Medicine Wise</li>
+        </ol>
+    </nav>
+    <h1 class="dashboard-title">
+        <i class="bi bi-capsule-pill"></i>
+        Medicines Consumption
+    </h1>
+    <p class="dashboard-subtitle">Comprehensive medicine consumption analysis with quantity tracking</p>
+</div>
+
+<div class="container-fluid">
+    <!-- Enhanced Filter Controls Section -->
+    <div class="report-controls-section">
+        <div class="controls-row">
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-calendar-range me-2"></i>
+                    Date Range
+                </label>
+                <div class="date-range-inputs">
+                    <input type="date" class="form-control form-control-enhanced" id="fromDate" />
+                    <span class="date-separator">to</span>
+                    <input type="date" class="form-control form-control-enhanced" id="toDate" />
+                </div>
+            </div>
+
+            <div class="control-actions">
+                <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
+                    <i class="bi bi-search"></i>
+                    View Report
+                </button>
+                <div class="action-buttons" id="actionButtons" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
+                        <i class="bi bi-download"></i>
+                        Export
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="printReport()">
+                        <i class="bi bi-printer"></i>
+                        Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Summary Cards -->
+    <div id="reportSummary" class="inventory-summary-grid" style="display: none;">
+        <div class="summary-card" data-category="total-records">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Records</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-list-ul"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalRecords">0</div>
+                <div class="summary-subtitle">Report entries</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-medicines">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Medicines</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-capsule"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalMedicines">0</div>
+                <div class="summary-subtitle">Unique medicines</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-quantity">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Quantity</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalQuantity">0</div>
+                <div class="summary-subtitle">Units consumed</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-prescribers">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Prescribers</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-person-badge"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalPrescribers">0</div>
+                <div class="summary-subtitle">Unique prescribers</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Plant Information -->
+    <div id="plantInfo" class="plant-info-section" style="display: none;">
+        <div class="plant-info-content">
+            <div class="plant-info-header">
+                <i class="bi bi-building me-2"></i>
+                <h6 class="plant-info-title">Plant Information</h6>
+            </div>
+            <div class="plant-info-details">
+                <div class="plant-detail-item">
+                    <span class="plant-detail-label">Plant Code:</span>
+                    <span class="plant-detail-value" id="currentPlantCode">-</span>
+                </div>
+                <div class="plant-detail-separator"></div>
+                <div class="plant-detail-item">
+                    <span class="plant-detail-label">Plant Name:</span>
+                    <span class="plant-detail-value" id="currentPlantName">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Header -->
+    <div id="reportHeader" class="report-header-section" style="display: none;">
+        <div class="report-header-content">
+            <div class="company-info">
+                <h4 id="unitHeader">Unit: ITC LIMITED - PSPD-N/A</h4>
+                <div class="report-meta">
+                    <span class="meta-item">
+                        <i class="bi bi-clock me-1"></i>
+                        Generated: <span id="runDateTime"></span>
+                    </span>
+                    <span class="meta-item">
+                        <i class="bi bi-person me-1"></i>
+                        By: <span id="generatedBy"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="report-title">
+                <h3 class="text-info">MEDICINES CONSUMPTION</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Search Section -->
+    <div id="searchSection" class="search-controls-section" style="display: none;">
+        <div class="search-wrapper">
+            <div class="search-input-group">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control search-input-enhanced" id="searchInput"
+                       placeholder="Search by medicine name, created by...">
+                <button type="button" class="btn btn-clear" onclick="clearSearch()">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="search-results-info">
+                <small class="text-muted" id="searchResultCount">No search applied</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Table -->
+    <div id="reportTableSection" class="inventory-table-section" style="display: none;">
+        <div class="table-container">
+            <div class="table-responsive">
+                <table class="table table-striped table-glass glass-table table-sm" id="reportTable">
+                    <thead>
+                        <tr>
+                            <th class="col-sl">SNO</th>
+                            <th class="col-medicine-name">MEDICINE NAME</th>
+                            <th class="col-quantity">QUANTITY USED</th>
+                            <th class="col-created-by">CREATEDBY</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportData">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="inventory-table-footer">
+                            <th colspan="2" class="text-end">Totals:</th>
+                            <th id="footerTotalQuantity" class="total-value">0</th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced No Data State -->
+    <div id="noDataMessage" class="empty-state-section" style="display: none;">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-clipboard-x"></i>
+            </div>
+            <h6 class="empty-state-title text-danger">NO DATA FOUND</h6>
+            <p class="empty-state-description">
+                No medicine consumption data found for the selected filters.<br>
+                Try adjusting your date range.
+            </p>
+            <p class="text-muted">No Data Available</p>
+            <button type="button" class="btn btn-outline-primary btn-enhanced" onclick="$('#fromDate').focus()">
+                <i class="bi bi-funnel"></i>
+                Adjust Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Enhanced Loading State -->
+    <div id="loadingSpinner" class="loading-state-section" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner-inventory"></div>
+            <h6 class="loading-title">Generating Report</h6>
+            <p class="loading-description">Processing medicine consumption data...</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        var allReportData = [];
+        var currentFilteredData = [];
+
+        $(document).ready(function() {
+            // Set default dates (current month)
+            var now = new Date();
+            var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            var today = new Date();
+
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(today.toISOString().split('T')[0]);
+
+            // Search input event with debounce
+            $('#searchInput').on('input', debounce(function() {
+                applyFilters();
+            }, 300));
+
+            // Date validation
+            $('#fromDate, #toDate').on('change', function() {
+                validateDateRange();
+            });
+        });
+
+        function validateDateRange() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                showAlert('warning', 'From Date cannot be greater than To Date', 'Invalid Date Range');
+                return false;
+            }
+            return true;
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function loadReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select both From Date and To Date', 'Missing Required Fields');
+                return;
+            }
+
+            if (!validateDateRange()) {
+                return;
+            }
+
+            // Show loading state
+            $('#loadingSpinner').show();
+            $('#reportTableSection').hide();
+            $('#reportHeader').hide();
+            $('#reportSummary').hide();
+            $('#plantInfo').hide();
+            $('#searchSection').hide();
+            $('#noDataMessage').hide();
+            $('#actionButtons').hide();
+
+            var params = {
+                fromDate: fromDate,
+                toDate: toDate
+            };
+
+            $.ajax({
+                url: '@Url.Action("GetMedicineWiseData", "DiseaseTrendReport")',
+                type: 'GET',
+                data: params,
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+
+                    if (response.data && response.data.length > 0) {
+                        allReportData = response.data;
+                        currentFilteredData = response.data;
+
+                        updateReportHeader(response.reportInfo);
+                        updateSummaryCards(response.summary);
+                        updatePlantInfo(response.reportInfo);
+                        populateTable(response.data);
+
+                        $('#reportSummary').show();
+                        $('#plantInfo').show();
+                        $('#reportHeader').show();
+                        $('#searchSection').show();
+                        $('#reportTableSection').show();
+                        $('#actionButtons').show();
+                    } else {
+                        $('#noDataMessage').show();
+                        updateReportHeader(response.reportInfo);
+                        $('#reportHeader').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#loadingSpinner').hide();
+                    showAlert('danger', 'Failed to load report data: ' + error, 'Error');
+                }
+            });
+        }
+
+        function populateTable(data) {
+            var tbody = $('#reportData');
+            tbody.empty();
+
+            var totalQuantity = 0;
+
+            $.each(data, function(index, item) {
+                totalQuantity += item.quantityUsed;
+
+                // Determine row class based on quantity
+                var rowClass = '';
+                if (item.quantityUsed > 100) {
+                    rowClass = 'high-consumption';
+                } else if (item.quantityUsed > 50) {
+                    rowClass = 'medium-consumption';
+                }
+
+                var row = `<tr class="inventory-table-row ${rowClass}">
+                    <td class="sl-cell">${item.slNo}</td>
+                    <td class="medicine-cell">
+                        <span class="medicine-name">${item.medicineName || ''}</span>
+                    </td>
+                    <td class="quantity-cell">
+                        <span class="quantity-badge ${item.quantityUsed > 100 ? 'high' : item.quantityUsed > 50 ? 'medium' : ''}">${item.quantityUsed || 0}</span>
+                    </td>
+                    <td class="created-by-cell">
+                        <span class="created-by-badge">${item.createdBy || ''}</span>
+                    </td>
+                </tr>`;
+                tbody.append(row);
+            });
+
+            animateFooterValue('footerTotalQuantity', totalQuantity);
+        }
+
+        function animateFooterValue(elementId, newValue) {
+            $('#' + elementId).fadeOut(150, function() {
+                $(this).text(newValue.toLocaleString()).fadeIn(150);
+            });
+        }
+
+        function updateReportHeader(reportInfo) {
+            $('#runDateTime').text(reportInfo.generatedOn);
+            $('#generatedBy').text(reportInfo.generatedBy);
+
+            var unitText = 'Unit: ITC LIMITED - PSPD-' + (reportInfo.plantCode || 'N/A');
+            if (reportInfo.plantName && reportInfo.plantName !== 'Unknown Plant') {
+                unitText += ' (' + reportInfo.plantName + ')';
+            }
+            $('#unitHeader').text(unitText);
+        }
+
+        function updateSummaryCards(summary) {
+            animateValue('totalRecords', 0, summary.totalRecords, 1000);
+            animateValue('totalMedicines', 0, summary.totalMedicines, 1100);
+            animateValue('totalQuantity', 0, summary.totalQuantityUsed, 1200);
+            animateValue('totalPrescribers', 0, summary.totalPrescribers, 1300);
+        }
+
+        function animateValue(elementId, start, end, duration) {
+            const element = document.getElementById(elementId);
+            const startTime = performance.now();
+
+            function updateValue(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (end - start) * progress);
+
+                element.textContent = current.toLocaleString();
+
+                if (progress < 1) {
+                    requestAnimationFrame(updateValue);
+                }
+            }
+
+            requestAnimationFrame(updateValue);
+        }
+
+        function updatePlantInfo(reportInfo) {
+            $('#currentPlantCode').text(reportInfo.plantCode || 'N/A');
+            $('#currentPlantName').text(reportInfo.plantName || 'Unknown Plant');
+        }
+
+        function applyFilters() {
+            var searchTerm = $('#searchInput').val().toLowerCase();
+
+            if (!searchTerm) {
+                currentFilteredData = allReportData;
+                $('#searchResultCount').text('No search applied');
+            } else {
+                currentFilteredData = allReportData.filter(function(item) {
+                    return (item.medicineName && item.medicineName.toLowerCase().includes(searchTerm)) ||
+                           (item.createdBy && item.createdBy.toLowerCase().includes(searchTerm));
+                });
+                $('#searchResultCount').text(currentFilteredData.length + ' results found');
+            }
+
+            populateTable(currentFilteredData);
+        }
+
+        function clearSearch() {
+            $('#searchInput').val('');
+            applyFilters();
+        }
+
+        function exportReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select date range first', 'Export Failed');
+                return;
+            }
+
+            showAlert('info', 'Preparing export file...', 'Export Started');
+
+            var params = new URLSearchParams({
+                fromDate: fromDate,
+                toDate: toDate
+            });
+
+            window.location.href = '@Url.Action("ExportMedicineWise", "DiseaseTrendReport")?' + params.toString();
+        }
+
+        function printReport() {
+            if ($('#reportTableSection').is(':visible')) {
+                showAlert('info', 'Preparing print view...', 'Print Started');
+                setTimeout(() => window.print(), 500);
+            } else {
+                showAlert('warning', 'Please generate the report first', 'Print Failed');
+            }
+        }
+
+        function showAlert(type, message, title = null) {
+            console.log(`${title || type.toUpperCase()}: ${message}`);
+        }
+    </script>
+}
+
+<style>
+    .medicine-name {
+        font-weight: 600;
+        color: #1a365d;
+    }
+
+    /* .quantity-badge {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-block;
+        min-width: 60px;
+        text-align: center;
+    } */
+
+    /* .quantity-badge.high {
+        background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+    }
+
+    .quantity-badge.medium {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .created-by-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    } */
+
+    /* .text-info {
+        color: #17a2b8 !important;
+    }
+
+    .high-consumption {
+        background-color: rgba(245, 87, 108, 0.1);
+    }
+
+    .medium-consumption {
+        background-color: rgba(240, 147, 251, 0.1);
+    } */
+
+    /* Top medicine highlight */
+    .inventory-table-row:nth-child(-n+3) .medicine-name {
+        position: relative;
+    }
+
+    .inventory-table-row:nth-child(1) .medicine-name::before {
+        content: '🥇';
+        margin-right: 5px;
+    }
+
+    .inventory-table-row:nth-child(2) .medicine-name::before {
+        content: '🥈';
+        margin-right: 5px;
+    }
+
+    .inventory-table-row:nth-child(3) .medicine-name::before {
+        content: '🥉';
+        margin-right: 5px;
+    }
+</style>

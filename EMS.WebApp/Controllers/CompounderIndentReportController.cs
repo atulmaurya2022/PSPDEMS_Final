@@ -28,6 +28,8 @@ namespace EMS.WebApp.Controllers
 
         /// <summary>
         /// Generate Compounder Indent Report with plant filtering
+        /// BCM plant: Compounders see only their own records, Doctors see all records
+        /// Other plants: All users see all records
         /// </summary>
         /// <param name="fromDate">Start date for filtering</param>
         /// <param name="toDate">End date for filtering</param>
@@ -38,8 +40,11 @@ namespace EMS.WebApp.Controllers
             try
             {
                 // Get current user's plant information
-                var currentUserName = User.Identity?.Name;
-                var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
+                var currentUserName = User.Identity?.Name + " - " + User.GetFullName();
+                var userPlantId = await _repo.GetUserPlantIdAsync(User.Identity?.Name);
+
+                // Check if user is a Doctor (for BCM plant-specific access control)
+                var isDoctor = User.IsInRole("Doctor");
 
                 // Get plant details for display
                 using var scope = HttpContext.RequestServices.CreateScope();
@@ -57,8 +62,13 @@ namespace EMS.WebApp.Controllers
                 if (!toDate.HasValue)
                     toDate = DateTime.Now.Date;
 
-                // Pass plant filtering to repository
-                var reportData = await _repo.GetCompounderIndentReportAsync(fromDate, toDate, userPlantId);
+                // Pass plant filtering with BCM compounder-wise access control to repository
+                var reportData = await _repo.GetCompounderIndentReportAsync(
+                    fromDate,
+                    toDate,
+                    userPlantId,
+                    currentUserName,  // NEW: Pass current user for BCM filtering
+                    isDoctor);        // NEW: Pass isDoctor flag for BCM filtering
 
                 var result = new
                 {
@@ -89,13 +99,15 @@ namespace EMS.WebApp.Controllers
 
                 return Json(result);
             }
-            catch (Exception )
+            catch (Exception)
             {
                 return Json(new { success = false, message = "An error occurred while generating the report." });
             }
         }
+
         /// <summary>
         /// Export Compounder Indent Report to Excel with plant filtering and batch details
+        /// BCM plant: Compounders see only their own records, Doctors see all records
         /// </summary>
         /// <param name="fromDate">Start date for filtering</param>
         /// <param name="toDate">End date for filtering</param>
@@ -109,6 +121,9 @@ namespace EMS.WebApp.Controllers
                 var currentUserName = User.Identity?.Name;
                 var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
 
+                // Check if user is a Doctor (for BCM plant-specific access control)
+                var isDoctor = User.IsInRole("Doctor");
+
                 // Set default date range if not provided
                 if (!fromDate.HasValue)
                     fromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
@@ -116,7 +131,13 @@ namespace EMS.WebApp.Controllers
                 if (!toDate.HasValue)
                     toDate = DateTime.Now.Date;
 
-                var reportData = await _repo.GetCompounderIndentReportAsync(fromDate, toDate, userPlantId);
+                // Pass plant filtering with BCM compounder-wise access control to repository
+                var reportData = await _repo.GetCompounderIndentReportAsync(
+                    fromDate,
+                    toDate,
+                    userPlantId,
+                    currentUserName,  // NEW: Pass current user for BCM filtering
+                    isDoctor);        // NEW: Pass isDoctor flag for BCM filtering
 
                 // CSV format with only the 6 required columns
                 var csv = new System.Text.StringBuilder();

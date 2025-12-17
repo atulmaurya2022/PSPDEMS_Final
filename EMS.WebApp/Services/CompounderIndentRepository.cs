@@ -684,7 +684,12 @@ namespace EMS.WebApp.Services
         }
 
         // Report methods with plant filtering
-        public async Task<IEnumerable<CompounderIndentReportDto>> GetCompounderIndentReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null)
+        public async Task<IEnumerable<CompounderIndentReportDto>> GetCompounderIndentReportAsync(
+    DateTime? fromDate = null,
+    DateTime? toDate = null,
+    int? userPlantId = null,
+    string currentUser = null,
+    bool isDoctor = false)
         {
             var query = _db.CompounderIndents
                 .Include(ci => ci.CompounderIndentItems)
@@ -697,6 +702,45 @@ namespace EMS.WebApp.Services
             if (userPlantId.HasValue)
             {
                 query = query.Where(ci => ci.plant_id == userPlantId.Value);
+
+                // BCM plant-specific filtering: Compounders see only their own records, Doctors see all
+                if (!isDoctor && !string.IsNullOrEmpty(currentUser))
+                {
+                    var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                    if (plantCode?.ToUpper() == "BCM")
+                    {
+                        // Get all possible user identifiers (adid, email, full_name) for matching
+                        var userIdentifiers = new List<string>();
+                        var userRecord = await _db.SysUsers
+                            .Where(u => (u.adid == currentUser || u.email == currentUser || u.full_name == currentUser) && u.is_active)
+                            .Select(u => new { u.adid, u.email, u.full_name })
+                            .FirstOrDefaultAsync();
+
+                        if (userRecord != null)
+                        {
+                            if (!string.IsNullOrEmpty(userRecord.adid))
+                                userIdentifiers.Add(userRecord.adid);
+                            if (!string.IsNullOrEmpty(userRecord.email))
+                                userIdentifiers.Add(userRecord.email);
+                            if (!string.IsNullOrEmpty(userRecord.full_name))
+                                userIdentifiers.Add(userRecord.full_name);
+                        }
+
+                        if (!userIdentifiers.Contains(currentUser))
+                            userIdentifiers.Add(currentUser);
+
+                        // BCM plant + non-Doctor: Can only see their own records
+                        if (userIdentifiers.Any())
+                        {
+                            query = query.Where(ci => userIdentifiers.Contains(ci.CreatedBy));
+                        }
+                        else
+                        {
+                            return new List<CompounderIndentReportDto>();
+                        }
+                    }
+                }
+                // Doctors see ALL records (no CreatedBy filter)
             }
 
             // Apply date filtering if provided
@@ -731,11 +775,15 @@ namespace EMS.WebApp.Services
                 }
             }
 
-            //return reportData.OrderBy(r => r.IndentDate).ThenBy(r => r.IndentId);
             return reportData.OrderBy(r => r.MedicineName);
         }
-        
-        public async Task<IEnumerable<CompounderInventoryReportDto>> GetCompounderInventoryReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null, bool showOnlyAvailable = false)
+        public async Task<IEnumerable<CompounderInventoryReportDto>> GetCompounderInventoryReportAsync(
+    DateTime? fromDate = null,
+    DateTime? toDate = null,
+    int? userPlantId = null,
+    bool showOnlyAvailable = false,
+    string currentUser = null,
+    bool isDoctor = false)
         {
             var query = _db.CompounderIndents
                 .Include(ci => ci.CompounderIndentItems)
@@ -748,6 +796,45 @@ namespace EMS.WebApp.Services
             if (userPlantId.HasValue)
             {
                 query = query.Where(ci => ci.plant_id == userPlantId.Value);
+
+                // BCM plant-specific filtering: Compounders see only their own records, Doctors see all
+                if (!isDoctor && !string.IsNullOrEmpty(currentUser))
+                {
+                    var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+                    if (plantCode?.ToUpper() == "BCM")
+                    {
+                        // Get all possible user identifiers (adid, email, full_name) for matching
+                        var userIdentifiers = new List<string>();
+                        var userRecord = await _db.SysUsers
+                            .Where(u => (u.adid == currentUser || u.email == currentUser || u.full_name == currentUser) && u.is_active)
+                            .Select(u => new { u.adid, u.email, u.full_name })
+                            .FirstOrDefaultAsync();
+
+                        if (userRecord != null)
+                        {
+                            if (!string.IsNullOrEmpty(userRecord.adid))
+                                userIdentifiers.Add(userRecord.adid);
+                            if (!string.IsNullOrEmpty(userRecord.email))
+                                userIdentifiers.Add(userRecord.email);
+                            if (!string.IsNullOrEmpty(userRecord.full_name))
+                                userIdentifiers.Add(userRecord.full_name);
+                        }
+
+                        if (!userIdentifiers.Contains(currentUser))
+                            userIdentifiers.Add(currentUser);
+
+                        // BCM plant + non-Doctor: Can only see their own records
+                        if (userIdentifiers.Any())
+                        {
+                            query = query.Where(ci => userIdentifiers.Contains(ci.CreatedBy));
+                        }
+                        else
+                        {
+                            return new List<CompounderInventoryReportDto>();
+                        }
+                    }
+                }
+                // Doctors see ALL records (no CreatedBy filter)
             }
 
             // Apply date filtering if provided
@@ -767,7 +854,6 @@ namespace EMS.WebApp.Services
 
             foreach (var indent in indents)
             {
-                //foreach (var item in indent.CompounderIndentItems.Where(i => i.ReceivedQuantity > 0))
                 foreach (var item in indent.CompounderIndentItems)
                 {
                     // Get batches for this compounder indent item with plant filtering
@@ -864,7 +950,6 @@ namespace EMS.WebApp.Services
 
             return reportData.OrderBy(r => r.MedicineName).ThenBy(r => r.BatchNo).ThenBy(r => r.ExpiryDate);
         }
-
         // Helper method to determine stock status
         private string GetStockStatus(int availableStock, int receivedQuantity)
         {

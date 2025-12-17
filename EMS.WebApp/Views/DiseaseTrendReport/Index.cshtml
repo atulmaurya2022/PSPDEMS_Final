@@ -1,0 +1,192 @@
+@{
+    ViewData["Title"] = "Disease Trend Analysis Reports";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/css/report.css" rel="stylesheet" />
+<link href="~/css/report-inventory.css" rel="stylesheet" />
+
+<!-- Enhanced Dashboard Header -->
+<div class="dashboard-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item">Reports</li>
+            <li class="breadcrumb-item active" aria-current="page">Disease Trend Analysis</li>
+        </ol>
+    </nav>
+    <h1 class="dashboard-title">
+        <i class="bi bi-graph-up-arrow"></i>
+        Disease Trend Analysis Reports
+    </h1>
+    <p class="dashboard-subtitle">Comprehensive disease trend analysis and medicine consumption reports</p>
+</div>
+
+<div class="container-fluid">
+    <div class="row g-4 mt-3">
+        <!-- Age Wise Report Card -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card report-card h-100">
+                <div class="card-body text-center">
+                    <div class="report-icon age-wise">
+                        <i class="bi bi-calendar-check"></i>
+                    </div>
+                    <h5 class="card-title mt-3">Age Wise Analysis</h5>
+                    <p class="card-text text-muted">
+                        Disease trends grouped by employee age ranges 
+                    </p>
+                    <a asp-action="DiseaseTrendAgeWise" class="btn btn-primary btn-enhanced">
+                        <i class="bi bi-arrow-right-circle me-2"></i>View Report
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Department Wise Report Card -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card report-card h-100">
+                <div class="card-body text-center">
+                    <div class="report-icon dept-wise">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <h5 class="card-title mt-3">Department Wise Analysis</h5>
+                    <p class="card-text text-muted">
+                        Disease trends grouped by organizational departments
+                    </p>
+                    <a asp-action="DiseaseTrendDeptWise" class="btn btn-success btn-enhanced">
+                        <i class="bi bi-arrow-right-circle me-2"></i>View Report
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Patient Wise Report Card -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card report-card h-100">
+                <div class="card-body text-center">
+                    <div class="report-icon patient-wise">
+                        <i class="bi bi-person-lines-fill"></i>
+                    </div>
+                    <h5 class="card-title mt-3">Patient Wise Analysis</h5>
+                    <p class="card-text text-muted">
+                        Detailed patient visit records with disease and medicine information
+                    </p>
+                    <a asp-action="DiseaseTrendPatientWise" class="btn btn-warning btn-enhanced">
+                        <i class="bi bi-arrow-right-circle me-2"></i>View Report
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Medicine Wise Report Card -->
+        <div class="col-md-6 col-lg-3">
+            <div class="card report-card h-100">
+                <div class="card-body text-center">
+                    <div class="report-icon medicine-wise">
+                        <i class="bi bi-capsule-pill"></i>
+                    </div>
+                    <h5 class="card-title mt-3">Medicines Consumption</h5>
+                    <p class="card-text text-muted">
+                        Medicine consumption analysis with quantity tracking
+                    </p>
+                    <a asp-action="DiseaseTrendMedicineWise" class="btn btn-info btn-enhanced">
+                        <i class="bi bi-arrow-right-circle me-2"></i>View Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Section -->
+    @* <div class="row mt-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Report Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-check-circle text-success me-2"></i>Features</h6>
+                            <ul class="list-unstyled ms-4">
+                                <li><i class="bi bi-dot"></i> Date range filtering</li>
+                                <li><i class="bi bi-dot"></i> Department & Disease filters</li>
+                                <li><i class="bi bi-dot"></i> Real-time search</li>
+                                <li><i class="bi bi-dot"></i> Excel export</li>
+                                <li><i class="bi bi-dot"></i> Print functionality</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-shield-check text-primary me-2"></i>Data Security</h6>
+                            <ul class="list-unstyled ms-4">
+                                <li><i class="bi bi-dot"></i> Plant-based data isolation</li>
+                                <li><i class="bi bi-dot"></i> Only approved prescriptions shown</li>
+                                <li><i class="bi bi-dot"></i> Role-based access control</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> *@
+</div>
+
+<style>
+    .report-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .report-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .report-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        font-size: 2rem;
+        color: white;
+    }
+
+    .report-icon.age-wise {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .report-icon.dept-wise {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .report-icon.patient-wise {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .report-icon.medicine-wise {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .btn-enhanced {
+        border-radius: 25px;
+        padding: 10px 25px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-enhanced:hover {
+        transform: scale(1.05);
+    }
+
+    .card-title {
+        font-weight: 600;
+        color: #1a365d;
+    }
+</style>

@@ -100,6 +100,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IStoreDashboardService, StoreDashboardService>();
 builder.Services.AddScoped<ICompounderDashboardService, CompounderDashboardService>();
 
+builder.Services.AddScoped<IDiseaseTrendRepository, DiseaseTrendRepository>();
 
 // Register services
 builder.Services.AddDependentAgeCheckService();
