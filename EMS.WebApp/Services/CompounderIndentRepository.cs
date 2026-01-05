@@ -778,12 +778,12 @@ namespace EMS.WebApp.Services
             return reportData.OrderBy(r => r.MedicineName);
         }
         public async Task<IEnumerable<CompounderInventoryReportDto>> GetCompounderInventoryReportAsync(
-    DateTime? fromDate = null,
-    DateTime? toDate = null,
-    int? userPlantId = null,
-    bool showOnlyAvailable = false,
-    string currentUser = null,
-    bool isDoctor = false)
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        int? userPlantId = null,
+        bool showOnlyAvailable = false,
+        string currentUser = null,
+        bool isDoctor = false)
         {
             var query = _db.CompounderIndents
                 .Include(ci => ci.CompounderIndentItems)
@@ -878,7 +878,9 @@ namespace EMS.WebApp.Services
                                 BatchNo = batch.BatchNo ?? "Not Set",
                                 VendorCode = batch.VendorCode ?? "Not Set",
                                 AvailableStock = batch.AvailableStock,
-                                ConsumedStock = batch.ReceivedQuantity - batch.AvailableStock - batch.TotalDisposed,
+                                //ConsumedStock = batch.ReceivedQuantity - batch.AvailableStock - batch.TotalDisposed,
+                                ConsumedStock = Math.Max(0, batch.ReceivedQuantity - batch.AvailableStock - batch.TotalDisposed),
+                                //ConsumedStock = Math.Max(0, batch.ReceivedQuantity - batch.AvailableStock),
                                 ExpiryDate = batch.ExpiryDate,
                                 RaisedBy = indent.CreatedBy ?? "Unknown",
                                 PlantName = indent.OrgPlant?.plant_name ?? "Unknown Plant",

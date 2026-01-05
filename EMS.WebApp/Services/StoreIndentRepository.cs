@@ -860,5 +860,210 @@ namespace EMS.WebApp.Services
 
             return reportData.OrderBy(r => r.MedName);
         }
+
+
+        /// <summary>
+        /// Get Store Compounder Summary Report - Shows medicine-wise distribution to each compounder
+        /// This is a pivot-style report with dynamic compounder columns
+        /// </summary>
+        /// <param name="fromDate">Start date for filtering compounder indents</param>
+        /// <param name="toDate">End date for filtering compounder indents</param>
+        /// <param name="userPlantId">Plant ID for filtering</param>
+        /// <returns>StoreCompounderSummaryReportResponse with pivot data</returns>
+        public async Task<StoreCompounderSummaryReportResponse> GetStoreCompounderSummaryReportAsync(
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            int? userPlantId = null)
+        {
+            var response = new StoreCompounderSummaryReportResponse();
+
+            try
+            {
+                // Step 1: Get all medicines with their total store stock (from approved StoreIndentBatches)
+                var medicinesQuery = _db.med_masters.AsQueryable();
+
+                if (userPlantId.HasValue)
+                {
+                    medicinesQuery = medicinesQuery.Where(m => m.plant_id == userPlantId.Value);
+                }
+
+                var allMedicines = await medicinesQuery
+                    .Select(m => new
+                    {
+                        m.MedItemId,
+                        m.MedItemName,
+                        m.plant_id
+                    })
+                    .ToListAsync();
+
+                // Step 2: Get total store stock for each medicine (ReceivedQuantity from StoreIndentBatches)
+                var storeStockQuery = from si in _db.StoreIndents
+                                      join sii in _db.StoreIndentItems on si.IndentId equals sii.IndentId
+                                      join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
+                                      where si.Status == "Approved"
+                                      select new
+                                      {
+                                          sii.MedItemId,
+                                          sib.ReceivedQuantity,
+                                          si.PlantId,
+                                          si.OrgPlant.plant_name
+                                      };
+
+                if (userPlantId.HasValue)
+                {
+                    storeStockQuery = storeStockQuery.Where(x => x.PlantId == userPlantId.Value);
+                }
+
+                var storeStockData = await storeStockQuery.ToListAsync();
+
+                var storeStockByMedicine = storeStockData
+                    .GroupBy(x => x.MedItemId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => new
+                        {
+                            TotalStock = g.Sum(x => x.ReceivedQuantity),
+                            PlantName = g.FirstOrDefault()?.plant_name ?? "Unknown Plant"
+                        });
+
+                // Step 3: Get all approved compounder indents with their items and batches
+                // This represents medicine issued from Store to Compounders
+                var compounderDataQuery = from ci in _db.CompounderIndents
+                                          join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
+                                          join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
+                                          where ci.Status == "Approved" || ci.Status == "Partially Received" || ci.Status == "Received"
+                                          select new
+                                          {
+                                              ci.IndentId,
+                                              ci.IndentDate,
+                                              ci.CreatedBy,
+                                              ci.plant_id,
+                                              cii.MedItemId,
+                                              cib.ReceivedQuantity
+                                          };
+
+                // Apply plant filter
+                if (userPlantId.HasValue)
+                {
+                    compounderDataQuery = compounderDataQuery.Where(x => x.plant_id == userPlantId.Value);
+                }
+
+                // Apply date filter on indent date
+                if (fromDate.HasValue)
+                {
+                    compounderDataQuery = compounderDataQuery.Where(x => x.IndentDate >= fromDate.Value);
+                }
+
+                if (toDate.HasValue)
+                {
+                    compounderDataQuery = compounderDataQuery.Where(x => x.IndentDate <= toDate.Value);
+                }
+
+                var compounderData = await compounderDataQuery.ToListAsync();
+
+                // Step 4: Get unique compounder names
+                var uniqueCompounders = compounderData
+                    .Select(x => x.CreatedBy ?? "Unknown")
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToList();
+
+                response.CompounderNames = uniqueCompounders;
+
+                // Step 5: Build pivot data - group by medicine and compounder
+                var compounderByMedicineAndUser = compounderData
+                    .GroupBy(x => new { x.MedItemId, x.CreatedBy })
+                    .Select(g => new
+                    {
+                        g.Key.MedItemId,
+                        CompounderName = g.Key.CreatedBy ?? "Unknown",
+                        IssuedQuantity = g.Sum(x => x.ReceivedQuantity)
+                    })
+                    .ToList();
+
+                // Step 6: Build the report data
+                var reportData = new List<StoreCompounderSummaryReportDto>();
+
+                // Get all medicines that have either store stock or compounder issues
+                var allMedicineIds = storeStockByMedicine.Keys
+                    .Union(compounderByMedicineAndUser.Select(x => x.MedItemId))
+                    .Distinct();
+
+                foreach (var medId in allMedicineIds)
+                {
+                    var medicine = allMedicines.FirstOrDefault(m => m.MedItemId == medId);
+                    if (medicine == null && userPlantId.HasValue) continue;
+
+                    var medicineName = medicine?.MedItemName ?? "Unknown Medicine";
+
+                    // Get store stock
+                    var storeStock = storeStockByMedicine.ContainsKey(medId)
+                        ? storeStockByMedicine[medId].TotalStock
+                        : 0;
+
+                    var plantName = storeStockByMedicine.ContainsKey(medId)
+                        ? storeStockByMedicine[medId].PlantName
+                        : "Unknown Plant";
+
+                    // Build compounder quantities dictionary
+                    var compounderQuantities = new Dictionary<string, int>();
+                    foreach (var compounder in uniqueCompounders)
+                    {
+                        var issued = compounderByMedicineAndUser
+                            .Where(x => x.MedItemId == medId && x.CompounderName == compounder)
+                            .Sum(x => x.IssuedQuantity);
+
+                        compounderQuantities[compounder] = issued;
+                    }
+
+                    var totalIssued = compounderQuantities.Values.Sum();
+                    var remainingStock = storeStock - totalIssued;
+
+                    // Only include medicines that have store stock or have been issued to compounders
+                    if (storeStock > 0 && totalIssued > 0)
+                    {
+                        reportData.Add(new StoreCompounderSummaryReportDto
+                        {
+                            MedItemId = medId,
+                            MedicineName = medicineName,
+                            TotalStoreStock = storeStock,
+                            CompounderQuantities = compounderQuantities,
+                            TotalIssuedToCompounders = totalIssued,
+                            RemainingStock = remainingStock,
+                            PlantName = plantName
+                        });
+                    }
+                }
+
+                // Sort by medicine name
+                response.Data = reportData.OrderBy(r => r.MedicineName).ToList();
+
+                // Calculate totals
+                response.TotalStoreStockSum = response.Data.Sum(d => d.TotalStoreStock);
+                response.TotalIssuedSum = response.Data.Sum(d => d.TotalIssuedToCompounders);
+                response.TotalRemainingSum = response.Data.Sum(d => d.RemainingStock);
+
+                // Calculate per-compounder totals
+                foreach (var compounder in uniqueCompounders)
+                {
+                    response.CompounderTotals[compounder] = response.Data.Sum(d =>
+                        d.CompounderQuantities.ContainsKey(compounder) ? d.CompounderQuantities[compounder] : 0);
+                }
+
+                return response;
+            }
+            catch (Exception ex)
+            {
+                // Log exception if needed
+                return new StoreCompounderSummaryReportResponse();
+            }
+        }
+
+
+
+
+
+
+
     }
 }

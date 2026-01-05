@@ -91,6 +91,12 @@ namespace EMS.WebApp.Controllers
 
             var list = await _compounderRepo.ListByStatusAsync("Pending", currentUser: currentUser, userPlantId: plant);
 
+            // Apply BCM user filter - only show records created by current user
+            if (isBcm && !string.IsNullOrEmpty(currentUser))
+            {
+                list = list.Where(h => h.CreatedBy == currentUser);
+            }
+
             var payload = list
                 .OrderByDescending(h => h.IndentDate)
                 .Select(h => new CompounderIndentPendingDto
@@ -115,6 +121,12 @@ namespace EMS.WebApp.Controllers
             var currentUser = isBcm ? GetFullUserName() : null;
 
             var list = await _compounderRepo.ListByStatusAsync("Approved", currentUser: currentUser, userPlantId: plant);
+
+            // Apply BCM user filter - only show records created by current user
+            if (isBcm && !string.IsNullOrEmpty(currentUser))
+            {
+                list = list.Where(h => h.CreatedBy == currentUser);
+            }
 
             var payload = list
                 .Where(h => h.CompounderIndentItems != null && h.CompounderIndentItems.Any(i => i.RaisedQuantity > i.ReceivedQuantity))

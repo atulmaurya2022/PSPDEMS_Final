@@ -88,9 +88,23 @@ namespace EMS.WebApp.Services
             string? filterUser = isBcm ? userName : null;
 
             var pendingIndents = await _compounderRepo.ListByStatusAsync("Pending", currentUser: filterUser, userPlantId: plantId);
+
+            // Apply BCM user filter - only show records created by current user
+            if (isBcm && !string.IsNullOrEmpty(userName))
+            {
+                pendingIndents = pendingIndents.Where(h => h.CreatedBy == userName);
+            }
+
             int pendingCount = pendingIndents.Count();
 
             var approvedIndents = await _compounderRepo.ListByStatusAsync("Approved", currentUser: filterUser, userPlantId: plantId);
+
+            // Apply BCM user filter - only show records created by current user
+            if (isBcm && !string.IsNullOrEmpty(userName))
+            {
+                approvedIndents = approvedIndents.Where(h => h.CreatedBy == userName);
+            }
+
             int approvedAwaitingReceipt = approvedIndents
                 .Where(h => h.CompounderIndentItems != null && h.CompounderIndentItems.Any(i => i.RaisedQuantity > i.ReceivedQuantity))
                 .Count();

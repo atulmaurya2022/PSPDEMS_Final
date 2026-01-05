@@ -1,0 +1,670 @@
+﻿@{
+    ViewData["Title"] = "Store Compounder Summary Report";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<link href="~/css/report.css" rel="stylesheet" />
+<!-- Enhanced Dashboard Header -->
+<div class="dashboard-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb breadcrumb-custom">
+            <li class="breadcrumb-item">Reports</li>
+            <li class="breadcrumb-item active" aria-current="page">Store Compounder Summary Report</li>
+        </ol>
+    </nav>
+    <h1 class="dashboard-title">
+        <i class="bi bi-clipboard-data"></i>
+        Store Compounder Summary Report
+    </h1>
+    <p class="dashboard-subtitle">Medicine-wise distribution summary showing quantities issued to each compounder/pharmacist</p>
+</div>
+
+<div class="container-fluid">
+    <!-- Enhanced Filter Controls Section -->
+    <div class="report-controls-section">
+        <div class="controls-row">
+            <div class="control-group">
+                <label class="control-label">
+                    <i class="bi bi-calendar-range me-2"></i>
+                    Date Range
+                </label>
+                <div class="date-range-inputs">
+                    <input type="date" class="form-control form-control-enhanced" id="fromDate" />
+                    <span class="date-separator">to</span>
+                    <input type="date" class="form-control form-control-enhanced" id="toDate" />
+                </div>
+            </div>
+            <div class="control-actions">
+                <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
+                    <i class="bi bi-search"></i>
+                    Generate Report
+                </button>
+                <div class="action-buttons" id="actionButtons" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
+                        <i class="bi bi-download"></i>
+                        Export
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="printReport()">
+                        <i class="bi bi-printer"></i>
+                        Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Summary Cards -->
+    <div id="reportSummary" class="summary-grid" style="display: none;">
+        <div class="summary-card" data-category="total-medicines">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Medicines</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-capsule"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalMedicines">0</div>
+                <div class="summary-subtitle">Medicines in report</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-store-stock">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Store Stock</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalStoreStock">0</div>
+                <div class="summary-subtitle">Units received in store</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-issued">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Total Issued</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-send"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalIssued">0</div>
+                <div class="summary-subtitle">Units issued to compounders</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-remaining">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Remaining Stock</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-archive"></i>
+                    </div>
+                </div>
+                <div class="summary-value" id="totalRemaining">0</div>
+                <div class="summary-subtitle">Units still in store</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compounder Stats Cards (Dynamic) -->
+    @* <div id="compounderStats" class="compounder-stats-grid" style="display: none;">
+        <!-- Will be populated dynamically -->
+    </div> *@
+
+    <!-- Enhanced Report Header -->
+    <div id="reportHeader" class="report-header-section" style="display: none;">
+        <div class="report-header-content">
+            <div class="company-info">
+                <h4 id="unitHeader">Unit: ITC LIMITED - PSPD-N/A</h4>
+                <div class="report-meta">
+                    <span class="meta-item">
+                        <i class="bi bi-clock me-1"></i>
+                        Generated: <span id="runDateTime"></span>
+                    </span>
+                    <span class="meta-item">
+                        <i class="bi bi-person me-1"></i>
+                        By: <span id="generatedBy"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="report-title">
+                <h3>STORE COMPOUNDER SUMMARY</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Search Section -->
+    <div id="searchSection" class="search-controls-section" style="display: none;">
+        <div class="search-wrapper">
+            <div class="search-input-group">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control search-input-enhanced" id="searchInput"
+                       placeholder="Search by medicine name...">
+                <button type="button" class="btn btn-clear" onclick="clearSearch()">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="search-results-info">
+                <small class="text-muted" id="searchResultCount">No search applied</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Report Table with Dynamic Columns -->
+    <div id="reportTableSection" class="report-table-section" style="display: none;">
+        <div class="table-container">
+            <div class="table-responsive">
+                <table class="table table-striped table-glass glass-table" id="reportTable">
+                    <thead id="reportTableHead">
+                        <!-- Headers will be dynamically generated -->
+                    </thead>
+                    <tbody id="reportData">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                    <tfoot id="reportTableFoot">
+                        <!-- Totals will be dynamically generated -->
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced No Data State -->
+    <div id="noDataMessage" class="empty-state-section" style="display: none;">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="bi bi-inbox"></i>
+            </div>
+            <h6 class="empty-state-title">No Data Found</h6>
+            <p class="empty-state-description">
+                No compounder distribution data found for the selected date range.
+                Try adjusting your filter criteria to find results.
+            </p>
+            <button type="button" class="btn btn-primary btn-enhanced" onclick="resetFilters()">
+                <i class="bi bi-arrow-clockwise"></i>
+                Reset Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-section" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="loading-text">Generating report...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Additional CSS for dynamic table and compounder stats -->
+@* <style>
+    .compounder-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .compounder-stat-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+        .compounder-stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+    .compounder-stat-name {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .compounder-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0d6efd;
+    }
+
+    .compounder-stat-label {
+        font-size: 0.7rem;
+        color: #adb5bd;
+        margin-top: 0.25rem;
+    }
+
+    /* Dynamic table column styles */
+    .col-medicine-name {
+        min-width: 200px;
+        text-align: left !important;
+    }
+
+    .col-store-stock {
+        min-width: 120px;
+        text-align: center !important;
+    }
+
+    .col-compounder {
+        min-width: 100px;
+        text-align: center !important;
+    }
+
+    .col-remaining {
+        min-width: 120px;
+        text-align: center !important;
+    }
+
+    .store-stock-badge {
+        background: linear-gradient(135deg, #198754, #20c997);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+    .compounder-qty-badge {
+        background: linear-gradient(135deg, #0d6efd, #6610f2);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+        .compounder-qty-badge.zero {
+            background: linear-gradient(135deg, #6c757d, #adb5bd);
+        }
+
+    .remaining-badge {
+        background: linear-gradient(135deg, #fd7e14, #ffc107);
+        color: #212529;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+
+        .remaining-badge.negative {
+            background: linear-gradient(135deg, #dc3545, #c92a2a);
+            color: white;
+        }
+
+        .remaining-badge.zero {
+            background: linear-gradient(135deg, #6c757d, #adb5bd);
+            color: white;
+        }
+
+    /* Footer row styles */
+    .table-footer {
+        background: linear-gradient(135deg, rgba(13, 110, 253, 0.1), rgba(102, 16, 242, 0.1)) !important;
+        font-weight: 700;
+    }
+
+        .table-footer th {
+            padding: 1rem !important;
+            border-top: 2px solid rgba(13, 110, 253, 0.3) !important;
+        }
+
+    .total-label {
+        text-align: right !important;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .total-value {
+        font-size: 1rem;
+        color: #0d6efd;
+    }
+
+    /* Print styles */
+    @@media print {
+        .compounder-stats-grid {
+            display: none !important;
+        }
+
+        .table th, .table td {
+            font-size: 10px !important;
+            padding: 4px !important;
+        }
+    }
+</style> *@
+
+@section Scripts {
+    <script>
+        var allReportData = [];
+        var currentFilteredData = [];
+        var compounderNames = [];
+        var reportTotals = {};
+
+        $(document).ready(function() {
+            // Set default dates (current month)
+            var today = new Date();
+            var firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(today.toISOString().split('T')[0]);
+
+            // Search input event
+            $('#searchInput').on('input', function() {
+                applyFilters();
+            });
+        });
+
+        function resetFilters() {
+            var today = new Date();
+            var firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(today.toISOString().split('T')[0]);
+            $('#searchInput').val('');
+
+            loadReport();
+        }
+
+        function loadReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select both From Date and To Date', 'Date Required');
+                return;
+            }
+
+            if (new Date(fromDate) > new Date(toDate)) {
+                showAlert('warning', 'From Date cannot be greater than To Date', 'Invalid Date Range');
+                return;
+            }
+
+            // Hide previous results and show loading
+            $('#reportSummary, #compounderStats, #reportHeader, #searchSection, #reportTableSection, #noDataMessage, #actionButtons').hide();
+            $('#loadingSpinner').show();
+            $('#searchInput').val('');
+
+            $.ajax({
+                url: '@Url.Action("StoreCompounderSummaryReport", "StoreCompounderSummaryReport")',
+                type: 'GET',
+                data: {
+                    fromDate: fromDate,
+                    toDate: toDate
+                },
+                success: function(response) {
+                    $('#loadingSpinner').hide();
+
+                    if (response.success && response.data && response.data.length > 0) {
+                        allReportData = response.data;
+                        currentFilteredData = [...allReportData];
+                        compounderNames = response.compounderNames || [];
+                        reportTotals = response.totals || {};
+
+                        buildDynamicTableHeaders();
+                        applyFilters();
+                        updateReportHeader(response.reportInfo);
+                        updateSummaryCards(response.reportInfo, response.totals);
+                        buildCompounderStats(response.compounderNames, response.totals.compounderTotals);
+
+                        // Show all sections with animation
+                        $('#reportSummary').fadeIn(300);
+                        setTimeout(() => $('#compounderStats').fadeIn(300), 100);
+                        setTimeout(() => $('#reportHeader').fadeIn(300), 150);
+                        setTimeout(() => $('#searchSection').fadeIn(300), 200);
+                        setTimeout(() => $('#reportTableSection').fadeIn(300), 250);
+                        setTimeout(() => $('#actionButtons').fadeIn(300), 300);
+
+                        showAlert('success', `Report generated successfully with ${response.data.length} medicines`, 'Report Ready');
+                    } else {
+                        $('#noDataMessage').fadeIn(300);
+                        showAlert('info', 'No data found for the selected criteria', 'No Results');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#loadingSpinner').hide();
+                    $('#noDataMessage').show();
+                    showAlert('danger', 'Error loading report: ' + error, 'Load Error');
+                }
+            });
+        }
+
+        function buildDynamicTableHeaders() {
+            var thead = $('#reportTableHead');
+            thead.empty();
+
+            var headerRow = '<tr>';
+            headerRow += '<th class="col-medicine-name">MEDICINE NAME</th>';
+            headerRow += '<th class="col-store-stock text-center">TOTAL STORE STOCK</th>';
+
+            // Dynamic compounder columns
+            compounderNames.forEach(function(name) {
+                var displayName = formatCompounderName(name);
+                headerRow += `<th class="col-compounder text-center" title="${name}">${displayName}</th>`;
+            });
+
+            headerRow += '<th class="col-remaining text-center">REMAINING STOCK</th>';
+            headerRow += '</tr>';
+
+            thead.html(headerRow);
+        }
+
+        function formatCompounderName(name) {
+            if (!name) return 'UNKNOWN';
+
+            // Extract name part before any ID or email
+            var displayName = name;
+
+            // If contains " - ", take the second part (usually the full name)
+            if (name.includes(' - ')) {
+                displayName = name.split(' - ')[1] || name.split(' - ')[0];
+            }
+
+            // Truncate if too long
+            if (displayName.length > 15) {
+                displayName = displayName.substring(0, 12) + '...';
+            }
+
+            return displayName.toUpperCase();
+        }
+
+        function applyFilters() {
+            var searchText = $('#searchInput').val().toLowerCase().trim();
+            var filteredData = allReportData;
+
+            // Apply search filter
+            if (searchText) {
+                filteredData = filteredData.filter(function(item) {
+                    return item.medicineName.toLowerCase().includes(searchText);
+                });
+            }
+
+            currentFilteredData = filteredData;
+            populateReportTable(filteredData);
+            updateSearchResultCount(filteredData.length);
+        }
+
+        function updateSearchResultCount(count) {
+            var searchText = $('#searchInput').val().trim();
+
+            if (searchText) {
+                var filterInfo = `${count} of ${allReportData.length} medicines found`;
+                $('#searchResultCount').text(filterInfo);
+
+                if (count === 0) {
+                    $('#searchResultCount').addClass('text-warning').removeClass('text-muted');
+                } else {
+                    $('#searchResultCount').addClass('text-success').removeClass('text-muted text-warning');
+                }
+            } else {
+                $('#searchResultCount').text('No search applied').removeClass('text-warning text-success').addClass('text-muted');
+            }
+        }
+
+        function clearSearch() {
+            $('#searchInput').val('');
+            applyFilters();
+            showAlert('info', 'Search filters cleared', 'Filters Reset');
+        }
+
+        function populateReportTable(data) {
+            var tbody = $('#reportData');
+            var tfoot = $('#reportTableFoot');
+            tbody.empty();
+            tfoot.empty();
+
+            var totalStoreStock = 0;
+            var totalRemaining = 0;
+            var compounderSums = {};
+
+            // Initialize compounder sums
+            compounderNames.forEach(function(name) {
+                compounderSums[name] = 0;
+            });
+
+            $.each(data, function(index, item) {
+                totalStoreStock += item.totalStoreStock;
+                totalRemaining += item.remainingStock;
+
+                var row = '<tr class="table-row-enhanced">';
+                row += `<td class="medicine-cell"><span class="medicine-name">${item.medicineName}</span></td>`;
+                row += `<td class="text-center"><span class="store-stock-badge">${item.totalStoreStock.toLocaleString()}</span></td>`;
+
+                // Dynamic compounder columns
+                compounderNames.forEach(function(name) {
+                    var qty = item.compounderQuantities[name] || 0;
+                    compounderSums[name] += qty;
+                    var badgeClass = qty === 0 ? 'compounder-qty-badge zero' : 'compounder-qty-badge';
+                    row += `<td class="text-center"><span class="${badgeClass}">${qty.toLocaleString()}</span></td>`;
+                });
+
+                // Remaining stock
+                var remainingClass = 'remaining-badge';
+                if (item.remainingStock < 0) remainingClass += ' negative';
+                else if (item.remainingStock === 0) remainingClass += ' zero';
+
+                row += `<td class="text-center"><span class="${remainingClass}">${item.remainingStock.toLocaleString()}</span></td>`;
+                row += '</tr>';
+
+                tbody.append(row);
+            });
+
+            // Build footer row with totals
+            var footerRow = '<tr class="table-footer">';
+            footerRow += '<th class="total-label">TOTAL</th>';
+            footerRow += `<th class="text-center total-value">${totalStoreStock.toLocaleString()}</th>`;
+
+            compounderNames.forEach(function(name) {
+                footerRow += `<th class="text-center total-value">${compounderSums[name].toLocaleString()}</th>`;
+            });
+
+            var remainingClass = totalRemaining < 0 ? 'total-value text-danger' : 'total-value';
+            footerRow += `<th class="text-center ${remainingClass}">${totalRemaining.toLocaleString()}</th>`;
+            footerRow += '</tr>';
+
+            tfoot.html(footerRow);
+        }
+
+        function buildCompounderStats(names, totals) {
+            var container = $('#compounderStats');
+            container.empty();
+
+            if (!names || names.length === 0) return;
+
+            names.forEach(function(name) {
+                var total = totals[name] || 0;
+                var displayName = formatCompounderName(name);
+
+                var card = `
+                    <div class="compounder-stat-card" title="${name}">
+                        <div class="compounder-stat-name">${displayName}</div>
+                        <div class="compounder-stat-value">${total.toLocaleString()}</div>
+                        <div class="compounder-stat-label">Units Issued</div>
+                    </div>
+                `;
+                container.append(card);
+            });
+        }
+
+        function updateReportHeader(reportInfo) {
+            $('#runDateTime').text(reportInfo.generatedOn);
+            $('#generatedBy').text(reportInfo.generatedBy);
+
+            // Dynamic unit header with plant code
+            var unitText = 'Unit: ITC LIMITED - PSPD-' + (reportInfo.plantCode || 'N/A');
+            if (reportInfo.plantName && reportInfo.plantName !== 'Unknown Plant') {
+                unitText += ' (' + reportInfo.plantName + ')';
+            }
+            $('#unitHeader').text(unitText);
+        }
+
+        function updateSummaryCards(reportInfo, totals) {
+            // Animate card values
+            animateValue('totalMedicines', 0, reportInfo.totalMedicines, 800);
+            animateValue('totalStoreStock', 0, totals.totalStoreStockSum, 1000);
+            animateValue('totalIssued', 0, totals.totalIssuedSum, 1200);
+            animateValue('totalRemaining', 0, totals.totalRemainingSum, 1400);
+        }
+
+        function animateValue(elementId, start, end, duration) {
+            const element = document.getElementById(elementId);
+            const startTime = performance.now();
+
+            function updateValue(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (end - start) * progress);
+
+                element.textContent = current.toLocaleString();
+
+                if (progress < 1) {
+                    requestAnimationFrame(updateValue);
+                }
+            }
+
+            requestAnimationFrame(updateValue);
+        }
+
+        function exportReport() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (!fromDate || !toDate) {
+                showAlert('warning', 'Please select date range first', 'Export Failed');
+                return;
+            }
+
+            showAlert('info', 'Preparing export file...', 'Export Started');
+
+            window.location.href = '@Url.Action("ExportStoreCompounderSummaryReport", "StoreCompounderSummaryReport")' +
+                '?fromDate=' + fromDate + '&toDate=' + toDate;
+        }
+
+        function printReport() {
+            if ($('#reportTableSection').is(':visible')) {
+                showAlert('info', 'Preparing print view...', 'Print Started');
+                setTimeout(() => window.print(), 500);
+            } else {
+                showAlert('warning', 'Please generate the report first', 'Print Failed');
+            }
+        }
+
+        // Enhanced alert system integration
+        function showAlert(type, message, title = null) {
+            console.log(`${title || type.toUpperCase()}: ${message}`);
+            // If you have the showAlert function from your site.js, uncomment this:
+            // window.showAlert(type, message);
+        }
+    </script>
+}

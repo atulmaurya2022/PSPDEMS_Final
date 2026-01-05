@@ -44,6 +44,9 @@ namespace EMS.WebApp.Services
         Task<IEnumerable<StoreInventoryBatchReportDto>> GetStoreInventoryBatchReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null);
         Task<IEnumerable<MedicineMasterStoreReportDto>> GetMedicineMasterStoreReportAsync(int? userPlantId = null);
 
+        Task<StoreCompounderSummaryReportResponse> GetStoreCompounderSummaryReportAsync(DateTime? fromDate = null,DateTime? toDate = null,int? userPlantId = null);
+
+
         // New helper methods for plant-based operations
         Task<int?> GetUserPlantIdAsync(string userName);
         Task<bool> IsUserAuthorizedForIndentAsync(int indentId, int userPlantId);
@@ -51,7 +54,60 @@ namespace EMS.WebApp.Services
 
 
     }
+    /// <summary>
+    /// DTO for Store Compounder Summary Report - Shows medicine-wise distribution to each compounder
+    /// </summary>
+    public class StoreCompounderSummaryReportDto
+    {
+        public int MedItemId { get; set; }
+        public string MedicineName { get; set; } = string.Empty;
+        public int TotalStoreStock { get; set; }
 
+        /// <summary>
+        /// Dictionary mapping Compounder Name to their issued quantity
+        /// </summary>
+        public Dictionary<string, int> CompounderQuantities { get; set; } = new Dictionary<string, int>();
+
+        /// <summary>
+        /// Total quantity issued to all compounders
+        /// </summary>
+        public int TotalIssuedToCompounders { get; set; }
+
+        /// <summary>
+        /// Remaining stock = TotalStoreStock - TotalIssuedToCompounders
+        /// </summary>
+        public int RemainingStock { get; set; }
+
+        public string PlantName { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Response wrapper for the pivot report with dynamic columns
+    /// </summary>
+    public class StoreCompounderSummaryReportResponse
+    {
+        /// <summary>
+        /// List of unique compounder names to build dynamic columns
+        /// </summary>
+        public List<string> CompounderNames { get; set; } = new List<string>();
+
+        /// <summary>
+        /// Report data rows
+        /// </summary>
+        public List<StoreCompounderSummaryReportDto> Data { get; set; } = new List<StoreCompounderSummaryReportDto>();
+
+        /// <summary>
+        /// Summary totals
+        /// </summary>
+        public int TotalStoreStockSum { get; set; }
+        public int TotalIssuedSum { get; set; }
+        public int TotalRemainingSum { get; set; }
+
+        /// <summary>
+        /// Dictionary mapping Compounder Name to their total issued quantity across all medicines
+        /// </summary>
+        public Dictionary<string, int> CompounderTotals { get; set; } = new Dictionary<string, int>();
+    }
     public class StoreIndentBatchReportDto
     {
         public int IndentId { get; set; }
