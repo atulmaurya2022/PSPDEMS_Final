@@ -9,14 +9,14 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb breadcrumb-custom">
             <li class="breadcrumb-item">Reports</li>
-            <li class="breadcrumb-item active" aria-current="page">Store Compounder Summary Report</li>
+            <li class="breadcrumb-item active" aria-current="page" id="breadcrumbTitle">Store Compounder Summary Report</li>
         </ol>
     </nav>
     <h1 class="dashboard-title">
         <i class="bi bi-clipboard-data"></i>
-        Store Compounder Summary Report
+        <span id="pageTitle">Store Compounder Summary Report</span>
     </h1>
-    <p class="dashboard-subtitle">Medicine-wise distribution summary showing quantities issued to each compounder/pharmacist</p>
+    <p class="dashboard-subtitle" id="pageSubtitle">Medicine-wise distribution summary showing quantities issued to each compounder/pharmacist</p>
 </div>
 
 <div class="container-fluid">
@@ -90,7 +90,7 @@
                     </div>
                 </div>
                 <div class="summary-value" id="totalIssued">0</div>
-                <div class="summary-subtitle">Units issued to compounders</div>
+                <div class="summary-subtitle" id="issuedToLabel">Units issued to compounders</div>
             </div>
         </div>
 
@@ -130,7 +130,7 @@
                 </div>
             </div>
             <div class="report-title">
-                <h3>STORE COMPOUNDER SUMMARY</h3>
+                <h3 id="reportTitleHeader">STORE COMPOUNDER SUMMARY</h3>
             </div>
         </div>
     </div>
@@ -352,7 +352,40 @@
         var compounderNames = [];
         var reportTotals = {};
 
+        // Plant-based label configuration
+        let isTribeniPlant = false;
+        let roleLabelSingular = 'Compounder';
+        let roleLabelPlural = 'Compounder/Pharmacist';
+
+        // Function to update page labels based on plant
+        function updateReportLabels() {
+            roleLabelSingular = isTribeniPlant ? 'Pharmacist' : 'Compounder';
+            roleLabelPlural = isTribeniPlant ? 'Pharmacist' : 'Compounder/Pharmacist';
+
+            // Update page title and headers
+            $('#breadcrumbTitle').text('Store ' + roleLabelSingular + ' Summary Report');
+            $('#pageTitle').text('Store ' + roleLabelSingular + ' Summary Report');
+            $('#pageSubtitle').text('Medicine-wise distribution summary showing quantities issued to each ' + roleLabelSingular.toLowerCase());
+            $('#issuedToLabel').text('Units issued to ' + roleLabelSingular.toLowerCase() + 's');
+            $('#reportTitleHeader').text('STORE ' + roleLabelSingular.toUpperCase() + ' SUMMARY');
+
+            // Update document title
+            document.title = 'Store ' + roleLabelSingular + ' Summary Report | EMS';
+        }
+
         $(document).ready(function() {
+            // Fetch plant info and update labels
+            $.get('@Url.Action("GetPlantInfo", "CompounderDashboard")')
+                .done(function(response) {
+                    if (response && response.plantName) {
+                        isTribeniPlant = response.plantName.toLowerCase() === 'tribeni';
+                        updateReportLabels();
+                    }
+                })
+                .fail(function() {
+                    console.log('Could not determine plant info');
+                });
+
             // Set default dates (current month)
             var today = new Date();
             var firstDay = new Date(today.getFullYear(), today.getMonth(), 1);

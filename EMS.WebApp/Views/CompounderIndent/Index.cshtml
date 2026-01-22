@@ -1,5 +1,5 @@
 ﻿@{
-    ViewData["Title"] = "Compounder/Pharmacist Indent";
+    ViewData["Title"] = "Compounder Indent";
 }
 <!-- Include Master Common Styles -->
 <link href="~/css/master-common.css" rel="stylesheet" />
@@ -12,14 +12,14 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb breadcrumb-master">
                     <li class="breadcrumb-item">Home</li>
-                    <li class="breadcrumb-item active" aria-current="page">Compounder/Pharmacist Indent</li>
+                    <li class="breadcrumb-item active" aria-current="page" id="breadcrumbTitle">Compounder Indent</li>
                 </ol>
             </nav>
             <h1 class="master-title">
                 <i class="bi bi-building"></i>
-                Compounder/Pharmacist Indent
+                <span id="pageTitle">Compounder Indent</span>
             </h1>
-            <p class="master-subtitle">Manage Compounder/Pharmacist indent requests and approvals</p>
+            <p class="master-subtitle" id="pageSubtitle">Manage Compounder indent requests and approvals</p>
         </div>
         <div class="d-flex align-items-center gap-3">
             <div class="d-flex align-items-center gap-2">
@@ -30,7 +30,7 @@
             </div>
             <button id="btnCreate" class="btn btn-add-master">
                 <i class="bi bi-plus-lg"></i>
-                Add Compounder/Pharmacist Indent
+                <span id="btnCreateText">Add Compounder Indent</span>
             </button>
         </div>
     </div>
@@ -97,6 +97,39 @@
         let isStoreUser = false;
         let isCompounderUser = false;
         let isDoctor = false;
+        let isTribeniPlant = false;
+        let roleLabelSingular = 'Compounder'; // Will be updated based on plant
+        let roleLabelPlural = 'Compounder'; // Will be updated based on plant
+        let inventoryLabel = 'Compounder Inventory'; // Will be updated based on plant
+
+        // Function to get role label based on plant
+        function getRoleLabel() {
+            return isTribeniPlant ? 'Pharmacist' : 'Compounder';
+        }
+
+        function getRoleLabelPlural() {
+            return isTribeniPlant ? 'Pharmacist' : 'Compounder';
+        }
+
+        function getInventoryLabel() {
+            return isTribeniPlant ? 'Pharmacist Inventory' : 'Compounder Inventory';
+        }
+
+        // Function to update page labels based on plant
+        function updatePageLabels() {
+            roleLabelSingular = getRoleLabel();
+            roleLabelPlural = getRoleLabelPlural();
+            inventoryLabel = getInventoryLabel();
+
+            // Update page title and headers
+            $('#breadcrumbTitle').text(roleLabelPlural + ' Indent');
+            $('#pageTitle').text(roleLabelPlural + ' Indent');
+            $('#pageSubtitle').text('Manage ' + roleLabelPlural + ' indent requests and approvals');
+            $('#btnCreateText').text('Add ' + roleLabelPlural + ' Indent');
+
+            // Update document title
+            document.title = roleLabelPlural + ' Indent | EMS';
+        }
 
         // Function to get current user role
         function getCurrentUserRole() {
@@ -107,6 +140,11 @@
                         isStoreUser = currentUserRole.includes('store');
                         isCompounderUser = currentUserRole.includes('compounder');
                         isDoctor = currentUserRole === 'doctor';
+                    }
+                    // Check plant name
+                    if (response && response.plantName) {
+                        isTribeniPlant = response.plantName.toLowerCase() === 'tribeni';
+                        updatePageLabels();
                     }
                 })
                 .fail(function() {
@@ -121,7 +159,7 @@
 
             if (isStoreUser) {
                 // Store users can only see Compounder Inventory
-                filterSelect.append('<option value="Compounder Inventory">Compounder Inventory</option>');
+                filterSelect.append('<option value="Compounder Inventory">' + inventoryLabel + '</option>');
                 filterSelect.val('Compounder Inventory');
                 $('#btnCreate').hide(); // Store users cannot create new indents
             } else if (isCompounderUser) {
@@ -131,7 +169,7 @@
                 filterSelect.append('<option value="Pending Indents">Pending Indents</option>');
                 filterSelect.append('<option value="Approved Indents">Approved Indents</option>');
                 filterSelect.append('<option value="Rejected Indents">Rejected Indents</option>');
-                filterSelect.append('<option value="Compounder Inventory">Compounder Inventory</option>');
+                filterSelect.append('<option value="Compounder Inventory">' + inventoryLabel + '</option>');
                 $('#btnCreate').show(); // Compounder users CAN create new indents
             } else {
                 // Regular users and doctors can see all types
@@ -140,7 +178,7 @@
                 filterSelect.append('<option value="Pending Indents">Pending Indents</option>');
                 filterSelect.append('<option value="Approved Indents">Approved Indents</option>');
                 filterSelect.append('<option value="Rejected Indents">Rejected Indents</option>');
-                filterSelect.append('<option value="Compounder Inventory">Compounder Inventory</option>');
+                filterSelect.append('<option value="Compounder Inventory">' + inventoryLabel + '</option>');
 
                 // Only non-doctors can create indents
                 if (!isDoctor) {
@@ -157,6 +195,7 @@
             if (message && typeof message === 'string' &&
                 (message.includes('read-only mode') ||
                  message.includes('cannot edit Compounder Inventory') ||
+                 message.includes('cannot edit Pharmacist Inventory') ||
                  message.includes('viewing this inventory in read-only mode'))) {
                 return; // Skip showing these messages on the main page
             }
@@ -475,7 +514,7 @@
                 // Open Create Modal (only for allowed users)
                 $('#btnCreate').click(() => {
                     if (isStoreUser) {
-                        showMessage('Access denied. Store users can only manage Compounder Inventory.', 'error');
+                        showMessage('Access denied. Store users can only manage ' + inventoryLabel + '.', 'error');
                         return;
                     }
 
@@ -485,7 +524,7 @@
 
                     $.get(createUrl)
                     .done(html => {
-                        modalEl.find('.modal-title').text('Add Compounder/Pharmacist Indent');
+                        modalEl.find('.modal-title').text('Add ' + roleLabelPlural + ' Indent');
                         $('#modalBody').html(html);
                         modalEl.modal('show');
                     })
@@ -504,9 +543,9 @@
                     $.get(editUrl)
                     .done(html => {
                         // Set appropriate modal title based on context
-                        let modalTitle = 'Edit Compounder/Pharmacist Indent';
+                        let modalTitle = 'Edit ' + roleLabelPlural + ' Indent';
                         if (currentIndentType === 'Compounder Inventory') {
-                            modalTitle = isStoreUser ? 'Manage Compounder Inventory' : 'Update Compounder Inventory';
+                            modalTitle = isStoreUser ? 'Manage ' + inventoryLabel : 'Update ' + inventoryLabel;
                         }
 
                         modalEl.find('.modal-title').text(modalTitle);
@@ -531,7 +570,7 @@
 
                     $.get(approveRejectUrl)
                     .done(html => {
-                        modalEl.find('.modal-title').text('Approve/Reject Compounder Indent');
+                        modalEl.find('.modal-title').text('Approve/Reject ' + roleLabelSingular + ' Indent');
                         $('#modalBody').html(html);
                         modalEl.modal('show');
                     })
@@ -550,7 +589,7 @@
 
                         $.get(detailsUrl)
                         .done(html => {
-                            modalEl.find('.modal-title').text('View Compounder/Pharmacist Indent');
+                            modalEl.find('.modal-title').text('View ' + roleLabelPlural + ' Indent');
                             $('#modalBody').html(html);
                             modalEl.modal('show');
                         })
@@ -564,7 +603,7 @@
                 // Delete
                 $('#tblCompounderIndents').on('click', '.delete', function () {
                     const indentType = $(this).closest('tr').find('td:eq(2)').text().trim();
-                    const confirmText = indentType === 'Draft Indent' ? 'Delete this Draft?' : 'Delete this Compounder Indent?';
+                    const confirmText = indentType === 'Draft Indent' ? 'Delete this Draft?' : 'Delete this ' + roleLabelSingular + ' Indent?';
 
                     if (!confirm(confirmText)) return;
 
@@ -575,15 +614,15 @@
                     .done(function(response) {
                         if (response.success) {
                             tbl.ajax.reload(null, false);
-                            const successText = indentType === 'Draft Indent' ? 'Draft deleted successfully.' : 'Compounder Indent deleted successfully.';
+                            const successText = indentType === 'Draft Indent' ? 'Draft deleted successfully.' : roleLabelSingular + ' Indent deleted successfully.';
                             showMessage(successText, 'success');
                         } else {
-                            showMessage(response.message || 'Failed to delete Compounder Indent.', 'error');
+                            showMessage(response.message || 'Failed to delete ' + roleLabelSingular + ' Indent.', 'error');
                         }
                     })
                     .fail(function(xhr, status, error) {
                         console.error('Delete request failed:', status, error);
-                        showMessage('Failed to delete Compounder Indent. Please try again.', 'error');
+                        showMessage('Failed to delete ' + roleLabelSingular + ' Indent. Please try again.', 'error');
                     });
                 });
 
@@ -596,7 +635,7 @@
 
                     $.get(editUrl)
                     .done(html => {
-                        modalEl.find('.modal-title').text('Edit Compounder Indent - Add Medicines');
+                        modalEl.find('.modal-title').text('Edit ' + roleLabelSingular + ' Indent - Add Medicines');
                         $('#modalBody').html(html);
                         modalEl.modal('show');
                         $('#messageArea').hide();

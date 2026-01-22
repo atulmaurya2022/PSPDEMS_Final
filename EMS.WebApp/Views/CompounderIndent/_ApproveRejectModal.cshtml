@@ -151,6 +151,8 @@
     $(document).ready(function() {
         const indentId = @Model.IndentId;
         let medicineOptionsHtml = '<option value="">Select Medicine</option>';
+        let roleLabelSingular = 'Compounder'; // Default label
+        let isTribeniPlant = false;
 
         // Remove any existing alerts before applying restrictions
         $('.compounder-readonly-alert, .compounder-inventory-info, .alert-danger').remove();
@@ -162,6 +164,12 @@
                     const userRole = response.role.toLowerCase();
                     const isStoreUser = userRole.includes('store');
                     const isCompounderUser = userRole.includes('compounder');
+
+                    // Check plant name for dynamic labels
+                    if (response.plantName) {
+                        isTribeniPlant = response.plantName.toLowerCase() === 'tribeni';
+                        roleLabelSingular = isTribeniPlant ? 'Pharmacist' : 'Compounder';
+                    }
 
                     // Apply role-based restrictions to medicine editing
                     applyMedicineEditRestrictions(isStoreUser, isCompounderUser);
@@ -343,10 +351,10 @@
             // Build medicine options from ViewBag (if available) or load via AJAX
             @if (ViewBag.MedicineList != null)
             {
-                                            @foreach (var medicine in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.MedicineList)
-                                            {
-                                                                            <text>medicineOptionsHtml += '<option value="@medicine.Value">@medicine.Text</option>';</text>
-                                            }
+                                                @foreach (var medicine in (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.MedicineList)
+                                                {
+                                                                                    <text>medicineOptionsHtml += '<option value="@medicine.Value">@medicine.Text</option>';</text>
+                                                }
             }
         }
 
@@ -1009,7 +1017,7 @@
 
             // Confirm action
             const actionText = action === 'approve' ? 'approve' : 'reject';
-            const confirmMessage = `Are you sure you want to ${actionText} this Compounder Indent?`;
+            const confirmMessage = `Are you sure you want to ${actionText} this ${roleLabelSingular} Indent?`;
 
             if (!confirm(confirmMessage)) {
                 return;
@@ -1032,7 +1040,7 @@
 
                     // Show success message
                     if (typeof showMessage === 'function') {
-                        showMessage(`Compounder Indent ${actionText}d successfully!`, 'success');
+                        showMessage(`${roleLabelSingular} Indent ${actionText}d successfully!`, 'success');
                     }
 
                     // Reload the table

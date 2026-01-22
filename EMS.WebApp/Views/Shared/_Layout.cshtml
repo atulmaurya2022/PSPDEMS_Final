@@ -12,6 +12,8 @@
     var userName = User.Identity.Name ?? User.FindFirst("name")?.Value ?? "";
     var groupedMenus = await MenuService.GetGroupedMenuItemsForUserAsync(userName);
     var UserRole = User.FindFirst("RoleName")?.Value ?? "";
+    var UserPlant = User.FindFirst("PlantName")?.Value ?? "";
+    var isTribeniPlant = UserPlant.Equals("Tribeni", StringComparison.OrdinalIgnoreCase);
 }
 
 @{
@@ -49,14 +51,14 @@
     <link href="~/css/site.css" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/jquery-ui.min.css">
 
-    
+
 
     @if (User.Identity?.IsAuthenticated == true)
     {
         <script src="~/js/session-timeout.js"></script>
     }
-   
-    <link rel="stylesheet" href="~/lib/bootstrap/bootstrap-icons/bootstrap-icons.css"/>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/bootstrap-icons/bootstrap-icons.css" />
 
 </head>
 <body>
@@ -69,7 +71,6 @@
             </a>
             <span class="mainTexinNav">Employee Medical System (EMS)  </span>
             
-
 
             <ul class="nav top-nav d-none d-md-flex aligntnavcenter">
                 <li class="nav-item"><a class="nav-link" asp-controller="Dashboard" asp-action="" role="button"><i class="bi bi-display"></i>Dashboard</a> </li>
@@ -98,7 +99,7 @@
 
                                 if (screenName.Contains("User") || screenName.Contains("Hr")) iconClass = "bi-people";
                                 else if (screenName.Contains("Doctor")) iconClass = "bi-person-badge";
-                                
+
                                 else if (screenName.Contains("PlantMaster")) iconClass = "bi bi-building";
                                 else if (screenName.Contains("MedDisease")) iconClass = "bi bi-virus";
                                 else if (screenName.Contains("DepartmentMaster")) iconClass = "bi bi-diagram-3";
@@ -146,7 +147,7 @@
                                 screenName = screenName.Trim();
 
                                 bool isActive = ViewContext.RouteData.Values["Controller"]?.ToString() == item.ControllerName;
-                                
+
                                 <a href="@Url.Action(item.ActionName, item.ControllerName)"
                                    class="menu-tile @(isActive ? "active" : "")"
                                    title="@screenName" style="text-decoration: none !important; border-bottom: none !important;">
@@ -192,15 +193,15 @@
                                 {
                                     screenName = screenName.Replace("OthersDiagnosis", "Doctor Diagnosis - Others");
                                 }
-                                if(@UserRole.Contains("Compounder") && screenName.Contains("Doctor"))
+                                if (@UserRole.Contains("Compounder") && screenName.Contains("Doctor"))
                                 {
-                                    screenName = screenName.Replace("Doctor", "Compounder");
+                                    screenName = screenName.Replace("Doctor", isTribeniPlant ? "Pharmacist" : "Compounder");
                                 }
-                                
+
                                 screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
-                                if (screenName.Contains("Compounder"))
+                                if (screenName.Contains("Compounder") && isTribeniPlant)
                                 {
-                                    screenName = screenName.Replace("Compounder", "Compounder/Pharmacist");
+                                    screenName = screenName.Replace("Compounder", "Pharmacist");
                                 }
                                 screenName = screenName.Trim();
 
@@ -246,11 +247,11 @@
                                 else if (screenName.Contains("Patient")) iconClass = "bi-person-plus";
                                 else if (screenName.Contains("Summary")) iconClass = "bi-pie-chart";
 
-                                
+
                                 screenName = InsertSpaceBeforeCapsAfterSecondIndex(screenName);
-                                if (screenName.Contains("Compounder"))
+                                if (screenName.Contains("Compounder") && isTribeniPlant)
                                 {
-                                    screenName = screenName.Replace("Compounder", "Compounder/Pharmacist");
+                                    screenName = screenName.Replace("Compounder", "Pharmacist");
                                 }
                                 screenName = screenName.Trim();
 
@@ -312,15 +313,80 @@
                         </div>
                     </li>
                 }
-           
             </ul>
+
+
+
+
+
         </div>
         <div class="d-flex align-items-center gap-2">
-            
+            @* <button class="btn btn-sm btn-outline-primary d-md-none" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">V
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="dropdown">
+                <a class="dropdown-toggle" href="#" role="button" data-toggle="dropdown">
+                    <span class="user-icon" id="IdForUserInitial">
+                    </span>
+                    <span class="user-name ClsForCustomColor" id="IdForUserName"></span>
+                </a>
+                <div class="dropdown-menu dropdown-menu-right dropdown-menu-icon-list">
+                    <a class="dropdown-item" href="#" onclick="Logout();">
+                        <div class="row ClsForMenu">
+                            <div class="col-sm-3">
+                                <i class="dw dw-logout"></i>
+                            </div>
+                            <div class="col-sm-9">
+                                Log Out
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+
+
+
+                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" >
+                    <i class="bi bi-person-circle fs-5"></i>
+                    <span class="d-none d-sm-inline ms-1">@userName</span>
+                </a>
+
+                <ul class="dropdown-menu dropdown-menu-end glass border-0 shadow" style="background:#fff !important;">
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <li class="dropdown-item">
+                            <span class="nav-link text-info">Welcome, @User.Identity.Name</span>
+                        </li>
+                        <li class="dropdown-item">
+                            <form asp-controller="Account" asp-action="Logout" method="post" class="form-inline">
+                                <button type="submit" class="nav-link btn btn-link">Logout</button>
+                            </form>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="dropdown-item">
+                            <a class="nav-link" asp-controller="Account" asp-action="Login">Login</a>
+                        </li>
+                    }
+                </ul>
+            </div> *@
 
             <div class="user-info-section">
                 <!-- User Avatar with Initial -->
-                
+                <!-- User Details -->
+                @* <div class="user-details">
+                    <div class="user-details-top">
+                        <span class="user-name" id="userName">@userName</span>
+                        <span class="user-emp-id" id="userEmpId">ADID</span>
+                    </div>
+                    <div class="user-details-bottom">
+                        <span class="user-designation" id="userDesignation">Senior Manager</span>
+                        <span class="user-divider">•</span>
+                        <span class="user-plant" id="userPlant"> Plant</span>
+                    </div>
+                </div> *@
+
                 <div class="user-details">
                     <div class="user-details-top">
                         <span class="user-name" id="userName">@userName</span>
@@ -346,9 +412,9 @@
                         {
                             <li class="user-welcome">
                                 Welcome Back, @User.Identity.Name !
-                                
+
                             </li>
-                            
+
                             <li>
                                 <form asp-controller="Account" asp-action="Logout" method="post" class="form-inline">
                                     <button type="submit" class="dropdown-item">
@@ -371,6 +437,10 @@
                 </div>
             </div>
 
+            <!-- Remove or hide the old mobile sidebar button -->
+            <!-- <button class="btn btn-sm btn-outline-primary d-md-none" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
+                <i class="bi bi-list"></i>
+            </button> -->
 
 
 
@@ -422,9 +492,9 @@
             @* <div class="glass p-4 shadow-sm">
                 <h2 class="h4 mb-3">@ViewData["Title"]</h2>
             </div> *@
-      
+
             @* <div class="glass p-4 shadow-sm">                *@
-                @RenderBody()
+            @RenderBody()
             @* </div> *@
         </div>
     </main>
@@ -439,7 +509,7 @@
     <script src="~/lib/datatables/js/datatables.min.js"></script>
     <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
     <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
-   
+
     <script>
         window.app = window.app || {};
         window.app.meUrl = '@Url.Action("Me", "UserInfo")';

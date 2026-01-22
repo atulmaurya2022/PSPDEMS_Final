@@ -42,9 +42,9 @@
     <!-- Show status info for Compounder Inventory -->
     @if (isCompounderInventory && isEdit)
     {
-        <div class="alert alert-info mb-3">
+        <div class="alert alert-info mb-3 inventory-management-alert">
             <i class="bi bi-info-circle me-2"></i>
-            <strong>Compounder Inventory Management</strong> - This indent is @Model.Status.ToLower().
+            <strong class="inventory-label">Compounder Inventory Management</strong> - This indent is @Model.Status.ToLower().
             @if (Model.Status == "Pending")
             {
                 <span>You can manage batches and edit details. This indent is awaiting doctor approval.</span>
@@ -584,7 +584,6 @@
 
 <!-- Select2 JS -->
 <!--<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>-->
-
 <!-- JavaScript Section -->
 <script>
     $(document).ready(function() {
@@ -901,10 +900,10 @@
         let medicineOptionsHtml = '<option value="">Select Medicine</option>';
         @if (ViewBag.MedicineList != null)
         {
-                @foreach (var medicine in (SelectList)ViewBag.MedicineList)
-                {
-                        <text>medicineOptionsHtml += '<option value="@medicine.Value">@medicine.Text</option>';</text>
-                }
+                    @foreach (var medicine in (SelectList)ViewBag.MedicineList)
+                    {
+                                <text>medicineOptionsHtml += '<option value="@medicine.Value">@medicine.Text</option>';</text>
+                    }
         }
 
         // Add Medicine Button Click
@@ -2525,4 +2524,18 @@
         };
 
     })(jQuery);
+</script>
+
+<script>
+    // Update inventory label based on plant
+    $(document).ready(function() {
+        $.get('@Url.Action("GetCurrentUserRole", "CompounderIndent")')
+            .done(function(response) {
+                if (response && response.plantName) {
+                    var isTribeniPlant = response.plantName.toLowerCase() === 'tribeni';
+                    var inventoryLabel = isTribeniPlant ? 'Pharmacist Inventory Management' : 'Compounder Inventory Management';
+                    $('.inventory-label').text(inventoryLabel);
+                }
+            });
+    });
 </script>

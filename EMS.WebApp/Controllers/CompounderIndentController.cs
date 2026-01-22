@@ -83,7 +83,7 @@ namespace EMS.WebApp.Controllers
                 }
                 else if (indentType == "Compounder Inventory")
                 {
-                    
+
                     var approvedIndents = await _repo.ListByStatusAsync("Approved", currentUser, userPlantId, isDoctor, userRole);
                     var pendingIndents = await _repo.ListByStatusAsync("Pending", currentUser, userPlantId, isDoctor, userRole);
                     list = approvedIndents.Concat(pendingIndents).OrderBy(x => x.IndentDate);
@@ -172,7 +172,7 @@ namespace EMS.WebApp.Controllers
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
 
-                
+
                 // CRITICAL: Check which repository and method we're actually calling
                 var totalStock = await _repo.GetTotalAvailableStockFromStoreAsync(medItemId, userPlantId);
 
@@ -257,15 +257,42 @@ namespace EMS.WebApp.Controllers
             {
                 var userRole = await GetUserRoleAsync();
                 var userPlantId = await GetCurrentUserPlantIdAsync();
+                var plantName = await GetCurrentUserPlantNameAsync();
                 await _auditService.LogAsync("compounder_indent", "GET_ROLE", "system", null, null,
-                    $"User role requested: {userRole ?? "null"}, Plant: {userPlantId}");
-                return Json(new { success = true, role = userRole });
+                    $"User role requested: {userRole ?? "null"}, Plant: {userPlantId}, PlantName: {plantName}");
+                return Json(new { success = true, role = userRole, plantName = plantName });
             }
             catch (Exception ex)
             {
                 await _auditService.LogAsync("compounder_indent", "GET_ROLE_FAIL", "system", null, null,
                     $"Get user role API failed: {ex.Message}");
-                return Json(new { success = false, role = string.Empty });
+                return Json(new { success = false, role = string.Empty, plantName = string.Empty });
+            }
+        }
+
+        // Method to get user's plant name
+        private async Task<string?> GetCurrentUserPlantNameAsync()
+        {
+            try
+            {
+                var userName = User.Identity?.Name;
+                if (string.IsNullOrEmpty(userName))
+                    return null;
+
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                var user = await dbContext.SysUsers
+                    .Include(u => u.OrgPlant)
+                    .FirstOrDefaultAsync(u => u.full_name == userName || u.email == userName || u.adid == userName);
+
+                return user?.OrgPlant?.plant_name;
+            }
+            catch (Exception ex)
+            {
+                await _auditService.LogAsync("compounder_indent", "PLANT_NAME_ERROR", "system", null, null,
+                    $"Error getting user plant name: {ex.Message}");
+                return null;
             }
         }
 
@@ -2703,19 +2730,23 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("compounder_indent", "DELETE_BATCH", batchId.ToString(), null, null,
                         $"Batch deletion attempted: {batchId}");
                     var userPlant = await GetCurrentUserPlantIdAsync();
-                    await _repo.DeleteBatchAsync(indentItemId,batchId, userPlant);
+                    await _repo.DeleteBatchAsync(indentItemId, batchId, userPlant);
 
                     // Log successful batch deletion
                     await _auditService.LogAsync("compounder_indent", "DELETE_BATCH_OK", batchId.ToString(),
                         new { BatchId = batchId }, null, "Batch deleted successfully");
 
-                    return Json(new { success = true,
+                    return Json(new
+                    {
+                        success = true,
                         message = "successfully removed the batch."
                     });
                 }
                 else
                 {
-                    return Json(new { success = true,
+                    return Json(new
+                    {
+                        success = true,
                         message = "No Batch found to delete."
                     });
                 }
@@ -2896,7 +2927,7 @@ namespace EMS.WebApp.Controllers
 
 
 
-        
+
 
         // Validate medicines with plant filtering
         private async Task<MedicineProcessResult> ValidateMedicinesEnhanced(int indentId,

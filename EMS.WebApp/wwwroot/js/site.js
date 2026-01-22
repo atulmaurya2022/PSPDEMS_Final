@@ -20,62 +20,6 @@ window.showAlert = function showAlert(type, message) {
 };
 
 
-//document.addEventListener('DOMContentLoaded', function () {
-//    // Fix 1: Change from hover to click behavior
-//    const dropdowns = document.querySelectorAll('.top-nav .dropdown');
-
-//    dropdowns.forEach(dropdown => {
-//        const toggle = dropdown.querySelector('.dropdown-toggle');
-//        const menu = dropdown.querySelector('.dropdown-menu');
-
-//        if (toggle && menu) {
-//            // Remove Bootstrap's default dropdown behavior for mega menu
-//            toggle.removeAttribute('data-bs-toggle');
-
-//            // Add click handler
-//            toggle.addEventListener('click', function (e) {
-//                e.preventDefault();
-//                e.stopPropagation();
-
-//                // Close other dropdowns
-//                dropdowns.forEach(otherDropdown => {
-//                    if (otherDropdown !== dropdown) {
-//                        otherDropdown.classList.remove('show');
-//                    }
-//                });
-
-//                // Toggle current dropdown
-//                dropdown.classList.toggle('show');
-//            });
-//        }
-//    });
-
-//    // Close dropdown when clicking outside
-//    document.addEventListener('click', function (e) {
-//        if (!e.target.closest('.dropdown')) {
-//            dropdowns.forEach(dropdown => {
-//                dropdown.classList.remove('show');
-//            });
-//        }
-//    });
-
-//    // Prevent dropdown from closing when clicking inside the mega menu
-//    document.querySelectorAll('.dropdown-menu.mega-menu').forEach(menu => {
-//        menu.addEventListener('click', function (e) {
-//            e.stopPropagation();
-//        });
-//    });
-
-//    // Optional: Close dropdown after clicking a menu item link
-//    document.querySelectorAll('.dropdown-menu.mega-menu .menu-tile').forEach(link => {
-//        link.addEventListener('click', function () {
-//            dropdowns.forEach(dropdown => {
-//                dropdown.classList.remove('show');
-//            });
-//        });
-//    });
-//});
-
 
 document.addEventListener('DOMContentLoaded', function () {
     const dropdowns = document.querySelectorAll('.top-nav .dropdown');
@@ -166,45 +110,50 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 
-    document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const userData = {
         name: '@userName', // Use existing Razor variable
-    employeeId: 'EMP',
-    designation: 'Senior ',
-    plant: 'Plant'
+        employeeId: 'EMP',
+        designation: 'Senior ',
+        plant: 'Plant'
     };
 
-    
-     fetchUserData().then(userData => {
-             updateUserInfo(userData);
-         });
 
-        function updateUserInfo(data) {
-            // Update user initial
-            const initial = data.fullName ? data.fullName.charAt(0).toUpperCase() : 'U';
-            document.getElementById('userInitial').textContent = initial;
+    fetchUserData().then(userData => {
+        updateUserInfo(userData);
+    });
 
-            // Update user details
-            //document.getElementById('userName').textContent = data.fullName || 'User';
-            //document.getElementById('userEmpId').textContent = data.adid || 'EMP000';
-            //document.getElementById('userDesignation').textContent = data.roleName || 'Employee';
-            //document.getElementById('userPlant').textContent = data.plantName || 'Plant';
-            document.getElementById('userName').textContent = data.fullName || '';
-            document.getElementById('userEmpId').textContent = data.adid || '';
-            document.getElementById('userDesignation').textContent = data.roleName || '';
-            document.getElementById('userPlant').textContent = data.plantName || '';
+    function updateUserInfo(data) {
+        // Update user initial
+        const initial = data.fullName ? data.fullName.charAt(0).toUpperCase() : 'U';
+        document.getElementById('userInitial').textContent = initial;
 
+        // Determine display role based on plant
+        let displayRole = data.roleName || '';
+        const plantName = data.plantName || '';
+        const isTribeniPlant = plantName.toLowerCase() === 'tribeni';
+
+        // Replace Compounder with Pharmacist for Tribeni plant
+        if (isTribeniPlant && displayRole.toLowerCase().includes('compounder')) {
+            displayRole = displayRole.replace(/compounder/gi, 'Pharmacist');
         }
-    
+
+        document.getElementById('userName').textContent = data.fullName || '';
+        document.getElementById('userEmpId').textContent = data.adid || '';
+        document.getElementById('userDesignation').textContent = displayRole;
+        document.getElementById('userPlant').textContent = data.plantName || '';
+
+    }
+
     updateUserInfo(userData);
 
- 
+
 });
 
-    // Function to fetch user data from backend (example)
+// Function to fetch user data from backend (example)
 async function fetchUserData() {
     try {
-       
+
         const response = await fetch(window.app.meUrl, { credentials: 'same-origin' });
         if (!response.ok) throw new Error('HTTP ' + response.status);
 

@@ -73,6 +73,48 @@ namespace EMS.WebApp.Controllers
         [HttpGet]
         public IActionResult Index() => View("Compounder");
 
+        /// <summary>
+        /// Gets the current user's plant information for dynamic label display.
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> GetPlantInfo()
+        {
+            try
+            {
+                var plantId = await ResolvePlantAsync();
+                var plantName = await GetCurrentUserPlantNameAsync();
+                var plantCode = plantId.HasValue ? await _svc.GetPlantCodeAsync(plantId) : null;
+
+                return Json(new
+                {
+                    success = true,
+                    plantId = plantId,
+                    plantName = plantName ?? string.Empty,
+                    plantCode = plantCode ?? string.Empty
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting plant info");
+                return Json(new { success = false, plantName = string.Empty, plantCode = string.Empty });
+            }
+        }
+
+        /// <summary>
+        /// Gets the current user's plant name.
+        /// </summary>
+        private async Task<string?> GetCurrentUserPlantNameAsync()
+        {
+            var user = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(user)) return null;
+
+            var userEntity = await _db.SysUsers
+                .Include(u => u.OrgPlant)
+                .FirstOrDefaultAsync(u => u.full_name == user || u.email == user || u.adid == user);
+
+            return userEntity?.OrgPlant?.plant_name;
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetSummary(int nearDays = 30)
         {

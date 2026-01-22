@@ -1,5 +1,5 @@
 ﻿@{
-    ViewData["Title"] = "Compounder/Pharmacist Inventory Report";
+    ViewData["Title"] = "Compounder Inventory Report";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
@@ -157,18 +157,18 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb breadcrumb-custom">
             <li class="breadcrumb-item">Reports</li>
-            <li class="breadcrumb-item active" aria-current="page">Compounder/Pharmacist Inventory Report</li>
+            <li class="breadcrumb-item active" aria-current="page" id="breadcrumbTitle">Compounder Inventory Report</li>
         </ol>
     </nav>
     <h1 class="dashboard-title">
         <i class="bi bi-boxes"></i>
-        Compounder/Pharmacist Inventory Report
+        <span id="pageTitle">Compounder Inventory Report</span>
         <span id="viewModeIndicator" class="view-mode-indicator batch-mode">
             <i class="bi bi-archive"></i>
             Batch-wise View
         </span>
     </h1>
-    <p class="dashboard-subtitle">Detailed batch-level inventory analysis with stock status monitoring and advanced filtering</p>
+    <p class="dashboard-subtitle" id="pageSubtitle">Detailed batch-level inventory analysis with stock status monitoring and advanced filtering</p>
 </div>
 
 <div class="container-fluid">
@@ -364,7 +364,7 @@
                 </div>
             </div>
             <div class="report-title">
-                <h3>COMPOUNDER/PHARMACIST INVENTORY</h3>
+                <h3 id="reportTitleHeader">COMPOUNDER INVENTORY</h3>
                 <p class="report-subtitle" id="reportSubtitle">Batch Level Report</p>
             </div>
         </div>
@@ -440,7 +440,39 @@
         var currentFilteredData = []; // Store currently filtered data
         var currentViewMode = 'batch'; // 'batch' or 'summary'
 
+        // Plant-based label configuration
+        let isTribeniPlant = false;
+        let roleLabelSingular = 'Compounder';
+        let roleLabelPlural = 'Compounder';
+
+        // Function to update page labels based on plant
+        function updateReportLabels() {
+            roleLabelSingular = isTribeniPlant ? 'Pharmacist' : 'Compounder';
+            roleLabelPlural = isTribeniPlant ? 'Pharmacist' : 'Compounder';
+
+            // Update page title and headers
+            $('#breadcrumbTitle').text(roleLabelPlural + ' Inventory Report');
+            $('#pageTitle').text(roleLabelPlural + ' Inventory Report');
+            $('#pageSubtitle').text('Detailed batch-level inventory analysis with stock status monitoring and advanced filtering');
+            $('#reportTitleHeader').text(roleLabelPlural.toUpperCase() + ' INVENTORY');
+
+            // Update document title
+            document.title = roleLabelPlural + ' Inventory Report | EMS';
+        }
+
         $(document).ready(function() {
+            // Fetch plant info and update labels
+            $.get('@Url.Action("GetPlantInfo", "CompounderDashboard")')
+                .done(function(response) {
+                    if (response && response.plantName) {
+                        isTribeniPlant = response.plantName.toLowerCase() === 'tribeni';
+                        updateReportLabels();
+                    }
+                })
+                .fail(function() {
+                    console.log('Could not determine plant info');
+                });
+
             // Initialize table headers
             renderTableHeader();
 

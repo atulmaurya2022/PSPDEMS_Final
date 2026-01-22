@@ -425,7 +425,7 @@ namespace EMS.WebApp.Services
 
         public async Task DeleteBatchAsync(int indentId, int batchId, int? userPlantId = null)
         {
-            
+
             var data = await (
                 from b in _db.CompounderIndentBatches
                 join ii in _db.CompounderIndentItems on b.IndentItemId equals ii.IndentItemId
