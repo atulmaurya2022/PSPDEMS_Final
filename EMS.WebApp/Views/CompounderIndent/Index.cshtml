@@ -129,6 +129,11 @@
 
             // Update document title
             document.title = roleLabelPlural + ' Indent | EMS';
+
+            // Reload table to update indent type badges if table exists
+            if (window.tbl) {
+                window.tbl.ajax.reload(null, false);
+            }
         }
 
         // Function to get current user role
@@ -287,7 +292,8 @@
                                 if (data === 'Draft Indent') {
                                     return '<span class="badge bg-secondary"><i class="bi bi-file-text me-1"></i>' + data + '</span>';
                                 } else if (data === 'Compounder Inventory') {
-                                    return '<span class="badge bg-info"><i class="bi bi-boxes me-1"></i>' + data + '</span>';
+                                    // Use dynamic inventory label based on plant
+                                    return '<span class="badge bg-info"><i class="bi bi-boxes me-1"></i>' + inventoryLabel + '</span>';
                                 }
                                 return data;
                             }

@@ -13,7 +13,9 @@
     var groupedMenus = await MenuService.GetGroupedMenuItemsForUserAsync(userName);
     var UserRole = User.FindFirst("RoleName")?.Value ?? "";
     var UserPlant = User.FindFirst("PlantName")?.Value ?? "";
-    var isTribeniPlant = UserPlant.Equals("Tribeni", StringComparison.OrdinalIgnoreCase);
+    var UserPlantCode = User.FindFirst("PlantCode")?.Value ?? "";
+    var isTribeniPlant = UserPlant.Equals("Tribeni", StringComparison.OrdinalIgnoreCase)
+                         || UserPlantCode.Equals("TRB", StringComparison.OrdinalIgnoreCase);
 }
 
 @{
@@ -70,7 +72,7 @@
                 <img src="~/images/logo_itc.png" alt="Logo" style="height:32px" />
             </a>
             <span class="mainTexinNav">Employee Medical System (EMS)  </span>
-            
+
 
             <ul class="nav top-nav d-none d-md-flex aligntnavcenter">
                 <li class="nav-item"><a class="nav-link" asp-controller="Dashboard" asp-action="" role="button"><i class="bi bi-display"></i>Dashboard</a> </li>
@@ -238,6 +240,14 @@
                         <div class="dropdown-menu mega-menu">
                             @foreach (var item in groupedMenus["Reports"])
                             {
+                                // Hide specific reports for Tribeni plant (PlantName = "Tribeni" or PlantCode = "TRB")
+                                if (isTribeniPlant && (item.ScreenName == "StoreCompounderSummaryReport"
+                                || item.ScreenName == "DiseaseTrendReport"
+                                || item.ScreenName == "DiagnosisCensusReport"))
+                                {
+                                    continue;
+                                }
+
                                 string screenName = item.ScreenName;
                                 string iconClass = "bi-graph-up"; // Default icon
 
@@ -526,15 +536,7 @@
 </body>
 </html>
 
-@* <script>
-    function showAlert(type, message) {
-        if (typeof toastr !== 'undefined') {
-            toastr[type](message);
-        } else {
-            alert(message);
-        }
-    }
-</script> *@
+
 <script>
     setInterval(() => {
         fetch('@Url.Action("check", "session")', {

@@ -961,13 +961,12 @@ namespace EMS.WebApp.Services
         }
 
         public async Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(
-         DateTime? fromDate = null,
-         DateTime? toDate = null,
-         int? userPlantId = null,
-         string currentUser = null,
-         bool isDoctor = false)
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        int? userPlantId = null,
+        string currentUser = null,
+        bool isDoctor = false)
         {
-            // Date range calculation
             var startDate = fromDate?.Date ?? DateTime.Today;
             var endDate = (toDate?.Date ?? DateTime.Today).AddDays(1).AddTicks(-1);
 
@@ -984,7 +983,7 @@ namespace EMS.WebApp.Services
 
                     if (applyBcmFilter)
                     {
-                        // Get all possible user identifiers (adid, email, full_name) for matching
+                        // FIX: Get all possible user identifiers INCLUDING combined format
                         var userRecord = await _db.SysUsers
                             .Where(u => (u.adid == currentUser || u.email == currentUser || u.full_name == currentUser) && u.is_active)
                             .Select(u => new { u.adid, u.email, u.full_name })
@@ -998,6 +997,12 @@ namespace EMS.WebApp.Services
                                 userIdentifiers.Add(userRecord.email);
                             if (!string.IsNullOrEmpty(userRecord.full_name))
                                 userIdentifiers.Add(userRecord.full_name);
+
+                            // FIX: Add combined format "ADID - FullName"
+                            if (!string.IsNullOrEmpty(userRecord.adid) && !string.IsNullOrEmpty(userRecord.full_name))
+                            {
+                                userIdentifiers.Add($"{userRecord.adid} - {userRecord.full_name}");
+                            }
                         }
 
                         if (!userIdentifiers.Contains(currentUser))
@@ -1014,16 +1019,18 @@ namespace EMS.WebApp.Services
                                                    && (p.ApprovalStatus == "Approved" || p.ApprovalStatus == "Completed" || p.ApprovalStatus == "Pending")
                                              select new { pm.MedItemId, mm.MedItemName, pm.Quantity, p.PlantId, p.CreatedBy };
 
-                // Apply plant filtering
                 if (userPlantId.HasValue)
                 {
                     doctorConsumptionQuery = doctorConsumptionQuery.Where(x => x.PlantId == userPlantId.Value);
                 }
 
-                // Apply BCM compounder-wise filtering
+                // FIX: Improved BCM filtering with proper string matching
                 if (applyBcmFilter && userIdentifiers.Any())
                 {
-                    doctorConsumptionQuery = doctorConsumptionQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
+                    doctorConsumptionQuery = doctorConsumptionQuery.Where(x =>
+                        userIdentifiers.Contains(x.CreatedBy) ||
+                        userIdentifiers.Any(ui => x.CreatedBy.Contains(ui))  // Partial match for combined formats
+                    );
                 }
 
                 var doctorConsumption = await doctorConsumptionQuery
@@ -1034,7 +1041,7 @@ namespace EMS.WebApp.Services
                         ConsumedQty = g.Sum(x => x.Quantity)
                     }).ToListAsync();
 
-                // Get consumption from Others Diagnoses
+                // Similar fix for OthersConsumption...
                 var othersConsumptionQuery = from dm in _db.OthersDiagnosisMedicines
                                              join d in _db.OthersDiagnoses on dm.DiagnosisId equals d.DiagnosisId
                                              join mm in _db.med_masters on dm.MedItemId equals mm.MedItemId
@@ -1043,16 +1050,17 @@ namespace EMS.WebApp.Services
                                                    && (d.ApprovalStatus == "Approved" || d.ApprovalStatus == "Completed" || d.ApprovalStatus == "Pending")
                                              select new { dm.MedItemId, mm.MedItemName, dm.Quantity, d.PlantId, d.CreatedBy };
 
-                // Apply plant filtering
                 if (userPlantId.HasValue)
                 {
                     othersConsumptionQuery = othersConsumptionQuery.Where(x => x.PlantId == userPlantId.Value);
                 }
 
-                // Apply BCM compounder-wise filtering
                 if (applyBcmFilter && userIdentifiers.Any())
                 {
-                    othersConsumptionQuery = othersConsumptionQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
+                    othersConsumptionQuery = othersConsumptionQuery.Where(x =>
+                        userIdentifiers.Contains(x.CreatedBy) ||
+                        userIdentifiers.Any(ui => x.CreatedBy.Contains(ui))
+                    );
                 }
 
                 var othersConsumption = await othersConsumptionQuery
@@ -1063,102 +1071,68 @@ namespace EMS.WebApp.Services
                         ConsumedQty = g.Sum(x => x.Quantity)
                     }).ToListAsync();
 
-                // Combine consumption data from both sources
+                // Combine consumption
                 var combinedConsumption = doctorConsumption.Concat(othersConsumption)
-                                                          .GroupBy(x => new { x.MedItemId, x.MedicineName })
-                                                          .Select(g => new {
-                                                              MedItemId = g.Key.MedItemId,
-                                                              MedicineName = g.Key.MedicineName,
-                                                              ConsumedQty = g.Sum(x => x.ConsumedQty)
-                                                          }).ToList();
+                    .GroupBy(x => new { x.MedItemId, x.MedicineName })
+                    .Select(g => new {
+                        MedItemId = g.Key.MedItemId,
+                        MedicineName = g.Key.MedicineName,
+                        ConsumedQty = g.Sum(x => x.ConsumedQty)
+                    }).ToList();
 
-                // Get all medicines (plant filtered)
-                var medicinesQuery = _db.med_masters.AsQueryable();
+                // FIX: Get ALL stock data in ONE query (avoid N+1 problem)
+                var stockBaseQuery = from ci in _db.CompounderIndents
+                                     join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
+                                     join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
+                                     select new { cii.MedItemId, cib.AvailableStock, cib.ReceivedQuantity, cib.ExpiryDate, ci.plant_id, ci.CreatedBy };
+
                 if (userPlantId.HasValue)
                 {
-                    medicinesQuery = medicinesQuery.Where(m => m.plant_id == userPlantId.Value);
+                    stockBaseQuery = stockBaseQuery.Where(x => x.plant_id == userPlantId.Value);
                 }
 
-                var allMedicines = await medicinesQuery
-                    .Select(m => new { m.MedItemId, m.MedItemName, m.plant_id })
-                    .ToListAsync();
-
-                var reportData = new List<DailyMedicineConsumptionReportDto>();
-                var medicinesWithConsumption = combinedConsumption.Select(c => c.MedItemId).ToList();
-                var allRelevantMedicineIds = allMedicines.Select(m => m.MedItemId).Union(medicinesWithConsumption).ToList();
-
-                foreach (var medicineId in allRelevantMedicineIds)
+                if (applyBcmFilter && userIdentifiers.Any())
                 {
-                    var medicine = allMedicines.FirstOrDefault(m => m.MedItemId == medicineId);
-                    var consumption = combinedConsumption.FirstOrDefault(c => c.MedItemId == medicineId);
+                    stockBaseQuery = stockBaseQuery.Where(x =>
+                        userIdentifiers.Contains(x.CreatedBy) ||
+                        userIdentifiers.Any(ui => x.CreatedBy.Contains(ui))
+                    );
+                }
 
-                    // Skip if medicine not in our plant and we have plant filtering
-                    if (medicine == null && userPlantId.HasValue) continue;
+                var allStockData = await stockBaseQuery.ToListAsync();
 
-                    var medicineName = medicine?.MedItemName ?? consumption?.MedicineName ?? "Unknown Medicine";
+                // Calculate current and expired stock from the fetched data
+                var currentStockByMedicine = allStockData
+                    .Where(x => x.ExpiryDate >= DateTime.Today)
+                    .GroupBy(x => x.MedItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.AvailableStock));
 
-                    // Get current available stock (non-expired) from CompounderIndentBatches
-                    // UPDATED: Added CreatedBy for BCM compounder-wise filtering
-                    var currentStockQuery = from ci in _db.CompounderIndents
-                                            join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
-                                            join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
-                                            where cii.MedItemId == medicineId
-                                                  && cib.ExpiryDate >= DateTime.Today
-                                            select new { cib.AvailableStock, ci.plant_id, ci.CreatedBy };
+                var expiredStockByMedicine = allStockData
+                    .Where(x => x.ExpiryDate < DateTime.Today)
+                    .GroupBy(x => x.MedItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.AvailableStock));
 
-                    // Apply plant filtering
-                    if (userPlantId.HasValue)
+                var receivedQtyByMedicine = allStockData
+                    .GroupBy(x => x.MedItemId)
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.ReceivedQuantity));
+                // Build report
+                var reportData = new List<DailyMedicineConsumptionReportDto>();
+
+                foreach (var consumption in combinedConsumption.Where(c => c.ConsumedQty > 0))
+                {
+                    var currentStock = currentStockByMedicine.GetValueOrDefault(consumption.MedItemId, 0);
+                    var expiredStock = expiredStockByMedicine.GetValueOrDefault(consumption.MedItemId, 0);
+                    var receivedQty = receivedQtyByMedicine.GetValueOrDefault(consumption.MedItemId, 0);
+                    reportData.Add(new DailyMedicineConsumptionReportDto
                     {
-                        currentStockQuery = currentStockQuery.Where(x => x.plant_id == userPlantId.Value);
-                    }
-
-                    // NEW: Apply BCM compounder-wise filtering for current stock
-                    if (applyBcmFilter && userIdentifiers.Any())
-                    {
-                        currentStockQuery = currentStockQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
-                    }
-
-                    var currentStock = await currentStockQuery.SumAsync(x => x.AvailableStock);
-
-                    // Get expired quantity from CompounderIndentBatches
-                    // UPDATED: Added CreatedBy for BCM compounder-wise filtering
-                    var expiredStockQuery = from ci in _db.CompounderIndents
-                                            join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
-                                            join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
-                                            where cii.MedItemId == medicineId
-                                                  && cib.ExpiryDate < DateTime.Today
-                                            select new { cib.AvailableStock, ci.plant_id, ci.CreatedBy };
-
-                    // Apply plant filtering
-                    if (userPlantId.HasValue)
-                    {
-                        expiredStockQuery = expiredStockQuery.Where(x => x.plant_id == userPlantId.Value);
-                    }
-
-                    // NEW: Apply BCM compounder-wise filtering for expired stock
-                    if (applyBcmFilter && userIdentifiers.Any())
-                    {
-                        expiredStockQuery = expiredStockQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
-                    }
-
-                    var expiredStock = await expiredStockQuery.SumAsync(x => x.AvailableStock);
-
-                    var consumedQty = consumption?.ConsumedQty ?? 0;
-
-                    // Include ONLY if consumption (IssuedQty) is greater than 0
-                    if (consumedQty > 0)
-                    {
-                        reportData.Add(new DailyMedicineConsumptionReportDto
-                        {
-                            MedicineName = medicineName,
-                            TotalStockInCompounderInventory = currentStock,
-                            IssuedQty = consumedQty,
-                            ExpiredQty = expiredStock,
-                            PlantName = "N/A",
-                            // NEW: Calculate Total Available at Compounder Inventory = TotalStock + IssuedQty + ExpiredQty
-                            TotalAvailableAtCompounderInventory = currentStock + consumedQty + expiredStock
-                        });
-                    }
+                        MedicineName = consumption.MedicineName,
+                        TotalStockInCompounderInventory = currentStock,
+                        IssuedQty = consumption.ConsumedQty,
+                        ExpiredQty = expiredStock,
+                        PlantName = "N/A",
+                        //TotalAvailableAtCompounderInventory = currentStock + consumption.ConsumedQty + expiredStock
+                        TotalAvailableAtCompounderInventory = receivedQty
+                    });
                 }
 
                 return reportData.OrderBy(r => r.MedicineName);
@@ -1168,6 +1142,215 @@ namespace EMS.WebApp.Services
                 return new List<DailyMedicineConsumptionReportDto>();
             }
         }
+
+        //public async Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(
+        // DateTime? fromDate = null,
+        // DateTime? toDate = null,
+        // int? userPlantId = null,
+        // string currentUser = null,
+        // bool isDoctor = false)
+        //{
+        //    // Date range calculation
+        //    var startDate = fromDate?.Date ?? DateTime.Today;
+        //    var endDate = (toDate?.Date ?? DateTime.Today).AddDays(1).AddTicks(-1);
+
+        //    try
+        //    {
+        //        // Check if BCM plant filtering should be applied
+        //        bool applyBcmFilter = false;
+        //        List<string> userIdentifiers = new List<string>();
+
+        //        if (userPlantId.HasValue && !isDoctor && !string.IsNullOrEmpty(currentUser))
+        //        {
+        //            var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
+        //            applyBcmFilter = plantCode?.ToUpper() == "BCM";
+
+        //            if (applyBcmFilter)
+        //            {
+        //                // Get all possible user identifiers (adid, email, full_name) for matching
+        //                var userRecord = await _db.SysUsers
+        //                    .Where(u => (u.adid == currentUser || u.email == currentUser || u.full_name == currentUser) && u.is_active)
+        //                    .Select(u => new { u.adid, u.email, u.full_name })
+        //                    .FirstOrDefaultAsync();
+
+        //                if (userRecord != null)
+        //                {
+        //                    if (!string.IsNullOrEmpty(userRecord.adid))
+        //                        userIdentifiers.Add(userRecord.adid);
+        //                    if (!string.IsNullOrEmpty(userRecord.email))
+        //                        userIdentifiers.Add(userRecord.email);
+        //                    if (!string.IsNullOrEmpty(userRecord.full_name))
+        //                        userIdentifiers.Add(userRecord.full_name);
+        //                }
+
+        //                if (!userIdentifiers.Contains(currentUser))
+        //                    userIdentifiers.Add(currentUser);
+        //            }
+        //        }
+
+        //        // Get consumption from Doctor Prescriptions
+        //        var doctorConsumptionQuery = from pm in _db.MedPrescriptionMedicines
+        //                                     join p in _db.MedPrescriptions on pm.PrescriptionId equals p.PrescriptionId
+        //                                     join mm in _db.med_masters on pm.MedItemId equals mm.MedItemId
+        //                                     where p.PrescriptionDate >= startDate
+        //                                           && p.PrescriptionDate <= endDate
+        //                                           && (p.ApprovalStatus == "Approved" || p.ApprovalStatus == "Completed" || p.ApprovalStatus == "Pending")
+        //                                     select new { pm.MedItemId, mm.MedItemName, pm.Quantity, p.PlantId, p.CreatedBy };
+
+        //        // Apply plant filtering
+        //        if (userPlantId.HasValue)
+        //        {
+        //            doctorConsumptionQuery = doctorConsumptionQuery.Where(x => x.PlantId == userPlantId.Value);
+        //        }
+
+        //        // Apply BCM compounder-wise filtering
+        //        if (applyBcmFilter && userIdentifiers.Any())
+        //        {
+        //            doctorConsumptionQuery = doctorConsumptionQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
+        //        }
+
+        //        var doctorConsumption = await doctorConsumptionQuery
+        //            .GroupBy(x => new { x.MedItemId, x.MedItemName })
+        //            .Select(g => new {
+        //                MedItemId = g.Key.MedItemId,
+        //                MedicineName = g.Key.MedItemName,
+        //                ConsumedQty = g.Sum(x => x.Quantity)
+        //            }).ToListAsync();
+
+        //        // Get consumption from Others Diagnoses
+        //        var othersConsumptionQuery = from dm in _db.OthersDiagnosisMedicines
+        //                                     join d in _db.OthersDiagnoses on dm.DiagnosisId equals d.DiagnosisId
+        //                                     join mm in _db.med_masters on dm.MedItemId equals mm.MedItemId
+        //                                     where d.VisitDate >= startDate
+        //                                           && d.VisitDate <= endDate
+        //                                           && (d.ApprovalStatus == "Approved" || d.ApprovalStatus == "Completed" || d.ApprovalStatus == "Pending")
+        //                                     select new { dm.MedItemId, mm.MedItemName, dm.Quantity, d.PlantId, d.CreatedBy };
+
+        //        // Apply plant filtering
+        //        if (userPlantId.HasValue)
+        //        {
+        //            othersConsumptionQuery = othersConsumptionQuery.Where(x => x.PlantId == userPlantId.Value);
+        //        }
+
+        //        // Apply BCM compounder-wise filtering
+        //        if (applyBcmFilter && userIdentifiers.Any())
+        //        {
+        //            othersConsumptionQuery = othersConsumptionQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
+        //        }
+
+        //        var othersConsumption = await othersConsumptionQuery
+        //            .GroupBy(x => new { x.MedItemId, x.MedItemName })
+        //            .Select(g => new {
+        //                MedItemId = g.Key.MedItemId,
+        //                MedicineName = g.Key.MedItemName,
+        //                ConsumedQty = g.Sum(x => x.Quantity)
+        //            }).ToListAsync();
+
+        //        // Combine consumption data from both sources
+        //        var combinedConsumption = doctorConsumption.Concat(othersConsumption)
+        //                                                  .GroupBy(x => new { x.MedItemId, x.MedicineName })
+        //                                                  .Select(g => new {
+        //                                                      MedItemId = g.Key.MedItemId,
+        //                                                      MedicineName = g.Key.MedicineName,
+        //                                                      ConsumedQty = g.Sum(x => x.ConsumedQty)
+        //                                                  }).ToList();
+
+        //        // Get all medicines (plant filtered)
+        //        var medicinesQuery = _db.med_masters.AsQueryable();
+        //        if (userPlantId.HasValue)
+        //        {
+        //            medicinesQuery = medicinesQuery.Where(m => m.plant_id == userPlantId.Value);
+        //        }
+
+        //        var allMedicines = await medicinesQuery
+        //            .Select(m => new { m.MedItemId, m.MedItemName, m.plant_id })
+        //            .ToListAsync();
+
+        //        var reportData = new List<DailyMedicineConsumptionReportDto>();
+        //        var medicinesWithConsumption = combinedConsumption.Select(c => c.MedItemId).ToList();
+        //        var allRelevantMedicineIds = allMedicines.Select(m => m.MedItemId).Union(medicinesWithConsumption).ToList();
+
+        //        foreach (var medicineId in allRelevantMedicineIds)
+        //        {
+        //            var medicine = allMedicines.FirstOrDefault(m => m.MedItemId == medicineId);
+        //            var consumption = combinedConsumption.FirstOrDefault(c => c.MedItemId == medicineId);
+
+        //            // Skip if medicine not in our plant and we have plant filtering
+        //            if (medicine == null && userPlantId.HasValue) continue;
+
+        //            var medicineName = medicine?.MedItemName ?? consumption?.MedicineName ?? "Unknown Medicine";
+
+        //            // Get current available stock (non-expired) from CompounderIndentBatches
+        //            // UPDATED: Added CreatedBy for BCM compounder-wise filtering
+        //            var currentStockQuery = from ci in _db.CompounderIndents
+        //                                    join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
+        //                                    join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
+        //                                    where cii.MedItemId == medicineId
+        //                                          && cib.ExpiryDate >= DateTime.Today
+        //                                    select new { cib.AvailableStock, ci.plant_id, ci.CreatedBy };
+
+        //            // Apply plant filtering
+        //            if (userPlantId.HasValue)
+        //            {
+        //                currentStockQuery = currentStockQuery.Where(x => x.plant_id == userPlantId.Value);
+        //            }
+
+        //            // NEW: Apply BCM compounder-wise filtering for current stock
+        //            if (applyBcmFilter && userIdentifiers.Any())
+        //            {
+        //                currentStockQuery = currentStockQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
+        //            }
+
+        //            var currentStock = await currentStockQuery.SumAsync(x => x.AvailableStock);
+
+        //            // Get expired quantity from CompounderIndentBatches
+        //            // UPDATED: Added CreatedBy for BCM compounder-wise filtering
+        //            var expiredStockQuery = from ci in _db.CompounderIndents
+        //                                    join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
+        //                                    join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
+        //                                    where cii.MedItemId == medicineId
+        //                                          && cib.ExpiryDate < DateTime.Today
+        //                                    select new { cib.AvailableStock, ci.plant_id, ci.CreatedBy };
+
+        //            // Apply plant filtering
+        //            if (userPlantId.HasValue)
+        //            {
+        //                expiredStockQuery = expiredStockQuery.Where(x => x.plant_id == userPlantId.Value);
+        //            }
+
+        //            // NEW: Apply BCM compounder-wise filtering for expired stock
+        //            if (applyBcmFilter && userIdentifiers.Any())
+        //            {
+        //                expiredStockQuery = expiredStockQuery.Where(x => userIdentifiers.Contains(x.CreatedBy));
+        //            }
+
+        //            var expiredStock = await expiredStockQuery.SumAsync(x => x.AvailableStock);
+
+        //            var consumedQty = consumption?.ConsumedQty ?? 0;
+
+        //            // Include ONLY if consumption (IssuedQty) is greater than 0
+        //            if (consumedQty > 0)
+        //            {
+        //                reportData.Add(new DailyMedicineConsumptionReportDto
+        //                {
+        //                    MedicineName = medicineName,
+        //                    TotalStockInCompounderInventory = currentStock,
+        //                    IssuedQty = consumedQty,
+        //                    ExpiredQty = expiredStock,
+        //                    PlantName = "N/A",
+        //                    // NEW: Calculate Total Available at Compounder Inventory = TotalStock + IssuedQty + ExpiredQty
+        //                    TotalAvailableAtCompounderInventory = currentStock + consumedQty + expiredStock
+        //                });
+        //            }
+        //        }
+
+        //        return reportData.OrderBy(r => r.MedicineName);
+        //    }
+        //    catch (Exception)
+        //    {
+        //        return new List<DailyMedicineConsumptionReportDto>();
+        //    }
+        //}
 
 
         public async Task<IEnumerable<MedicineMasterCompounderReportDto>> GetMedicineMasterCompounderReportAsync(int? userPlantId = null)

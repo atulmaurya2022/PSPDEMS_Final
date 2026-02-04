@@ -1,5 +1,5 @@
 ﻿@{
-    ViewData["Title"] = "Compounder Dashboard";
+    ViewData["Title"] = "Compounder/Pharmacist Dashboard";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 <style>
@@ -614,12 +614,12 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb breadcrumb-custom">
             <li class="breadcrumb-item">Home</li>
-            <li class="breadcrumb-item active" aria-current="page" id="breadcrumbTitle">Compounder Dashboard</li>
+            <li class="breadcrumb-item active" aria-current="page" id="breadcrumbTitle">Compounder/Pharmacist Dashboard</li>
         </ol>
     </nav>
     <h1 class="dashboard-title">
         <i class="bi bi-person-workspace"></i>
-        <span id="pageTitle">Compounder Dashboard</span>
+        <span id="pageTitle">Compounder/Pharmacist Dashboard</span>
     </h1>
     <p class="dashboard-subtitle">Monitor inventory, indents, and medicine stock levels</p>
 </div>
@@ -848,7 +848,7 @@
             <div class="modal-header modal-header-enhanced">
                 <h5 class="modal-title modal-title-enhanced" id="mdlPendingLabel">
                     <i class="bi bi-inbox"></i>
-                    Pending Compounder Indents
+                    <span id="pendingModalTitle">Pending Compounder Indents</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -1175,16 +1175,19 @@
         // Plant-based label configuration
         let isTribeniPlant = false;
         let roleLabelSingular = 'Compounder';
-        let roleLabelPlural = 'Compounder';
+        let roleLabelPlural = 'Compounder/Pharmacist';
 
         // Function to update page labels based on plant
         function updateDashboardLabels() {
             roleLabelSingular = isTribeniPlant ? 'Pharmacist' : 'Compounder';
-            roleLabelPlural = isTribeniPlant ? 'Pharmacist' : 'Compounder';
+            roleLabelPlural = isTribeniPlant ? 'Pharmacist' : 'Compounder/Pharmacist';
 
             // Update page title and headers
             $('#breadcrumbTitle').text(roleLabelPlural + ' Dashboard');
             $('#pageTitle').text(roleLabelPlural + ' Dashboard');
+
+            // Update modal titles
+            $('#pendingModalTitle').text('Pending ' + roleLabelSingular + ' Indents');
 
             // Update document title
             document.title = roleLabelPlural + ' Dashboard | EMS';
@@ -1384,7 +1387,7 @@
 
                         $.get(detailsUrl)
                         .done(html => {
-                            modalEl.find('.modal-title').text('View Compounder Indent');
+                            modalEl.find('.modal-title').text('View ' + roleLabelSingular + ' Indent');
                             $('#modalBody').html(html);
                             modalEl.modal('show');
 
