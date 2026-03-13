@@ -292,61 +292,6 @@ namespace EMS.WebApp.Controllers
             }
         }
 
-        //[HttpPost]
-        //[ValidateAntiForgeryToken]
-        //public async Task<IActionResult> Delete(int id)
-        //{
-        //    try
-        //    {
-        //        // NEW: Get user's plant ID
-        //        var userPlantId = await GetCurrentUserPlantIdAsync();
-
-        //        // Log delete attempt (critical operation)
-        //        await _auditService.LogAsync("others_diagnosis", "DELETE_ATTEMPT", id.ToString(), null, null,
-        //            $"Others diagnosis deletion attempted for ID: {id}, Plant: {userPlantId}");
-
-        //        // Check permissions for deletion
-        //        var userRole = await GetUserRoleAsync();
-        //        if (_maskingService.ShouldMaskData(userRole))
-        //        {
-        //            await _auditService.LogAsync("others_diagnosis", "DELETE_DENIED", id.ToString(), null, null,
-        //                $"Others diagnosis deletion denied - insufficient permissions for role: {userRole}");
-        //            TempData["Error"] = "You don't have permission to delete diagnoses.";
-        //            return RedirectToAction(nameof(Index));
-        //        }
-
-        //        // NEW: Pass plant filtering to repository
-        //        var success = await _repository.DeleteDiagnosisAsync(id, userPlantId);
-        //        if (success)
-        //        {
-        //            // Log successful deletion (critical operation)
-        //            await _auditService.LogUpdateAsync("others_diagnosis", id.ToString(),
-        //                null, new { Status = "Deleted", DeletedBy = User.Identity?.Name ?? "unknown", PlantId = userPlantId },
-        //                $"Others diagnosis deleted successfully by: {User.Identity?.Name ?? "unknown"}, Plant: {userPlantId}");
-
-        //            TempData["Success"] = "Diagnosis record deleted successfully.";
-        //        }
-        //        else
-        //        {
-        //            await _auditService.LogAsync("others_diagnosis", "DELETE_NOTFOUND", id.ToString(), null, null,
-        //                "Others diagnosis deletion failed - record not found or access denied");
-        //            TempData["Error"] = "Failed to delete diagnosis record or access denied.";
-        //        }
-
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, $"Error deleting diagnosis with ID: {id}");
-        //        await _auditService.LogAsync("others_diagnosis", "DELETE_ERROR", id.ToString(), null, null,
-        //            $"Others diagnosis deletion failed with error: {ex.Message}");
-        //        TempData["Error"] = "Error deleting diagnosis record.";
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //}
-
-        // AJAX Methods
-
         [HttpGet]
         public async Task<IActionResult> SearchPatient(string treatmentId)
         {
@@ -438,6 +383,7 @@ namespace EMS.WebApp.Controllers
                         daysToExpiry = m.DaysToExpiry,
                         availableStock = m.AvailableStock,
                         batchNo = m.BatchNo,
+                        batchId = m.BatchId,
                         expiryDate = m.ExpiryDate?.ToString("yyyy-MM-dd"),
                         companyName = m.CompanyName,
                         expiryClass = m.DaysToExpiry switch
@@ -613,8 +559,8 @@ namespace EMS.WebApp.Controllers
                     _logger.LogInformation("=== Medicine Details ===");
                     foreach (var med in model.PrescriptionMedicines)
                     {
-                        _logger.LogInformation("Medicine: MedItemId={MedItemId}, Quantity={Quantity}, Dose={Dose}, Name={Name}, IndentItemId={IndentItemId}, BatchNo={BatchNo}",
-                            med.MedItemId, med.Quantity, med.Dose, med.MedicineName, med.IndentItemId, med.BatchNo);
+                        _logger.LogInformation("Medicine: MedItemId={MedItemId}, Quantity={Quantity}, Dose={Dose}, Name={Name}, IndentItemId={IndentItemId}, BatchId={BatchId}, BatchNo={BatchNo}",
+                            med.MedItemId, med.Quantity, med.Dose, med.MedicineName, med.IndentItemId, med.BatchId, med.BatchNo);
                     }
                 }
 
@@ -691,20 +637,24 @@ namespace EMS.WebApp.Controllers
                 {
                     foreach (var medicine in model.PrescriptionMedicines)
                     {
+                        // BATCH TRACKING FIX: Log BatchId for debugging
+                        _logger.LogInformation($"🔍 [BATCH DEBUG] Stock validation - MedItemId={medicine.MedItemId}, BatchId={medicine.BatchId}, IndentItemId={medicine.IndentItemId}, BatchNo={medicine.BatchNo}, Qty={medicine.Quantity}");
+
                         if (medicine.IndentItemId.HasValue && medicine.IndentItemId.Value > 0)
                         {
-                            // NEW: Pass plant filtering to repository
                             var availableStock = await _repository.GetAvailableStockAsync(medicine.IndentItemId.Value, userPlantId);
                             if (medicine.Quantity > availableStock)
                             {
-                                await _auditService.LogAsync("others_diagnosis", "AJAX_SAVE_NOSTOCK", model.TreatmentId, null, null,
-                                    $"AJAX diagnosis save failed - insufficient stock for {medicine.MedicineName}");
                                 return Json(new
                                 {
                                     success = false,
                                     message = $"Insufficient stock for {medicine.MedicineName} (Batch: {medicine.BatchNo}). Available: {availableStock}, Requested: {medicine.Quantity}"
                                 });
                             }
+                        }
+                        else if (!medicine.BatchId.HasValue || medicine.BatchId.Value == 0)
+                        {
+                            _logger.LogWarning($"⚠️ [BATCH DEBUG] Medicine {medicine.MedItemId} has no BatchId and no IndentItemId - stock cannot be tracked!");
                         }
                     }
                 }
@@ -1089,8 +1039,6 @@ namespace EMS.WebApp.Controllers
                 return Json(new { error = ex.Message });
             }
         }
-
-        // ======= NEW: Helper method to get current user's plant ID =======
         private async Task<int?> GetCurrentUserPlantIdAsync()
         {
             try
@@ -1208,71 +1156,6 @@ namespace EMS.WebApp.Controllers
                 return RedirectToAction(nameof(Index));
             }
         }
-
-        //[HttpGet]
-        //public async Task<IActionResult> Edit(int id)
-        //{
-        //    try
-        //    {
-        //        var userPlantId = await GetCurrentUserPlantIdAsync();
-        //        var userRole = await GetUserRoleAsync();
-
-        //        ViewBag.UserRole = userRole;
-        //        ViewBag.UserPlantId = userPlantId;
-        //        ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
-
-        //        // Log edit attempt
-        //        await _auditService.LogAsync("others_diagnosis", "EDIT_ATTEMPT", id.ToString(), null, null,
-        //            $"Others diagnosis edit form access attempted for ID: {id}, Plant: {userPlantId}");
-
-        //        // Check if user has permission to edit diagnoses
-        //        if (_maskingService.ShouldMaskData(userRole))
-        //        {
-        //            await _auditService.LogAsync("others_diagnosis", "EDIT_DENIED", id.ToString(), null, null,
-        //                $"Others diagnosis edit denied - insufficient permissions for role: {userRole}");
-        //            TempData["Error"] = "You don't have permission to edit diagnoses.";
-        //            return RedirectToAction(nameof(Index));
-        //        }
-
-        //        // Check if diagnosis can be edited
-        //        var permissionResult = await _repository.CanEditDiagnosisAsync(id, userPlantId);
-        //        if (!permissionResult.CanEdit)
-        //        {
-        //            await _auditService.LogAsync("others_diagnosis", "EDIT_NOTALLOWED", id.ToString(), null, null,
-        //                $"Others diagnosis edit not allowed: {permissionResult.Message}");
-        //            TempData["Error"] = permissionResult.Message;
-        //            return RedirectToAction(nameof(Index));
-        //        }
-
-        //        // Get diagnosis for editing
-        //        var editModel = await _repository.GetDiagnosisForEditAsync(id, userPlantId);
-        //        if (editModel == null)
-        //        {
-        //            await _auditService.LogAsync("others_diagnosis", "EDIT_NOTFOUND", id.ToString(), null, null,
-        //                $"Others diagnosis not found for edit in plant: {userPlantId}");
-        //            TempData["Error"] = "Diagnosis not found or cannot be edited.";
-        //            return RedirectToAction(nameof(Index));
-        //        }
-
-        //        // Apply data masking if needed
-        //        _maskingService.MaskObject(editModel, userRole);
-
-        //        // Log successful access
-        //        await _auditService.LogViewAsync("others_diagnosis", id.ToString(),
-        //            $"Others diagnosis edit form accessed - Patient: {editModel.PatientName}, Status: {editModel.ApprovalStatus}, Plant: {userPlantId}");
-
-        //        return View(editModel);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, $"Error loading edit form for Others diagnosis {id}");
-        //        await _auditService.LogAsync("others_diagnosis", "EDIT_ERROR", id.ToString(), null, null,
-        //            $"Others diagnosis edit form load failed: {ex.Message}");
-        //        TempData["Error"] = "Error loading diagnosis for editing.";
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //}
-
         [HttpPost]
         public async Task<IActionResult> Edit(int diagnosisId, List<int> selectedDiseases,
             List<OthersPrescriptionMedicine> medicines, OthersDiagnosisViewModel basicInfo)
@@ -1312,6 +1195,15 @@ namespace EMS.WebApp.Controllers
                 }
 
                 var userId = User.FindFirst("user_id")?.Value ?? User.Identity?.Name + " - " + User.GetFullName() ?? "anonymous";
+
+                // BATCH TRACKING FIX: Log BatchId for debugging
+                if (medicines?.Any() == true)
+                {
+                    foreach (var med in medicines)
+                    {
+                        _logger.LogInformation($"🔍 [EDIT BATCH DEBUG] MedItemId={med.MedItemId}, BatchId={med.BatchId}, IndentItemId={med.IndentItemId}, BatchNo={med.BatchNo}, Qty={med.Quantity}");
+                    }
+                }
 
                 // Update diagnosis
                 var updateResult = await _repository.UpdateDiagnosisAsync(
@@ -1455,6 +1347,7 @@ namespace EMS.WebApp.Controllers
                     daysToExpiry = m.DaysToExpiry,
                     availableStock = m.AvailableStock,
                     batchNo = m.BatchNo,
+                    batchId = m.BatchId,
                     expiryDate = m.ExpiryDate?.ToString("yyyy-MM-dd"),
                     companyName = m.CompanyName,
                     plantId = m.PlantId,
@@ -1502,118 +1395,64 @@ namespace EMS.WebApp.Controllers
             {
                 _logger.LogInformation($"Getting stock info for {currentMedicines.Count} existing Others medicines in plant {userPlantId}");
 
-                // Get current user and role for BCM filtering
-                var userRole = await GetUserRoleAsync();
-                var isDoctor = userRole?.ToLower() == "doctor";
-                var currentUser = User.Identity?.Name + " - " + User.GetFullName();
-
-                // UPDATED: Pass currentUser and isDoctor for BCM filtering
-                var medicineStocks = await _repository.GetMedicinesFromCompounderIndentAsync(
-                    userPlantId,
-                    currentUser,
-                    isDoctor
-                );
-
-                _logger.LogInformation($"Found {medicineStocks.Count} total medicine stock records for Others diagnosis");
-
                 foreach (var medicine in currentMedicines)
                 {
-                    _logger.LogInformation($"Looking for stock info for Others medicine ID: {medicine.MedItemId}, Name: {medicine.MedicineName}");
+                    // USE repository-resolved batch data (already has correct BatchId, BatchNo, AvailableStock)
+                    var batchNo = medicine.BatchNo ?? "N/A";
+                    var availableStock = medicine.AvailableStock ?? 0;
+                    var indentItemId = medicine.IndentItemId ?? 0;
+                    var expiryDate = medicine.ExpiryDate;
+                    var batchId = medicine.BatchId ?? 0;
 
-                    // Find ALL matching stock records for this medicine
-                    var allMatchingStocks = medicineStocks
-                        .Where(stock => stock.MedItemId == medicine.MedItemId)
-                        .ToList();
+                    // Calculate display stock
+                    var displayStock = availableStock;
 
-                    _logger.LogInformation($"Found {allMatchingStocks.Count} stock records for Others medicine ID {medicine.MedItemId}");
+                    // Calculate expiry info
+                    var daysToExpiry = expiryDate.HasValue
+                        ? (int)(expiryDate.Value - DateTime.Today).TotalDays
+                        : -999;
 
-                    // Try to find available stock first (FIFO - earliest expiry first)
-                    var matchingStock = allMatchingStocks
-                        .Where(stock => stock.AvailableStock > 0)
-                        .OrderBy(stock => stock.ExpiryDate ?? DateTime.MaxValue)
-                        .ThenBy(stock => stock.BatchNo)
-                        .FirstOrDefault();
+                    var expiryDateStr = expiryDate?.ToString("yyyy-MM-dd") ?? "";
+                    var expiryFormatted = expiryDate.HasValue
+                        ? $"{expiryDateStr} ({daysToExpiry}d)"
+                        : "No expiry info";
 
-                    // If no available stock, try to get any stock record for display info
-                    if (matchingStock == null)
+                    string expiryClass = daysToExpiry switch
                     {
-                        matchingStock = allMatchingStocks
-                            .OrderBy(stock => stock.ExpiryDate ?? DateTime.MaxValue)
-                            .ThenBy(stock => stock.BatchNo)
-                            .FirstOrDefault();
+                        < 0 => "text-danger",
+                        <= 7 => "text-warning",
+                        <= 30 => "text-info",
+                        _ => "text-success"
+                    };
 
-                        _logger.LogWarning($"No available stock for Others medicine ID {medicine.MedItemId}, using first stock record for info");
-                    }
-
-                    if (matchingStock != null)
+                    string expiryLabel = daysToExpiry switch
                     {
-                        // Add the current prescription quantity back to available stock for display
-                        var displayStock = 0;
-                        if (approvalStatus != "Rejected")
-                        {
-                            displayStock = matchingStock.AvailableStock + medicine.Quantity;
-                        }
-                        else
-                        {
-                            displayStock = matchingStock.AvailableStock;
-                        }
+                        -999 => "No current stock",
+                        < 0 => "EXPIRED",
+                        _ => $"{expiryDateStr} - ({daysToExpiry}d)"
+                    };
 
-                        _logger.LogInformation($"Others medicine ID {medicine.MedItemId}: Stock {matchingStock.AvailableStock} + Current {medicine.Quantity} = Display {displayStock}");
+                    _logger.LogInformation($"Others Medicine ID {medicine.MedItemId}: BatchId={batchId}, BatchNo={batchNo}, Stock={displayStock}");
 
-                        result.Add(new
-                        {
-                            medItemId = medicine.MedItemId,
-                            medicineName = medicine.MedicineName,
-                            baseName = medicine.BaseName,
-                            quantity = medicine.Quantity,
-                            dose = medicine.Dose,
-                            companyName = medicine.CompanyName,
-                            // Real stock and expiry information
-                            indentItemId = matchingStock.IndentItemId,
-                            availableStock = displayStock,
-                            batchNo = matchingStock.BatchNo ?? "N/A",
-                            expiryDate = matchingStock.ExpiryDate?.ToString("yyyy-MM-dd") ?? "",
-                            expiryDateFormatted = matchingStock.ExpiryDateFormatted ?? "N/A",
-                            daysToExpiry = matchingStock.DaysToExpiry,
-                            expiryClass = matchingStock.DaysToExpiry switch
-                            {
-                                < 0 => "text-danger",
-                                <= 7 => "text-warning",
-                                <= 30 => "text-info",
-                                _ => "text-success"
-                            },
-                            expiryLabel = matchingStock.DaysToExpiry switch
-                            {
-                                < 0 => "EXPIRED",
-                                <= 7 => $"{matchingStock.ExpiryDate?.ToString("yyyy-MM-dd")} - ({matchingStock.DaysToExpiry}d)",
-                                <= 30 => $"{matchingStock.ExpiryDate?.ToString("yyyy-MM-dd")} - ({matchingStock.DaysToExpiry}d)",
-                                _ => $"Expires: {matchingStock.ExpiryDateFormatted}"
-                            }
-                        });
-                    }
-                    else
+                    result.Add(new
                     {
-                        _logger.LogWarning($"No stock records found for Others medicine ID {medicine.MedItemId} - {medicine.MedicineName}");
-
-                        // Return basic info without stock data
-                        result.Add(new
-                        {
-                            medItemId = medicine.MedItemId,
-                            medicineName = medicine.MedicineName,
-                            baseName = medicine.BaseName,
-                            quantity = medicine.Quantity,
-                            dose = medicine.Dose,
-                            companyName = medicine.CompanyName,
-                            indentItemId = 0,
-                            availableStock = 0,
-                            batchNo = "N/A",
-                            expiryDate = "",
-                            expiryDateFormatted = "No stock record",
-                            daysToExpiry = -999,
-                            expiryClass = "text-warning",
-                            expiryLabel = "No current stock"
-                        });
-                    }
+                        medItemId = medicine.MedItemId,
+                        medicineName = medicine.MedicineName,
+                        baseName = medicine.BaseName,
+                        quantity = medicine.Quantity,
+                        dose = medicine.Dose,
+                        companyName = medicine.CompanyName,
+                        // Use repository-resolved batch data
+                        indentItemId = indentItemId,
+                        batchId = batchId,
+                        availableStock = displayStock,
+                        batchNo = batchNo,
+                        expiryDate = expiryDateStr,
+                        expiryDateFormatted = expiryFormatted,
+                        daysToExpiry = daysToExpiry,
+                        expiryClass = expiryClass,
+                        expiryLabel = expiryLabel
+                    });
                 }
 
                 _logger.LogInformation($"Completed stock info lookup for Others diagnosis - {result.Count} medicines processed");
@@ -1632,10 +1471,11 @@ namespace EMS.WebApp.Controllers
                     quantity = m.Quantity,
                     dose = m.Dose,
                     companyName = m.CompanyName,
-                    indentItemId = 0,
-                    availableStock = 0,
-                    batchNo = "Error",
-                    expiryDate = "",
+                    indentItemId = m.IndentItemId ?? 0,
+                    batchId = m.BatchId ?? 0,
+                    availableStock = m.AvailableStock ?? 0,
+                    batchNo = m.BatchNo ?? "Error",
+                    expiryDate = m.ExpiryDate?.ToString("yyyy-MM-dd") ?? "",
                     expiryDateFormatted = "Error loading",
                     daysToExpiry = -999,
                     expiryClass = "text-danger",

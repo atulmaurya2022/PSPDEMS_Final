@@ -470,15 +470,17 @@ namespace EMS.WebApp.Controllers
                 await _auditService.LogAsync("expired_medicine", "STATS_ACCESS", "system", null, null,
                     $"Statistics accessed for plant: {userPlantId}, Role: {userRole}");
 
+                var currentUser = GetCurrentUserIdentifier();
+
                 // Get statistics WITH ROLE-BASED FILTERING
                 var stats = new
                 {
-                    totalExpired = await _repo.GetTotalExpiredCountAsync(userPlantId, userRole),
-                    pendingDisposal = await _repo.GetPendingDisposalCountAsync(userPlantId, userRole),
-                    disposed = await _repo.GetDisposedCountAsync(userPlantId, userRole),
+                    totalExpired = await _repo.GetTotalExpiredCountAsync(userPlantId, userRole, currentUser),
+                    pendingDisposal = await _repo.GetPendingDisposalCountAsync(userPlantId, userRole, currentUser),
+                    disposed = await _repo.GetDisposedCountAsync(userPlantId, userRole, currentUser),
                     totalValue = await _repo.GetTotalExpiredValueAsync(userPlantId, userRole),
                     criticalCount = (await _repo.GetCriticalExpiredMedicinesAsync(userPlantId, userRole)).Count(),
-                    sourceTypeStats = await _repo.GetStatisticsBySourceTypeAsync(userPlantId, userRole)
+                    sourceTypeStats = await _repo.GetStatisticsBySourceTypeAsync(userPlantId, userRole, currentUser)
                 };
 
                 return Json(new { success = true, data = stats });

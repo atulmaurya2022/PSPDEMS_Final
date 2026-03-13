@@ -394,7 +394,7 @@
     }
 }
 @section Scripts {
-    
+
     <link href="~/css/select2.min.css" rel="stylesheet" />
     <link href="~/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
     <script src="~/js/select2.min.js"></script>
@@ -485,42 +485,65 @@
              }
              @if (Model.CurrentMedicines?.Any() == true)
              {
-                             <text>
-                             else {
-                                 // Fallback to inline data
-                                 var existingMedicines = @Html.Raw(Json.Serialize(Model.CurrentMedicines));
+                                 <text>
+                                 else {
+                                     // Fallback to inline data
+                                     var existingMedicines = @Html.Raw(Json.Serialize(Model.CurrentMedicines));
 
-                                 console.log('Fallback: Loading existing medicines from inline data:', existingMedicines);
+                                     console.log('Fallback: Loading existing medicines from inline data:', existingMedicines);
 
-                                 if (existingMedicines && existingMedicines.length > 0) {
-                                     existingMedicines.forEach(function(medicine, index) {
-                                         // Convert to expected format since inline data won't have stock info
-                                         var medicineWithDefaults = {
-                                             medItemId: medicine.MedItemId || medicine.medItemId,
-                                             medicineName: medicine.MedicineName || medicine.medicineName,
-                                             baseName: medicine.BaseName || medicine.baseName,
-                                             quantity: medicine.Quantity || medicine.quantity || 1,
-                                             dose: medicine.Dose || medicine.dose || '',
-                                             availableStock: 0, // No stock info in inline data
-                                             batchNo: 'N/A',
-                                             expiryLabel: 'No stock record',
-                                             expiryClass: 'text-warning'
-                                         };
-                                         addExistingMedicineRow(medicineWithDefaults, index + 1);
-                                     });
-                                 } else {
-                                     console.warn('No existing medicines found in inline data');
+                                     if (existingMedicines && existingMedicines.length > 0) {
+                                         existingMedicines.forEach(function(medicine, index) {
+                                             // Use actual batch data from Model.CurrentMedicines
+                                             var batchNo = medicine.BatchNo || medicine.batchNo || 'N/A';
+                                             var availStock = medicine.AvailableStock || medicine.availableStock || 0;
+                                             var expDate = medicine.ExpiryDate || medicine.expiryDate || '';
+                                             var indItemId = medicine.IndentItemId || medicine.indentItemId || 0;
+                                             var batchId = medicine.BatchId || medicine.batchId || 0;
+
+                                             // Calculate expiry label from date
+                                             var expiryLabel = 'No expiry info';
+                                             var expiryClass = 'text-muted';
+                                             if (expDate) {
+                                                 var expiry = new Date(expDate);
+                                                 var today = new Date();
+                                                 var diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+                                                 var dateStr = expiry.toISOString().split('T')[0];
+                                                 expiryLabel = dateStr + ' - (' + diffDays + 'd)';
+                                                 if (0 >= diffDays) expiryClass = 'text-danger';
+                                                 else if (90 >= diffDays) expiryClass = 'text-warning';
+                                                 else expiryClass = 'text-success';
+                                             }
+
+                                             var medicineWithDefaults = {
+                                                 medItemId: medicine.MedItemId || medicine.medItemId,
+                                                 medicineName: medicine.MedicineName || medicine.medicineName,
+                                                 baseName: medicine.BaseName || medicine.baseName,
+                                                 quantity: medicine.Quantity || medicine.quantity || 1,
+                                                 dose: medicine.Dose || medicine.dose || '',
+                                                 availableStock: availStock,
+                                                 batchNo: batchNo,
+                                                 indentItemId: indItemId,
+                                                 batchId: batchId,
+                                                 expiryDate: expDate,
+                                                 expiryLabel: expiryLabel,
+                                                 expiryClass: expiryClass
+                                             };
+                                             addExistingMedicineRow(medicineWithDefaults, index + 1);
+                                         });
+                                     } else {
+                                         console.warn('No existing medicines found in inline data');
+                                     }
                                  }
-                             }
-                             </text>
+                                 </text>
              }
              else
              {
-                             <text>
-                             else {
-                                 console.log('No current medicines available');
-                             }
-                             </text>
+                                 <text>
+                                 else {
+                                     console.log('No current medicines available');
+                                 }
+                                 </text>
              }
 
              // If no existing medicines, show the "no medicine" row
@@ -556,23 +579,13 @@
              let batchNo = medicine.batchNo || medicine.BatchNo || 'N/A';
              const indentItemId = medicine.indentItemId || medicine.IndentItemId || 0;
              const expiryDate = medicine.expiryDate || medicine.ExpiryDate || '';
+             const batchId = medicine.batchId || medicine.BatchId || 0;
 
-             // TEMPORARY: Add dummy data if no stock info (for testing)
+             // Log warning if no stock data found
              if (availableStock === 0 && batchNo === 'N/A') {
-                 console.warn(`No stock data for medicine ${medItemId}, using dummy data for testing`);
-                 availableStock = quantity + 10; // Show some available stock
-                 batchNo = 'BATCH-001';
-                 expiryLabel = '2025-12-31 - (400d)';
-                 expiryClass = 'text-success';
+                 console.warn(`No stock data for medicine ${medItemId} - batch info not available`);
              }
 
-             // const tr = $(`
-             //     <tr class="medicine-row existing-medicine" data-row-index="${rowIndex}" data-existing-medicine-id="${medItemId}">
-             //         <td class="text-center fw-bold">${rowIndex}</td>
-             //         <td>
-             //             <div class="fw-medium text-primary">${baseName} - ${medicineName}</div>
-             //             <small class="text-muted">Existing Medicine (ID: ${medItemId}) | Batch: ${batchNo}</small>
-             // Logic to hide "Not Defined" base name
              let displayMedName = medicineName;
              if (baseName && baseName !== 'Not Defined' && baseName !== 'Unknown Base' && baseName !== 'null') {
                  displayMedName = `${baseName} - ${medicineName}`;
@@ -586,6 +599,7 @@
                          <small class="text-muted">Existing Medicine (ID: ${medItemId}) | Batch: ${batchNo}</small>
                          <input type="hidden" name="medicineId" value="${medItemId}" />
                          <input type="hidden" name="indentItemId" value="${indentItemId}" />
+                         <input type="hidden" name="batchId" value="${batchId}" />
                          <input type="hidden" name="batchNo" value="${batchNo}" />
                          <input type="hidden" name="expiryDate" value="${expiryDate}" />
                          <input type="hidden" name="availableStock" value="${availableStock}" />
@@ -704,16 +718,6 @@
              var $formatted = $('<span></span>');
              $formatted.text(option.text);
 
-             // Apply the expiry class for color coding
-             // if (expiryClass.includes('text-danger')) {
-             //     $formatted.addClass('text-danger fw-bold');
-             // } else if (expiryClass.includes('text-warning')) {
-             //     $formatted.addClass('text-warning fw-semibold');
-             // } else if (expiryClass.includes('text-info')) {
-             //     $formatted.addClass('text-info');
-             // } else if (expiryClass.includes('text-success')) {
-             //     $formatted.addClass('text-success');
-             // }
 
              // Apply standard black/dark color and weight
                 $formatted.addClass('text-dark fw-medium');
@@ -895,6 +899,7 @@
                      const dose = $row.find('[name="dose"]').val();
                      const indentItemId = parseInt($row.find('[name="indentItemId"]').val()) || 0;
                      const batchNo = $row.find('[name="batchNo"]').val();
+                     const batchId = parseInt($row.find('[name="batchId"]').val()) || 0;
                      const expiryDate = $row.find('[name="expiryDate"]').val();
                      const availableStock = parseInt($row.find('[name="availableStock"]').val()) || 0;
                      const medicineName = $row.find('[name="medicineName"]').val();
@@ -907,6 +912,7 @@
                              Dose: dose || '',
                              MedicineName: medicineName || 'Unknown Medicine',
                              IndentItemId: indentItemId > 0 ? indentItemId : null,
+                             BatchId: batchId > 0 ? batchId : null,
                              BatchNo: batchNo,
                              ExpiryDate: expiryDate,
                              AvailableStock: availableStock,

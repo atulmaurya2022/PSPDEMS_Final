@@ -177,6 +177,9 @@ namespace EMS.WebApp.Data
         public DateTime? ExpiryDate { get; set; }
         public int? AvailableStock { get; set; }
 
+        // BATCH TRACKING FIX: Store exact batch ID for precise stock restore
+        public int? BatchId { get; set; }
+
         // UPDATED: Helper properties for display with ID-Name-Batch format
         public string DisplayName => !string.IsNullOrEmpty(BatchNo) ?
             $"{MedItemId} - {MedicineName} - {BatchNo}" :

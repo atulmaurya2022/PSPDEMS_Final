@@ -21,6 +21,10 @@ namespace EMS.WebApp.Services
         Task<int> GetAvailableStockAsync(int indentItemId, int? userPlantId = null);
         Task<bool> UpdateAvailableStockAsync(int indentItemId, int quantityUsed, int? userPlantId = null);
 
+        // BATCH TRACKING FIX: New batch-level stock methods
+        Task<bool> UpdateAvailableStockByBatchIdAsync(int batchId, int quantityUsed, int? userPlantId = null);
+        Task<bool> RestoreStockByBatchIdAsync(int batchId, int quantityToRestore, int? userPlantId = null);
+
         // Prescription methods - UPDATED signatures
         Task<bool> SavePrescriptionAsync(string empId, DateTime examDate,
             List<int> selectedDiseases, List<PrescriptionMedicine> medicines,
@@ -77,6 +81,9 @@ namespace EMS.WebApp.Services
         public string BaseName { get; set; } = "Not Defined";
         public int PlantId { get; set; } // NEW: Plant information
 
+        // BATCH TRACKING FIX: Include BatchId for exact batch identification
+        public int BatchId { get; set; }
+
         // UPDATED: Display name format - ID - Name - Batch
         public string DisplayName => $"{MedItemId} - {MedItemName} - {BatchNo}";
 
@@ -125,6 +132,9 @@ namespace EMS.WebApp.Services
         public string? BatchNo { get; set; }
         public DateTime? ExpiryDate { get; set; }
         public int? AvailableStock { get; set; }
+
+        // BATCH TRACKING FIX: Include BatchId for exact batch identification
+        public int? BatchId { get; set; }
 
         public string DisplayName => !string.IsNullOrEmpty(BatchNo) ?
             $"{MedItemId} - {MedicineName} - {BatchNo}" :

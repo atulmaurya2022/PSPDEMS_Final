@@ -1,5 +1,4 @@
-﻿
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace EMS.WebApp.Data
 {
@@ -210,6 +209,7 @@ namespace EMS.WebApp.Data
         public string? Dose { get; set; }
         public string? Instructions { get; set; }
         public int? IndentItemId { get; set; } // For batch tracking
+        public int? BatchId { get; set; } // BATCH TRACKING FIX: exact batch identification
         public string? BatchNo { get; set; } // For stock validation
     }
 
@@ -240,7 +240,7 @@ namespace EMS.WebApp.Data
         public string? CompanyName { get; set; }
     }
 
-    
+
     public class MedicineStockInfo
     {
         public int IndentItemId { get; set; }
@@ -251,6 +251,10 @@ namespace EMS.WebApp.Data
         public DateTime? ExpiryDate { get; set; }
         public int AvailableStock { get; set; }
         public string BaseName { get; set; } = string.Empty;
+
+        // BATCH TRACKING FIX: Include BatchId for exact batch identification
+        public int BatchId { get; set; }
+        public int PlantId { get; set; }
 
         // Computed properties for UI display
         public string ExpiryDateFormatted => ExpiryDate?.ToString("dd/MM/yyyy") ?? "Not Set";
@@ -345,6 +349,13 @@ namespace EMS.WebApp.Data
         public string Dose { get; set; } = string.Empty;
         public string? Instructions { get; set; }
         public string? CompanyName { get; set; }
+
+        // BATCH TRACKING FIX: Include batch info for edit
+        public int? BatchId { get; set; }
+        public int? IndentItemId { get; set; }
+        public string? BatchNo { get; set; }
+        public DateTime? ExpiryDate { get; set; }
+        public int? AvailableStock { get; set; }
     }
 
     public class OthersDiagnosisUpdateResult

@@ -84,6 +84,17 @@ namespace EMS.WebApp.Services
         /// </summary>
         Task<bool> UpdateAvailableStockAsync(int indentItemId, int quantityUsed, int? userPlantId = null);
 
+        // BATCH TRACKING FIX: New batch-level stock methods
+        /// <summary>
+        /// Deducts stock from SPECIFIC batch by BatchId (primary method)
+        /// </summary>
+        Task<bool> UpdateAvailableStockByBatchIdAsync(int batchId, int quantityUsed, int? userPlantId = null);
+
+        /// <summary>
+        /// Restores stock to SPECIFIC batch by BatchId
+        /// </summary>
+        Task<bool> RestoreStockByBatchIdAsync(int batchId, int quantityToRestore, int? userPlantId = null);
+
         // ======= APPROVAL METHODS WITH PLANT FILTERING =======
 
         /// <summary>

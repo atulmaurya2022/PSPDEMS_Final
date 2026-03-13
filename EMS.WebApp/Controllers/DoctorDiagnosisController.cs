@@ -1620,94 +1620,64 @@ namespace EMS.WebApp.Controllers
             {
                 _logger.LogInformation($"Getting stock info for {currentMedicines.Count} existing medicines in plant {userPlantId}");
 
-                // Get all available medicine stocks for the plant
-                var medicineStocks = await _doctorDiagnosisRepository.GetMedicinesFromCompounderIndentAsync(userPlantId);
-
-                _logger.LogInformation($"Found {medicineStocks.Count} total medicine stock records");
-
                 foreach (var medicine in currentMedicines)
                 {
-                    _logger.LogInformation($"Looking for stock info for medicine ID: {medicine.MedItemId}, Name: {medicine.MedicineName}");
+                    // USE repository-resolved batch data (already has correct BatchId, BatchNo, AvailableStock)
+                    var batchNo = medicine.BatchNo ?? "N/A";
+                    var availableStock = medicine.AvailableStock ?? 0;
+                    var indentItemId = medicine.IndentItemId ?? 0;
+                    var expiryDate = medicine.ExpiryDate;
+                    var batchId = medicine.BatchId ?? 0;
 
-                    // Find ALL matching stock records for this medicine (not just available stock > 0)
-                    var allMatchingStocks = medicineStocks
-                        .Where(stock => stock.MedItemId == medicine.MedItemId)
-                        .ToList();
+                    // Calculate display stock
+                    var displayStock = availableStock;
 
-                    _logger.LogInformation($"Found {allMatchingStocks.Count} stock records for medicine ID {medicine.MedItemId}");
+                    // Calculate expiry info
+                    var daysToExpiry = expiryDate.HasValue
+                        ? (int)(expiryDate.Value - DateTime.Today).TotalDays
+                        : -999;
 
-                    // Try to find available stock first (FIFO - earliest expiry first)
-                    var matchingStock = allMatchingStocks
-                        .Where(stock => stock.AvailableStock > 0)
-                        .OrderBy(stock => stock.ExpiryDate ?? DateTime.MaxValue)
-                        .ThenBy(stock => stock.BatchNo)
-                        .FirstOrDefault();
+                    var expiryDateStr = expiryDate?.ToString("yyyy-MM-dd") ?? "";
+                    var expiryFormatted = expiryDate.HasValue
+                        ? $"{expiryDateStr} ({daysToExpiry}d)"
+                        : "No expiry info";
 
-                    // If no available stock, try to get any stock record for display info
-                    if (matchingStock == null)
+                    string expiryClass = daysToExpiry switch
                     {
-                        matchingStock = allMatchingStocks
-                            .OrderBy(stock => stock.ExpiryDate ?? DateTime.MaxValue)
-                            .ThenBy(stock => stock.BatchNo)
-                            .FirstOrDefault();
+                        < 0 => "text-danger",
+                        <= 7 => "text-warning",
+                        <= 30 => "text-info",
+                        _ => "text-success"
+                    };
 
-                        _logger.LogWarning($"No available stock for medicine ID {medicine.MedItemId}, using first stock record for info");
-                    }
-
-                    if (matchingStock != null)
+                    string expiryLabel = daysToExpiry switch
                     {
-                        // Add the current prescription quantity back to available stock for display
-                        var displayStock = 0;
-                        if (approvalStatus != "Rejected")
-                        {
-                            displayStock = matchingStock.AvailableStock + medicine.Quantity;
-                        }
-                        else
-                        {
-                            displayStock = matchingStock.AvailableStock;
-                        }
+                        -999 => "No current stock",
+                        < 0 => "EXPIRED",
+                        _ => $"{expiryDateStr} - ({daysToExpiry}d)"
+                    };
 
+                    _logger.LogInformation($"Medicine ID {medicine.MedItemId}: BatchId={batchId}, BatchNo={batchNo}, Stock={displayStock}");
 
-                        _logger.LogInformation($"Medicine ID {medicine.MedItemId}: Stock {matchingStock.AvailableStock} + Current {medicine.Quantity} = Display {displayStock}");
-
-                        result.Add(new
-                        {
-                            medItemId = medicine.MedItemId,
-                            medicineName = medicine.MedicineName,
-                            baseName = medicine.BaseName,
-                            quantity = medicine.Quantity,
-                            dose = medicine.Dose,
-                            companyName = medicine.CompanyName,
-                            // Real stock and expiry information
-                            indentItemId = matchingStock.IndentItemId,
-                            availableStock = displayStock,
-                            batchNo = matchingStock.BatchNo ?? "N/A",
-                            expiryDate = matchingStock.ExpiryDate?.ToString("yyyy-MM-dd") ?? "",
-                            expiryDateFormatted = matchingStock.ExpiryDateFormatted ?? "N/A",
-                            daysToExpiry = matchingStock.DaysToExpiry,
-                            expiryClass = matchingStock.DaysToExpiry switch
-                            {
-                                < 0 => "text-danger",
-                                <= 7 => "text-warning",
-                                <= 30 => "text-info",
-                                _ => "text-success"
-                            },
-                            expiryLabel = matchingStock.DaysToExpiry switch
-                            {
-                                < 0 => "EXPIRED",
-                                <= 7 => $"{matchingStock.ExpiryDate?.ToString("yyyy-MM-dd")} - ({matchingStock.DaysToExpiry}d)",
-                                <= 30 => $"{matchingStock.ExpiryDate?.ToString("yyyy-MM-dd")} - ({matchingStock.DaysToExpiry}d)",
-                                _ => $"Expires: {matchingStock.ExpiryDateFormatted}"
-                            }
-                        });
-                    }
-                    else
+                    result.Add(new
                     {
-                        _logger.LogWarning($"No stock records found for medicine ID {medicine.MedItemId} - {medicine.MedicineName}");
-
-                        // Alternative: Try to get basic medicine info from MedMaster
-                        result.Add(await GetBasicMedicineInfoAsync(medicine, userPlantId));
-                    }
+                        medItemId = medicine.MedItemId,
+                        medicineName = medicine.MedicineName,
+                        baseName = medicine.BaseName,
+                        quantity = medicine.Quantity,
+                        dose = medicine.Dose,
+                        companyName = medicine.CompanyName,
+                        // Use repository-resolved batch data
+                        indentItemId = indentItemId,
+                        batchId = batchId,
+                        availableStock = displayStock,
+                        batchNo = batchNo,
+                        expiryDate = expiryDateStr,
+                        expiryDateFormatted = expiryFormatted,
+                        daysToExpiry = daysToExpiry,
+                        expiryClass = expiryClass,
+                        expiryLabel = expiryLabel
+                    });
                 }
 
                 _logger.LogInformation($"Completed stock info lookup - {result.Count} medicines processed");
@@ -1726,10 +1696,11 @@ namespace EMS.WebApp.Controllers
                     quantity = m.Quantity,
                     dose = m.Dose,
                     companyName = m.CompanyName,
-                    indentItemId = 0,
-                    availableStock = 0,
-                    batchNo = "Error",
-                    expiryDate = "",
+                    indentItemId = m.IndentItemId ?? 0,
+                    batchId = m.BatchId ?? 0,
+                    availableStock = m.AvailableStock ?? 0,
+                    batchNo = m.BatchNo ?? "Error",
+                    expiryDate = m.ExpiryDate?.ToString("yyyy-MM-dd") ?? "",
                     expiryDateFormatted = "Error loading",
                     daysToExpiry = -999,
                     expiryClass = "text-danger",
@@ -1737,6 +1708,7 @@ namespace EMS.WebApp.Controllers
                 }).Cast<dynamic>().ToList();
             }
         }
+
 
         private async Task<dynamic> GetBasicMedicineInfoAsync(PrescriptionMedicineEdit medicine, int? userPlantId)
         {

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EMS.WebApp.Data
 {
@@ -17,9 +18,14 @@ namespace EMS.WebApp.Data
 
         [StringLength(200)]
         public string? Instructions { get; set; }
+        // NEW: Track which specific batch was deducted
+        public int? BatchId { get; set; }
 
         // Navigation properties
         public virtual OthersDiagnosis? OthersDiagnosis { get; set; }
         public virtual MedMaster? MedMaster { get; set; }
+
+        [ForeignKey("BatchId")]
+        public virtual CompounderIndentBatch? CompounderIndentBatch { get; set; }
     }
 }

@@ -495,7 +495,7 @@
             // Show diagnosis section if we have patient data
             @if (Model?.PatientId.HasValue == true)
             {
-                                                <text>showDiagnosisSection();</text>
+                                                    <text>showDiagnosisSection();</text>
             }
 
             // Add medicine row with batch tracking
@@ -655,6 +655,7 @@
                                                data-indent-item-id="${medicine.indentItemId}"
                                                data-available-stock="${medicine.availableStock}"
                                                data-batch-no="${medicine.batchNo || ''}"
+                                               data-batch-id="${medicine.batchId || 0}"
                                                data-expiry-date="${medicine.expiryDate || ''}"
                                                data-expiry-days="${medicine.daysToExpiry ?? ''}"
                                                data-company-name="${medicine.companyName || ''}"
@@ -771,6 +772,7 @@
                 const indentItemId = selectedOption.data('indent-item-id');
                 const availableStock = selectedOption.data('available-stock');
                 const batchNo = selectedOption.data('batch-no');
+                const batchId = selectedOption.data('batch-id');
                 const expiryDate = selectedOption.data('expiry-date');
                 const expiryDays = selectedOption.data('expiry-days');
                 const companyName = selectedOption.data('company-name');
@@ -795,6 +797,7 @@
                 if ($row.find('input[name="indentItemId"]').length === 0) {
                     $row.append(`
                         <input type="hidden" name="indentItemId" value="${indentItemId}" />
+                        <input type="hidden" name="batchId" value="${batchId}" />
                         <input type="hidden" name="batchNo" value="${batchNo}" />
                         <input type="hidden" name="expiryDate" value="${expiryDate}" />
                         <input type="hidden" name="availableStock" value="${availableStock}" />
@@ -802,6 +805,7 @@
                 } else {
                     // Update existing hidden inputs
                     $row.find('input[name="indentItemId"]').val(indentItemId);
+                    $row.find('input[name="batchId"]').val(batchId);
                     $row.find('input[name="batchNo"]').val(batchNo);
                     $row.find('input[name="expiryDate"]').val(expiryDate);
                     $row.find('input[name="availableStock"]').val(availableStock);
@@ -910,6 +914,7 @@
 
                 // Get batch tracking data from hidden inputs
                 var indentItemId = parseInt(row.find('input[name="indentItemId"]').val()) || null;
+                var batchId = parseInt(row.find('input[name="batchId"]').val()) || null;
                 var batchNo = row.find('input[name="batchNo"]').val() || '';
                 var expiryDate = row.find('input[name="expiryDate"]').val() || '';
                 var availableStock = parseInt(row.find('input[name="availableStock"]').val()) || 0;
@@ -935,6 +940,7 @@
                         Instructions: dose ? dose.trim() : '', // Use empty string if dose is not provided
                         // NEW: Batch tracking properties
                         IndentItemId: indentItemId,
+                        BatchId: batchId,
                         BatchNo: batchNo,
                         ExpiryDate: expiryDate,
                         AvailableStock: availableStock

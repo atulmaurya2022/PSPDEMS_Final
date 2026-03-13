@@ -117,6 +117,7 @@ namespace EMS.WebApp.Services
                             BaseName = i.MedMaster.MedBase != null
                                 ? i.MedMaster.MedBase.BaseName
                                 : "Not Defined",
+                            BatchId = b.BatchId,
                             PlantId = i.CompounderIndent.plant_id
                         }))
                     .OrderBy(m => m.ExpiryDate)
@@ -326,6 +327,87 @@ namespace EMS.WebApp.Services
             }
         }
 
+        // BATCH TRACKING FIX: Deduct stock from a specific batch by BatchId
+        public async Task<bool> UpdateAvailableStockByBatchIdAsync(int batchId, int quantityUsed, int? userPlantId = null)
+        {
+            try
+            {
+                Console.WriteLine($"🔄 [BATCH FIX] Deducting {quantityUsed} units from BatchId {batchId} (Plant: {userPlantId})");
+
+                var query = _db.CompounderIndentBatches
+                    .Include(b => b.CompounderIndentItem)
+                        .ThenInclude(i => i.CompounderIndent)
+                    .Where(b => b.BatchId == batchId);
+
+                // Plant-wise filtering
+                if (userPlantId.HasValue)
+                {
+                    query = query.Where(b => b.CompounderIndentItem.CompounderIndent.plant_id == userPlantId.Value);
+                }
+
+                var batch = await query.FirstOrDefaultAsync();
+
+                if (batch == null)
+                {
+                    Console.WriteLine($"❌ [BATCH FIX] Batch {batchId} not found in plant {userPlantId}");
+                    return false;
+                }
+
+                if (batch.AvailableStock < quantityUsed)
+                {
+                    Console.WriteLine($"❌ [BATCH FIX] Insufficient stock in batch {batchId}. Available: {batch.AvailableStock}, Requested: {quantityUsed}");
+                    return false;
+                }
+
+                var oldStock = batch.AvailableStock;
+                batch.AvailableStock -= quantityUsed;
+
+                _db.CompounderIndentBatches.Update(batch);
+                await _db.SaveChangesAsync();
+
+                Console.WriteLine($"✅ [BATCH FIX] Stock deducted from BatchId {batchId}: {oldStock} → {batch.AvailableStock} (-{quantityUsed}, Batch: {batch.BatchNo})");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [BATCH FIX] Error deducting stock from batch {batchId}: {ex.Message}");
+                return false;
+            }
+        }
+
+        // BATCH TRACKING FIX: Restore stock to a specific batch by BatchId
+        public async Task<bool> RestoreStockByBatchIdAsync(int batchId, int quantityToRestore, int? userPlantId = null)
+        {
+            try
+            {
+                Console.WriteLine($"🔄 [BATCH FIX] Restoring {quantityToRestore} units to BatchId {batchId} (Plant: {userPlantId})");
+
+                var batch = await _db.CompounderIndentBatches
+                    .Where(b => b.BatchId == batchId)
+                    .FirstOrDefaultAsync();
+
+                if (batch == null)
+                {
+                    Console.WriteLine($"❌ [BATCH FIX] Batch {batchId} not found for stock restore");
+                    return false;
+                }
+
+                var oldStock = batch.AvailableStock;
+                batch.AvailableStock += quantityToRestore;
+
+                _db.CompounderIndentBatches.Update(batch);
+                // Note: SaveChangesAsync is NOT called here - caller manages the transaction
+
+                Console.WriteLine($"✅ [BATCH FIX] Stock restored to BatchId {batchId}: {oldStock} → {batch.AvailableStock} (+{quantityToRestore}, Batch: {batch.BatchNo})");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [BATCH FIX] Error restoring stock to batch {batchId}: {ex.Message}");
+                return false;
+            }
+        }
+
         // ======= UPDATED: SaveDiagnosisAsync with BCM plant approval logic AND PLANT FILTERING =======
         public async Task<(bool Success, string ErrorMessage)> SaveDiagnosisAsync(OthersDiagnosisViewModel model, string createdBy, int? userPlantId = null)
         {
@@ -530,7 +612,8 @@ namespace EMS.WebApp.Services
                                 MedItemId = med.MedItemId,
                                 Quantity = med.Quantity,
                                 Dose = med.Dose ?? string.Empty,
-                                Instructions = instructions
+                                Instructions = instructions,
+                                BatchId = med.BatchId // BATCH TRACKING FIX: Store exact batch
                             });
                         }
                     }
@@ -540,8 +623,18 @@ namespace EMS.WebApp.Services
                     // Update available stock for each medicine batch
                     foreach (var medicine in model.PrescriptionMedicines)
                     {
-                        if (medicine.IndentItemId.HasValue && medicine.IndentItemId.Value > 0)
+                        // BATCH TRACKING FIX: Use batch-specific deduction when BatchId is available
+                        if (medicine.BatchId.HasValue && medicine.BatchId.Value > 0)
                         {
+                            var stockUpdated = await UpdateAvailableStockByBatchIdAsync(medicine.BatchId.Value, medicine.Quantity, userPlantId);
+                            if (!stockUpdated)
+                            {
+                                return (false, $"Failed to update stock for {medicine.MedicineName}");
+                            }
+                        }
+                        else if (medicine.IndentItemId.HasValue && medicine.IndentItemId.Value > 0)
+                        {
+                            // LEGACY FALLBACK: Use FIFO when BatchId is not available
                             var stockUpdated = await UpdateAvailableStockAsync(medicine.IndentItemId.Value, medicine.Quantity, userPlantId);
                             if (!stockUpdated)
                             {
@@ -845,7 +938,7 @@ namespace EMS.WebApp.Services
 
                 Console.WriteLine($"Found {diseases.Count} diseases");
 
-                // Get medicines with DECRYPTION
+                // Get medicines with batch info
                 var medicines = await (from dm in _db.OthersDiagnosisMedicines
                                        join mm in _db.med_masters on dm.MedItemId equals mm.MedItemId
                                        where dm.DiagnosisId == diagnosisId
@@ -856,36 +949,39 @@ namespace EMS.WebApp.Services
                                            dm.Quantity,
                                            dm.Dose,
                                            dm.Instructions,
-                                           mm.CompanyName
+                                           mm.CompanyName,
+                                           dm.BatchId
                                        }).ToListAsync();
 
-                // Decrypt medicine names from instructions
-                var decryptedMedicines = medicines.Select(m => {
-                    var medicineName = m.MedItemName;
+                // Build medicine details with clean names and batch info
+                var decryptedMedicines = new List<OthersMedicineDetails>();
+                foreach (var m in medicines)
+                {
+                    var displayName = $"{m.MedItemId} - {m.MedItemName}";
 
-                    if (!string.IsNullOrEmpty(m.Instructions) && m.Instructions.Contains(" - "))
+                    // Add batch info if BatchId is stored
+                    if (m.BatchId.HasValue)
                     {
-                        var parts = m.Instructions.Split(" - ", 2);
-                        if (parts.Length > 0 && _encryptionService.IsEncrypted(parts[0]))
+                        var batchInfo = await _db.CompounderIndentBatches
+                            .Where(b => b.BatchId == m.BatchId.Value)
+                            .Select(b => b.BatchNo)
+                            .FirstOrDefaultAsync();
+                        if (!string.IsNullOrEmpty(batchInfo))
                         {
-                            var decryptedName = _encryptionService.Decrypt(parts[0]);
-                            if (!string.IsNullOrEmpty(decryptedName))
-                            {
-                                medicineName = decryptedName;
-                            }
+                            displayName += $" | Batch: {batchInfo}";
                         }
                     }
 
-                    return new OthersMedicineDetails
+                    decryptedMedicines.Add(new OthersMedicineDetails
                     {
                         MedItemId = m.MedItemId,
-                        MedicineName = medicineName,
+                        MedicineName = displayName,
                         Quantity = m.Quantity,
                         Dose = m.Dose,
                         Instructions = m.Instructions,
                         CompanyName = m.CompanyName
-                    };
-                }).ToList();
+                    });
+                }
 
                 Console.WriteLine($"Found {decryptedMedicines.Count} medicines using join query");
 
@@ -957,52 +1053,48 @@ namespace EMS.WebApp.Services
 
                 Console.WriteLine($"Found Others diagnosis for patient: {diagnosis.Patient?.PatientName}, Plant: {diagnosis.PlantId}");
 
-                // IMPORTANT: Restore medicine stock before deleting using consistent FIFO logic
+                // IMPORTANT: Restore medicine stock before deleting
                 if (diagnosis.DiagnosisMedicines?.Any() == true)
                 {
                     Console.WriteLine($"Restoring stock for {diagnosis.DiagnosisMedicines.Count} medicines due to Others diagnosis deletion");
 
                     foreach (var diagnosisMedicine in diagnosis.DiagnosisMedicines)
                     {
-                        // Use consistent FIFO logic with UpdateAvailableStockAsync
-                        var indentBatch = await _db.CompounderIndentBatches
-                            .Include(b => b.CompounderIndentItem)
-                                .ThenInclude(i => i.CompounderIndent)
-                            .Where(b => b.CompounderIndentItem.MedItemId == diagnosisMedicine.MedItemId)
-                            .Where(b => b.CompounderIndentItem.CompounderIndent.plant_id == diagnosis.PlantId)
-                            .OrderBy(b => b.ExpiryDate) // Handle null expiry dates
-                            .ThenBy(b => b.BatchNo) // Secondary sort for consistency
-                            .FirstOrDefaultAsync();
-
-                        if (indentBatch != null)
+                        // BATCH TRACKING FIX: Use BatchId for exact restore when available
+                        if (diagnosisMedicine.BatchId.HasValue)
                         {
-                            var oldStock = indentBatch.AvailableStock;
-                            indentBatch.AvailableStock += diagnosisMedicine.Quantity;
-
-                            Console.WriteLine($"Restored stock for Medicine ID {diagnosisMedicine.MedItemId}: {oldStock} -> {indentBatch.AvailableStock} (+{diagnosisMedicine.Quantity}) (Batch: {indentBatch.BatchNo})");
-
-                            _db.CompounderIndentBatches.Update(indentBatch);
+                            var batch = await _db.CompounderIndentBatches
+                                .FirstOrDefaultAsync(b => b.BatchId == diagnosisMedicine.BatchId.Value);
+                            if (batch != null)
+                            {
+                                var oldStock = batch.AvailableStock;
+                                batch.AvailableStock += diagnosisMedicine.Quantity;
+                                Console.WriteLine($"🔄 [BATCH FIX] Restored stock for Medicine ID {diagnosisMedicine.MedItemId}: {oldStock} -> {batch.AvailableStock} (+{diagnosisMedicine.Quantity}) (BatchId: {batch.BatchId}, Batch: {batch.BatchNo})");
+                                _db.CompounderIndentBatches.Update(batch);
+                            }
+                            else
+                            {
+                                Console.WriteLine($"CRITICAL: BatchId {diagnosisMedicine.BatchId} not found for Medicine ID {diagnosisMedicine.MedItemId}. Stock may be inconsistent!");
+                            }
                         }
                         else
                         {
-                            Console.WriteLine($"Could not find batch to restore stock for Medicine ID {diagnosisMedicine.MedItemId}");
-
-                            // Try to find any batch for this medicine as fallback
-                            var fallbackBatch = await _db.CompounderIndentBatches
+                            // LEGACY FALLBACK: FIFO restore for old records without BatchId
+                            var indentBatch = await _db.CompounderIndentBatches
                                 .Include(b => b.CompounderIndentItem)
                                     .ThenInclude(i => i.CompounderIndent)
                                 .Where(b => b.CompounderIndentItem.MedItemId == diagnosisMedicine.MedItemId)
                                 .Where(b => b.CompounderIndentItem.CompounderIndent.plant_id == diagnosis.PlantId)
+                                .OrderBy(b => b.ExpiryDate)
+                                .ThenBy(b => b.BatchNo)
                                 .FirstOrDefaultAsync();
 
-                            if (fallbackBatch != null)
+                            if (indentBatch != null)
                             {
-                                var oldStock = fallbackBatch.AvailableStock;
-                                fallbackBatch.AvailableStock += diagnosisMedicine.Quantity;
-
-                                Console.WriteLine($"FALLBACK: Restored stock for Medicine ID {diagnosisMedicine.MedItemId}: {oldStock} -> {fallbackBatch.AvailableStock} (+{diagnosisMedicine.Quantity}) to batch {fallbackBatch.BatchNo}");
-
-                                _db.CompounderIndentBatches.Update(fallbackBatch);
+                                var oldStock = indentBatch.AvailableStock;
+                                indentBatch.AvailableStock += diagnosisMedicine.Quantity;
+                                Console.WriteLine($"Restored stock for Medicine ID {diagnosisMedicine.MedItemId}: {oldStock} -> {indentBatch.AvailableStock} (+{diagnosisMedicine.Quantity}) (Batch: {indentBatch.BatchNo})");
+                                _db.CompounderIndentBatches.Update(indentBatch);
                             }
                             else
                             {
@@ -1312,52 +1404,48 @@ namespace EMS.WebApp.Services
                     return false;
                 }
 
-                // IMPORTANT: Restore medicine stock before rejecting using CORRECTED FIFO logic
+                // IMPORTANT: Restore medicine stock before rejecting
                 if (diagnosis.DiagnosisMedicines?.Any() == true)
                 {
                     Console.WriteLine($"🔄 Restoring stock for {diagnosis.DiagnosisMedicines.Count} medicines due to Others diagnosis rejection");
 
                     foreach (var diagnosisMedicine in diagnosis.DiagnosisMedicines)
                     {
-                        // CORRECTED: Use consistent FIFO logic with UpdateAvailableStockAsync
-                        var indentBatch = await _db.CompounderIndentBatches
-                            .Include(b => b.CompounderIndentItem)
-                                .ThenInclude(i => i.CompounderIndent)
-                            .Where(b => b.CompounderIndentItem.MedItemId == diagnosisMedicine.MedItemId)
-                            .Where(b => b.CompounderIndentItem.CompounderIndent.plant_id == diagnosis.PlantId)
-                            .OrderBy(b => b.ExpiryDate) // CORRECTED: Handle null expiry dates
-                            .ThenBy(b => b.BatchNo) // ADDED: Secondary sort for consistency with debit logic
-                            .FirstOrDefaultAsync();
-
-                        if (indentBatch != null)
+                        // BATCH TRACKING FIX: Use BatchId for exact restore when available
+                        if (diagnosisMedicine.BatchId.HasValue)
                         {
-                            var oldStock = indentBatch.AvailableStock;
-                            indentBatch.AvailableStock += diagnosisMedicine.Quantity;
-
-                            Console.WriteLine($"🔄 Restored stock for Medicine ID {diagnosisMedicine.MedItemId}: {oldStock} → {indentBatch.AvailableStock} (+{diagnosisMedicine.Quantity}) due to Others diagnosis rejection (Batch: {indentBatch.BatchNo})");
-
-                            _db.CompounderIndentBatches.Update(indentBatch);
+                            var batch = await _db.CompounderIndentBatches
+                                .FirstOrDefaultAsync(b => b.BatchId == diagnosisMedicine.BatchId.Value);
+                            if (batch != null)
+                            {
+                                var oldStock = batch.AvailableStock;
+                                batch.AvailableStock += diagnosisMedicine.Quantity;
+                                Console.WriteLine($"🔄 [BATCH FIX] Restored stock for Medicine ID {diagnosisMedicine.MedItemId}: {oldStock} → {batch.AvailableStock} (+{diagnosisMedicine.Quantity}) due to rejection (BatchId: {batch.BatchId}, Batch: {batch.BatchNo})");
+                                _db.CompounderIndentBatches.Update(batch);
+                            }
+                            else
+                            {
+                                Console.WriteLine($"❌ CRITICAL: BatchId {diagnosisMedicine.BatchId} not found for rejection restore. Stock may be inconsistent!");
+                            }
                         }
                         else
                         {
-                            Console.WriteLine($"⚠️ Could not find batch to restore stock for Medicine ID {diagnosisMedicine.MedItemId} during Others diagnosis rejection");
-
-                            // ENHANCED: Try to find any batch for this medicine as fallback
-                            var fallbackBatch = await _db.CompounderIndentBatches
+                            // LEGACY FALLBACK: FIFO restore for old records without BatchId
+                            var indentBatch = await _db.CompounderIndentBatches
                                 .Include(b => b.CompounderIndentItem)
                                     .ThenInclude(i => i.CompounderIndent)
                                 .Where(b => b.CompounderIndentItem.MedItemId == diagnosisMedicine.MedItemId)
                                 .Where(b => b.CompounderIndentItem.CompounderIndent.plant_id == diagnosis.PlantId)
+                                .OrderBy(b => b.ExpiryDate)
+                                .ThenBy(b => b.BatchNo)
                                 .FirstOrDefaultAsync();
 
-                            if (fallbackBatch != null)
+                            if (indentBatch != null)
                             {
-                                var oldStock = fallbackBatch.AvailableStock;
-                                fallbackBatch.AvailableStock += diagnosisMedicine.Quantity;
-
-                                Console.WriteLine($"🔄 FALLBACK: Restored stock for Medicine ID {diagnosisMedicine.MedItemId}: {oldStock} → {fallbackBatch.AvailableStock} (+{diagnosisMedicine.Quantity}) to batch {fallbackBatch.BatchNo}");
-
-                                _db.CompounderIndentBatches.Update(fallbackBatch);
+                                var oldStock = indentBatch.AvailableStock;
+                                indentBatch.AvailableStock += diagnosisMedicine.Quantity;
+                                Console.WriteLine($"🔄 Restored stock for Medicine ID {diagnosisMedicine.MedItemId}: {oldStock} → {indentBatch.AvailableStock} (+{diagnosisMedicine.Quantity}) due to rejection (Batch: {indentBatch.BatchNo})");
+                                _db.CompounderIndentBatches.Update(indentBatch);
                             }
                             else
                             {
@@ -1535,37 +1623,95 @@ namespace EMS.WebApp.Services
                 // Get available diseases for the plant
                 var availableDiseases = await GetDiseasesAsync(userPlantId);
 
-                // Decrypt medicine names from instructions (same logic as GetDiagnosisDetailsAsync)
-                var currentMedicines = diagnosis.DiagnosisMedicines?.Select(dm => {
-                    var medicineName = dm.MedMaster?.MedItemName ?? "Unknown Medicine";
-                    var baseName = dm.MedMaster?.MedBase?.BaseName ?? "Not Defined";
-
-                    // Decrypt medicine name from instructions if available
-                    if (!string.IsNullOrEmpty(dm.Instructions) && dm.Instructions.Contains(" - "))
+                // BATCH TRACKING FIX: Load current medicines with proper batch/stock info
+                var currentMedicines = new List<OthersMedicineEdit>();
+                if (diagnosis.DiagnosisMedicines != null && diagnosis.DiagnosisMedicines.Any())
+                {
+                    foreach (var dm in diagnosis.DiagnosisMedicines)
                     {
-                        var parts = dm.Instructions.Split(" - ", 2);
-                        if (parts.Length > 0 && _encryptionService.IsEncrypted(parts[0]))
+                        int? resolvedBatchId = dm.BatchId;
+                        string? batchNo = null;
+                        DateTime? expiryDate = null;
+                        int currentStock = 0;
+                        int? indentItemId = null;
+
+                        if (dm.BatchId.HasValue)
                         {
-                            var decryptedName = _encryptionService.Decrypt(parts[0]);
-                            if (!string.IsNullOrEmpty(decryptedName))
+                            // BATCH TRACKING FIX: Direct batch lookup using stored BatchId
+                            var batch = await _db.CompounderIndentBatches
+                                .Include(b => b.CompounderIndentItem)
+                                .FirstOrDefaultAsync(b => b.BatchId == dm.BatchId.Value);
+
+                            if (batch != null)
                             {
-                                medicineName = decryptedName;
+                                batchNo = batch.BatchNo;
+                                expiryDate = batch.ExpiryDate;
+                                currentStock = batch.AvailableStock;
+                                indentItemId = batch.IndentItemId;
+                                Console.WriteLine($"💊 [BATCH FIX] Others Medicine {dm.MedItemId} loaded from BatchId {dm.BatchId}: Stock={currentStock}, Batch={batchNo}");
                             }
                         }
-                    }
 
-                    return new OthersMedicineEdit
-                    {
-                        DiagnosisMedicineId = dm.DiagnosisMedicineId,
-                        MedItemId = dm.MedItemId,
-                        MedicineName = medicineName,
-                        BaseName = baseName,
-                        Quantity = dm.Quantity,
-                        Dose = dm.Dose ?? "",
-                        Instructions = dm.Instructions,
-                        CompanyName = dm.MedMaster?.CompanyName
-                    };
-                }).ToList() ?? new List<OthersMedicineEdit>();
+                        if (batchNo == null)
+                        {
+                            // LEGACY FALLBACK: FIFO for old records without BatchId
+                            var batchInfo = await (from batch in _db.CompounderIndentBatches
+                                                   join item in _db.CompounderIndentItems on batch.IndentItemId equals item.IndentItemId
+                                                   join indent in _db.CompounderIndents on item.IndentId equals indent.IndentId
+                                                   where item.MedItemId == dm.MedItemId
+                                                         && batch.AvailableStock >= 0
+                                                         && (userPlantId == null || indent.plant_id == userPlantId.Value)
+                                                   orderby batch.ExpiryDate, batch.BatchNo
+                                                   select new
+                                                   {
+                                                       batch.BatchId,
+                                                       batch.IndentItemId,
+                                                       batch.BatchNo,
+                                                       batch.ExpiryDate,
+                                                       CurrentStock = batch.AvailableStock
+                                                   }).FirstOrDefaultAsync();
+
+                            if (batchInfo != null)
+                            {
+                                resolvedBatchId = batchInfo.BatchId;
+                                batchNo = batchInfo.BatchNo;
+                                expiryDate = batchInfo.ExpiryDate;
+                                currentStock = batchInfo.CurrentStock;
+                                indentItemId = batchInfo.IndentItemId;
+                            }
+                        }
+
+                        // Calculate editable stock based on approval status:
+                        // - Pending: stock was deducted at save, so add quantity back to show true availability
+                        // - Rejected: stock was already restored, so use currentStock as-is
+                        bool stockWasDeducted = diagnosis.ApprovalStatus != "Rejected";
+                        int editableStock = stockWasDeducted ? currentStock + dm.Quantity : currentStock;
+
+                        Console.WriteLine($"💊 Others Medicine {dm.MedItemId} ({dm.MedMaster?.MedItemName}) - " +
+                                        $"BatchId: {resolvedBatchId}, Current Stock: {currentStock}, " +
+                                        $"Used in Prescription: {dm.Quantity}, " +
+                                        $"Editable Stock: {editableStock}");
+
+                        currentMedicines.Add(new OthersMedicineEdit
+                        {
+                            DiagnosisMedicineId = dm.DiagnosisMedicineId,
+                            MedItemId = dm.MedItemId,
+                            MedicineName = dm.MedMaster?.MedItemName ?? "Unknown Medicine",
+                            BaseName = dm.MedMaster?.MedBase?.BaseName ?? "Not Defined",
+                            Quantity = dm.Quantity,
+                            Dose = dm.Dose ?? "",
+                            Instructions = dm.Instructions,
+                            CompanyName = dm.MedMaster?.CompanyName,
+
+                            // BATCH TRACKING FIX: Include actual batch info
+                            BatchId = resolvedBatchId,
+                            IndentItemId = indentItemId,
+                            BatchNo = batchNo ?? "N/A",
+                            ExpiryDate = expiryDate,
+                            AvailableStock = editableStock
+                        });
+                    }
+                }
 
                 // Build the edit view model
                 var editModel = new OthersDiagnosisEditViewModel
@@ -1712,20 +1858,34 @@ namespace EMS.WebApp.Services
                 {
                     foreach (var existingMedicine in diagnosis.DiagnosisMedicines)
                     {
-                        // Find the batch to restore stock
-                        var indentBatch = await _db.CompounderIndentBatches
-                            .Include(b => b.CompounderIndentItem)
-                                .ThenInclude(i => i.CompounderIndent)
-                            .Where(b => b.CompounderIndentItem.MedItemId == existingMedicine.MedItemId)
-                            .Where(b => b.CompounderIndentItem.CompounderIndent.plant_id == diagnosis.PlantId)
-                            .OrderBy(b => b.ExpiryDate)
-                            .ThenBy(b => b.BatchNo)
-                            .FirstOrDefaultAsync();
-
-                        if (indentBatch != null)
+                        // BATCH TRACKING FIX: Use BatchId for exact restore when available
+                        if (existingMedicine.BatchId.HasValue)
                         {
-                            indentBatch.AvailableStock += existingMedicine.Quantity;
-                            Console.WriteLine($"🔄 Restored {existingMedicine.Quantity} units to batch for Others medicine {existingMedicine.MedItemId}");
+                            var batch = await _db.CompounderIndentBatches
+                                .FirstOrDefaultAsync(b => b.BatchId == existingMedicine.BatchId.Value);
+                            if (batch != null)
+                            {
+                                batch.AvailableStock += existingMedicine.Quantity;
+                                Console.WriteLine($"🔄 [BATCH FIX] Restored {existingMedicine.Quantity} units to BatchId {existingMedicine.BatchId} for Others medicine {existingMedicine.MedItemId} (Batch: {batch.BatchNo})");
+                            }
+                        }
+                        else
+                        {
+                            // LEGACY FALLBACK: FIFO restore for old records without BatchId
+                            var indentBatch = await _db.CompounderIndentBatches
+                                .Include(b => b.CompounderIndentItem)
+                                    .ThenInclude(i => i.CompounderIndent)
+                                .Where(b => b.CompounderIndentItem.MedItemId == existingMedicine.MedItemId)
+                                .Where(b => b.CompounderIndentItem.CompounderIndent.plant_id == diagnosis.PlantId)
+                                .OrderBy(b => b.ExpiryDate)
+                                .ThenBy(b => b.BatchNo)
+                                .FirstOrDefaultAsync();
+
+                            if (indentBatch != null)
+                            {
+                                indentBatch.AvailableStock += existingMedicine.Quantity;
+                                Console.WriteLine($"🔄 Restored {existingMedicine.Quantity} units to FIFO batch for Others medicine {existingMedicine.MedItemId}");
+                            }
                         }
                     }
                 }
@@ -1788,7 +1948,8 @@ namespace EMS.WebApp.Services
                         Dose = med.Dose ?? "",
                         Instructions = !string.IsNullOrEmpty(med.Instructions)
                             ? $"{_encryptionService.Encrypt(med.MedicineName)} - {med.Instructions}"
-                            : $"{_encryptionService.Encrypt(med.MedicineName)} - {med.Dose}"
+                            : $"{_encryptionService.Encrypt(med.MedicineName)} - {med.Dose}",
+                        BatchId = med.BatchId // BATCH TRACKING FIX: Store exact batch
                     }).ToList();
 
                     _db.OthersDiagnosisMedicines.AddRange(diagnosisMedicines);
@@ -1796,7 +1957,16 @@ namespace EMS.WebApp.Services
                     // Adjust stock for new medicines
                     foreach (var medicine in medicines)
                     {
-                        if (medicine.IndentItemId.HasValue && medicine.IndentItemId.Value > 0)
+                        // BATCH TRACKING FIX: Use batch-specific deduction when BatchId is available
+                        if (medicine.BatchId.HasValue && medicine.BatchId.Value > 0)
+                        {
+                            var stockUpdated = await UpdateAvailableStockByBatchIdAsync(medicine.BatchId.Value, medicine.Quantity, userPlantId);
+                            if (stockUpdated)
+                            {
+                                affectedMedicines++;
+                            }
+                        }
+                        else if (medicine.IndentItemId.HasValue && medicine.IndentItemId.Value > 0)
                         {
                             var stockUpdated = await UpdateAvailableStockAsync(medicine.IndentItemId.Value, medicine.Quantity, userPlantId);
                             if (stockUpdated)

@@ -1191,6 +1191,11 @@ public partial class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.MedItemId)
                   .OnDelete(DeleteBehavior.NoAction);
+            //entity.HasOne(pm => pm.CompounderIndentBatch)
+            //      .WithMany()
+            //      .HasForeignKey(pm => pm.BatchId)
+            //      .OnDelete(DeleteBehavior.SetNull)
+            //      .IsRequired(false);
 
         });
 
@@ -1333,6 +1338,11 @@ public partial class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.MedItemId)
                   .OnDelete(DeleteBehavior.NoAction);
+            //entity.HasOne(dm => dm.CompounderIndentBatch)
+            //      .WithMany()
+            //      .HasForeignKey(dm => dm.BatchId)
+            //      .OnDelete(DeleteBehavior.SetNull)
+            //      .IsRequired(false);
 
         });
 
