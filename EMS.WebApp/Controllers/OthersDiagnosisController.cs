@@ -97,6 +97,10 @@ namespace EMS.WebApp.Controllers
                 ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
                 ViewBag.UserRole = userRole;
 
+                // BCM plant detection — drives Category dropdown in Add view
+                var plantCode = await _repository.GetPlantCodeByIdAsync(userPlantId.Value);
+                ViewBag.IsBCMPlant = plantCode?.ToUpper() == "BCM";
+
                 string newTreatmentId;
                 try
                 {

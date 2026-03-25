@@ -1,7 +1,10 @@
+﻿using EMS.WebApp.Data;
+using EMS.WebApp.Extensions;
 using EMS.WebApp.Models;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EMS.WebApp.Controllers
 {
@@ -21,9 +24,6 @@ namespace EMS.WebApp.Controllers
 
         #region Index
 
-        /// <summary>
-        /// Disease Trend Reports Landing Page
-        /// </summary>
         [HttpGet]
         public IActionResult Index()
         {
@@ -37,23 +37,77 @@ namespace EMS.WebApp.Controllers
         private async Task<int?> GetCurrentUserPlantIdAsync()
         {
             var userName = User.Identity?.Name;
-            if (string.IsNullOrEmpty(userName))
-                return null;
+            if (string.IsNullOrEmpty(userName)) return null;
             return await _repository.GetUserPlantIdAsync(userName);
         }
 
+        /// <summary>
+        /// ✅ FIX: CurrentUser now uses "ADID - FullName" format to match CreatedBy stored in prescriptions.
+        /// Mirrors the format used in CompounderIndentController.
+        /// </summary>
         private string GetCurrentUserName()
         {
-            return User.Identity?.Name ?? "System";
+            return (User.Identity?.Name + " - " + User.GetFullName()).Trim(' ', '-');
+        }
+
+        /// <summary>
+        /// ✅ FIX: Reads user role from SysUsers → SysRole.role_name.
+        /// Exactly mirrors GetUserRoleAsync() in CompounderIndentController.
+        /// </summary>
+        private async Task<string?> GetUserRoleAsync()
+        {
+            try
+            {
+                var userName = User.Identity?.Name;
+                if (string.IsNullOrEmpty(userName)) return null;
+
+                using var scope = HttpContext.RequestServices.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+                var user = await dbContext.SysUsers
+                    .Include(u => u.SysRole)
+                    .FirstOrDefaultAsync(u => u.full_name == userName || u.email == userName || u.adid == userName);
+
+                return user?.SysRole?.role_name;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user role for Disease Trend reports");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// ✅ FIX: Doctor and Admin see all records; Compounder/Store see only their own.
+        /// </summary>
+        private bool IsDocterOrAdmin(string? userRole)
+        {
+            if (string.IsNullOrEmpty(userRole)) return false;
+            var role = userRole.ToLower();
+            return role == "doctor" || role.Contains("admin");
+        }
+
+        /// <summary>
+        /// ✅ FIX: Parses comma-separated disease IDs from the multi-select control.
+        /// e.g. "3,7,12" → List{3, 7, 12}
+        /// </summary>
+        private static List<int>? ParseDiseaseIds(string? diseaseIds)
+        {
+            if (string.IsNullOrWhiteSpace(diseaseIds)) return null;
+
+            var ids = new List<int>();
+            foreach (var part in diseaseIds.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (int.TryParse(part.Trim(), out var id))
+                    ids.Add(id);
+            }
+            return ids.Any() ? ids : null;
         }
 
         #endregion
 
         #region Age Wise Report
 
-        /// <summary>
-        /// Disease Trend Analysis Age Wise Report View
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> DiseaseTrendAgeWise()
         {
@@ -62,32 +116,31 @@ namespace EMS.WebApp.Controllers
             return View();
         }
 
-        /// <summary>
-        /// Get Age Wise Report Data (AJAX)
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetAgeWiseData(
             DateTime? fromDate,
             DateTime? toDate,
             int? departmentId,
-            int? diseaseId,
-            string? employeeType)
+            string? diseaseIds,           // ✅ FIX: was int? diseaseId — now string, parsed below
+            int? employeeCategoryId)      // ✅ FIX: was string? employeeType — now int FK
         {
             try
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var currentUser = GetCurrentUserName();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
 
                 var filter = new DiseaseTrendFilterModel
                 {
                     FromDate = fromDate,
                     ToDate = toDate,
                     DepartmentId = departmentId,
-                    DiseaseId = diseaseId,
-                    EmployeeType = employeeType
+                    DiseaseIds = ParseDiseaseIds(diseaseIds),   // ✅ FIX
+                    EmployeeCategoryId = employeeCategoryId     // ✅ FIX
                 };
 
-                var result = await _repository.GetDiseaseTrendAgeWiseAsync(filter, userPlantId, currentUser);
+                var result = await _repository.GetDiseaseTrendAgeWiseAsync(filter, userPlantId, currentUser, isDoctor, userRole);
                 return Json(result);
             }
             catch (Exception ex)
@@ -97,34 +150,32 @@ namespace EMS.WebApp.Controllers
             }
         }
 
-        /// <summary>
-        /// Export Age Wise Report to Excel
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> ExportAgeWise(
             DateTime? fromDate,
             DateTime? toDate,
             int? departmentId,
-            int? diseaseId,
-            string? employeeType)
+            string? diseaseIds,
+            int? employeeCategoryId)
         {
             try
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var currentUser = GetCurrentUserName();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
 
                 var filter = new DiseaseTrendFilterModel
                 {
                     FromDate = fromDate,
                     ToDate = toDate,
                     DepartmentId = departmentId,
-                    DiseaseId = diseaseId,
-                    EmployeeType = employeeType
+                    DiseaseIds = ParseDiseaseIds(diseaseIds),
+                    EmployeeCategoryId = employeeCategoryId
                 };
 
-                var fileBytes = await _repository.ExportAgeWiseToExcelAsync(filter, userPlantId, currentUser);
+                var fileBytes = await _repository.ExportAgeWiseToExcelAsync(filter, userPlantId, currentUser, isDoctor, userRole);
                 var fileName = $"DiseaseTrend_AgeWise_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-
                 return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
             catch (Exception ex)
@@ -139,9 +190,6 @@ namespace EMS.WebApp.Controllers
 
         #region Department Wise Report
 
-        /// <summary>
-        /// Disease Trend Analysis Department Wise Report View
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> DiseaseTrendDeptWise()
         {
@@ -150,32 +198,31 @@ namespace EMS.WebApp.Controllers
             return View();
         }
 
-        /// <summary>
-        /// Get Department Wise Report Data (AJAX)
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetDeptWiseData(
             DateTime? fromDate,
             DateTime? toDate,
             int? departmentId,
-            int? diseaseId,
-            string? employeeType)
+            string? diseaseIds,
+            int? employeeCategoryId)
         {
             try
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var currentUser = GetCurrentUserName();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
 
                 var filter = new DiseaseTrendFilterModel
                 {
                     FromDate = fromDate,
                     ToDate = toDate,
                     DepartmentId = departmentId,
-                    DiseaseId = diseaseId,
-                    EmployeeType = employeeType
+                    DiseaseIds = ParseDiseaseIds(diseaseIds),
+                    EmployeeCategoryId = employeeCategoryId
                 };
 
-                var result = await _repository.GetDiseaseTrendDeptWiseAsync(filter, userPlantId, currentUser);
+                var result = await _repository.GetDiseaseTrendDeptWiseAsync(filter, userPlantId, currentUser, isDoctor, userRole);
                 return Json(result);
             }
             catch (Exception ex)
@@ -185,34 +232,32 @@ namespace EMS.WebApp.Controllers
             }
         }
 
-        /// <summary>
-        /// Export Department Wise Report to Excel
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> ExportDeptWise(
             DateTime? fromDate,
             DateTime? toDate,
             int? departmentId,
-            int? diseaseId,
-            string? employeeType)
+            string? diseaseIds,
+            int? employeeCategoryId)
         {
             try
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var currentUser = GetCurrentUserName();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
 
                 var filter = new DiseaseTrendFilterModel
                 {
                     FromDate = fromDate,
                     ToDate = toDate,
                     DepartmentId = departmentId,
-                    DiseaseId = diseaseId,
-                    EmployeeType = employeeType
+                    DiseaseIds = ParseDiseaseIds(diseaseIds),
+                    EmployeeCategoryId = employeeCategoryId
                 };
 
-                var fileBytes = await _repository.ExportDeptWiseToExcelAsync(filter, userPlantId, currentUser);
+                var fileBytes = await _repository.ExportDeptWiseToExcelAsync(filter, userPlantId, currentUser, isDoctor, userRole);
                 var fileName = $"DiseaseTrend_DeptWise_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-
                 return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
             catch (Exception ex)
@@ -227,9 +272,6 @@ namespace EMS.WebApp.Controllers
 
         #region Patient Wise Report
 
-        /// <summary>
-        /// Disease Trend Analysis Patient Wise Report View
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> DiseaseTrendPatientWise()
         {
@@ -238,16 +280,13 @@ namespace EMS.WebApp.Controllers
             return View();
         }
 
-        /// <summary>
-        /// Get Patient Wise Report Data (AJAX)
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetPatientWiseData(
             DateTime? fromDate,
             DateTime? toDate,
             int? departmentId,
-            int? diseaseId,
-            string? employeeType,
+            string? diseaseIds,
+            int? employeeCategoryId,
             string? fromPNo,
             string? toPNo,
             int page = 1,
@@ -257,19 +296,21 @@ namespace EMS.WebApp.Controllers
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var currentUser = GetCurrentUserName();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
 
                 var filter = new DiseaseTrendFilterModel
                 {
                     FromDate = fromDate,
                     ToDate = toDate,
                     DepartmentId = departmentId,
-                    DiseaseId = diseaseId,
-                    EmployeeType = employeeType,
+                    DiseaseIds = ParseDiseaseIds(diseaseIds),
+                    EmployeeCategoryId = employeeCategoryId,
                     FromPNo = fromPNo,
                     ToPNo = toPNo
                 };
 
-                var result = await _repository.GetDiseaseTrendPatientWiseAsync(filter, userPlantId, currentUser, page, pageSize);
+                var result = await _repository.GetDiseaseTrendPatientWiseAsync(filter, userPlantId, currentUser, page, pageSize, isDoctor, userRole);
                 return Json(result);
             }
             catch (Exception ex)
@@ -279,16 +320,13 @@ namespace EMS.WebApp.Controllers
             }
         }
 
-        /// <summary>
-        /// Export Patient Wise Report to Excel
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> ExportPatientWise(
             DateTime? fromDate,
             DateTime? toDate,
             int? departmentId,
-            int? diseaseId,
-            string? employeeType,
+            string? diseaseIds,
+            int? employeeCategoryId,
             string? fromPNo,
             string? toPNo)
         {
@@ -296,21 +334,22 @@ namespace EMS.WebApp.Controllers
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var currentUser = GetCurrentUserName();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
 
                 var filter = new DiseaseTrendFilterModel
                 {
                     FromDate = fromDate,
                     ToDate = toDate,
                     DepartmentId = departmentId,
-                    DiseaseId = diseaseId,
-                    EmployeeType = employeeType,
+                    DiseaseIds = ParseDiseaseIds(diseaseIds),
+                    EmployeeCategoryId = employeeCategoryId,
                     FromPNo = fromPNo,
                     ToPNo = toPNo
                 };
 
-                var fileBytes = await _repository.ExportPatientWiseToExcelAsync(filter, userPlantId, currentUser);
+                var fileBytes = await _repository.ExportPatientWiseToExcelAsync(filter, userPlantId, currentUser, isDoctor, userRole);
                 var fileName = $"DiseaseTrend_PatientWise_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-
                 return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
             catch (Exception ex)
@@ -325,9 +364,6 @@ namespace EMS.WebApp.Controllers
 
         #region Medicine Wise Report
 
-        /// <summary>
-        /// Disease Trend Analysis Medicine Wise Report View (Medicines Consumption)
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> DiseaseTrendMedicineWise()
         {
@@ -336,9 +372,6 @@ namespace EMS.WebApp.Controllers
             return View();
         }
 
-        /// <summary>
-        /// Get Medicine Wise Report Data (AJAX)
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetMedicineWiseData(
             DateTime? fromDate,
@@ -348,6 +381,8 @@ namespace EMS.WebApp.Controllers
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var currentUser = GetCurrentUserName();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
 
                 var filter = new DiseaseTrendFilterModel
                 {
@@ -355,7 +390,7 @@ namespace EMS.WebApp.Controllers
                     ToDate = toDate
                 };
 
-                var result = await _repository.GetDiseaseTrendMedicineWiseAsync(filter, userPlantId, currentUser);
+                var result = await _repository.GetDiseaseTrendMedicineWiseAsync(filter, userPlantId, currentUser, isDoctor, userRole);
                 return Json(result);
             }
             catch (Exception ex)
@@ -365,9 +400,6 @@ namespace EMS.WebApp.Controllers
             }
         }
 
-        /// <summary>
-        /// Export Medicine Wise Report to Excel
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> ExportMedicineWise(
             DateTime? fromDate,
@@ -377,6 +409,8 @@ namespace EMS.WebApp.Controllers
             {
                 var userPlantId = await GetCurrentUserPlantIdAsync();
                 var currentUser = GetCurrentUserName();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
 
                 var filter = new DiseaseTrendFilterModel
                 {
@@ -384,9 +418,8 @@ namespace EMS.WebApp.Controllers
                     ToDate = toDate
                 };
 
-                var fileBytes = await _repository.ExportMedicineWiseToExcelAsync(filter, userPlantId, currentUser);
+                var fileBytes = await _repository.ExportMedicineWiseToExcelAsync(filter, userPlantId, currentUser, isDoctor, userRole);
                 var fileName = $"MedicinesConsumption_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-
                 return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
             catch (Exception ex)
@@ -401,9 +434,6 @@ namespace EMS.WebApp.Controllers
 
         #region Dropdown Data Endpoints
 
-        /// <summary>
-        /// Get Departments for dropdown
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetDepartments()
         {
@@ -411,9 +441,6 @@ namespace EMS.WebApp.Controllers
             return Json(departments);
         }
 
-        /// <summary>
-        /// Get Diseases for dropdown
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetDiseases()
         {
@@ -422,12 +449,10 @@ namespace EMS.WebApp.Controllers
             return Json(diseases);
         }
 
-        /// <summary>
-        /// Get Employee Types for dropdown
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetEmployeeTypes()
         {
+            // ✅ FIX: Now returns Id (int) and Name from org_employee_category master table
             var employeeTypes = await _repository.GetEmployeeTypesAsync();
             return Json(employeeTypes);
         }

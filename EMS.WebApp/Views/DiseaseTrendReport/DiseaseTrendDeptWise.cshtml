@@ -1,12 +1,10 @@
-@{
+﻿@{
     ViewData["Title"] = "Disease Trend Analysis - Department Wise";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
 <link href="~/css/report.css" rel="stylesheet" />
 <link href="~/css/report-inventory.css" rel="stylesheet" />
-@* <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" /> *@
 <link href="~/css/select2.min.css" rel="stylesheet" />
 <link href="~/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 <!-- Enhanced Dashboard Header -->
@@ -320,11 +318,12 @@
             });
 
             // Load Employee Types
+            // ✅ FIX: value is now item.id (emp_category_id FK int) not item.name string
             $.get('@Url.Action("GetEmployeeTypes", "DiseaseTrendReport")', function(data) {
                 var select = $('#employeeTypeFilter');
                 select.find('option:not(:first)').remove();
                 $.each(data, function(i, item) {
-                    select.append($('<option>', { value: item.name, text: item.name }));
+                    select.append($('<option>', { value: item.id, text: item.name }));
                 });
             });
         }
@@ -379,8 +378,8 @@
                 fromDate: fromDate,
                 toDate: toDate,
                 departmentId: $('#departmentFilter').val() || null,
-                diseaseId: $('#diseaseFilter').val() ? $('#diseaseFilter').val().join(',') : null,
-                employeeType: $('#employeeTypeFilter').val() || null
+                diseaseIds: $('#diseaseFilter').val() ? $('#diseaseFilter').val().join(',') : null,   // ✅ FIX: was diseaseId
+                employeeCategoryId: $('#employeeTypeFilter').val() || null                           // ✅ FIX: was employeeType
             };
 
             $.ajax({
@@ -530,8 +529,8 @@
                 fromDate: fromDate,
                 toDate: toDate,
                 departmentId: $('#departmentFilter').val() || '',
-                diseaseId: $('#diseaseFilter').val() ? $('#diseaseFilter').val().join(',') : '',
-                employeeType: $('#employeeTypeFilter').val() || ''
+                diseaseIds: $('#diseaseFilter').val() ? $('#diseaseFilter').val().join(',') : '',         // ✅ FIX
+                employeeCategoryId: $('#employeeTypeFilter').val() || ''                                  // ✅ FIX
             });
 
             window.location.href = '@Url.Action("ExportDeptWise", "DiseaseTrendReport")?' + params.toString();
@@ -552,74 +551,3 @@
     </script>
 }
 
-@* <style>
-    .disease-name {
-        font-weight: 500;
-        color: #1a365d;
-    }
-
-    .department-badge {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 500;
-    }
-
-    .quantity-badge {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    .text-primary {
-        color: #0d6efd !important;
-    }
-
-    /* Select2 Custom Styling */
-    .select2-container--bootstrap-5 .select2-selection {
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        min-height: 38px;
-    }
-
-    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__rendered {
-        padding: 4px 8px;
-    }
-
-    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        border: none;
-        color: white;
-        border-radius: 15px;
-        padding: 2px 10px;
-        font-size: 0.85rem;
-    }
-
-    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove {
-        color: white;
-        margin-right: 5px;
-    }
-
-    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove:hover {
-        color: #ffcccc;
-        background: transparent;
-    }
-
-    .select2-container--bootstrap-5 .select2-dropdown {
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-    }
-
-    .select2-container--bootstrap-5 .select2-results__option--highlighted[aria-selected] {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    }
-
-    .select2-container--bootstrap-5 .select2-search--dropdown .select2-search__field {
-        border-radius: 6px;
-    }
-</style> *@

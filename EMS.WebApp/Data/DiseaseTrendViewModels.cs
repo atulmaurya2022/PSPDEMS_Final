@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
@@ -15,8 +15,13 @@ namespace EMS.WebApp.Models
         public DateTime? ToDate { get; set; }
         public int? DepartmentId { get; set; }
         public int? PlantId { get; set; }
-        public int? DiseaseId { get; set; }
-        public string? EmployeeType { get; set; }
+
+        // ✅ FIX: Changed from int? DiseaseId to List<int> to support multi-select
+        public List<int>? DiseaseIds { get; set; }
+
+        // ✅ FIX: Changed from string? EmployeeType to int? to use master table FK
+        public int? EmployeeCategoryId { get; set; }
+
         public string? FromPNo { get; set; }
         public string? ToPNo { get; set; }
     }
@@ -47,9 +52,6 @@ namespace EMS.WebApp.Models
 
     #region Age Wise Report Models
 
-    /// <summary>
-    /// Disease trend analysis by age group
-    /// </summary>
     public class DiseaseTrendAgeWiseViewModel
     {
         public int SlNo { get; set; }
@@ -60,9 +62,6 @@ namespace EMS.WebApp.Models
         public int? MaxAge { get; set; }
     }
 
-    /// <summary>
-    /// Age wise report response model
-    /// </summary>
     public class DiseaseTrendAgeWiseReportResponse
     {
         public ReportHeaderInfo ReportInfo { get; set; } = new();
@@ -70,9 +69,6 @@ namespace EMS.WebApp.Models
         public DiseaseTrendAgeWiseSummary Summary { get; set; } = new();
     }
 
-    /// <summary>
-    /// Age wise report summary
-    /// </summary>
     public class DiseaseTrendAgeWiseSummary
     {
         public int TotalRecords { get; set; }
@@ -85,9 +81,6 @@ namespace EMS.WebApp.Models
 
     #region Department Wise Report Models
 
-    /// <summary>
-    /// Disease trend analysis by department
-    /// </summary>
     public class DiseaseTrendDeptWiseViewModel
     {
         public int SlNo { get; set; }
@@ -98,9 +91,6 @@ namespace EMS.WebApp.Models
         public int DiseaseId { get; set; }
     }
 
-    /// <summary>
-    /// Department wise report response model
-    /// </summary>
     public class DiseaseTrendDeptWiseReportResponse
     {
         public ReportHeaderInfo ReportInfo { get; set; } = new();
@@ -108,9 +98,6 @@ namespace EMS.WebApp.Models
         public DiseaseTrendDeptWiseSummary Summary { get; set; } = new();
     }
 
-    /// <summary>
-    /// Department wise report summary
-    /// </summary>
     public class DiseaseTrendDeptWiseSummary
     {
         public int TotalRecords { get; set; }
@@ -123,9 +110,6 @@ namespace EMS.WebApp.Models
 
     #region Patient Wise Report Models
 
-    /// <summary>
-    /// Disease trend analysis by patient
-    /// </summary>
     public class DiseaseTrendPatientWiseViewModel
     {
         public int SlNo { get; set; }
@@ -136,13 +120,10 @@ namespace EMS.WebApp.Models
         public DateTime DateTimeVisit { get; set; }
         public string DateTimeVisitFormatted => DateTimeVisit.ToString("dd/MM/yyyy HH:mm:ss");
         public string DepartmentName { get; set; } = string.Empty;
-        public string? PatientType { get; set; } // Employee/Dependent/Others
+        public string? PatientType { get; set; }
         public decimal? Age { get; set; }
     }
 
-    /// <summary>
-    /// Patient wise report response model
-    /// </summary>
     public class DiseaseTrendPatientWiseReportResponse
     {
         public ReportHeaderInfo ReportInfo { get; set; } = new();
@@ -152,9 +133,6 @@ namespace EMS.WebApp.Models
         public int CurrentPage { get; set; }
     }
 
-    /// <summary>
-    /// Patient wise report summary
-    /// </summary>
     public class DiseaseTrendPatientWiseSummary
     {
         public int TotalRecords { get; set; }
@@ -168,9 +146,6 @@ namespace EMS.WebApp.Models
 
     #region Medicine Wise Report Models
 
-    /// <summary>
-    /// Disease trend analysis by medicine (Medicines Consumption)
-    /// </summary>
     public class DiseaseTrendMedicineWiseViewModel
     {
         public int SlNo { get; set; }
@@ -182,9 +157,6 @@ namespace EMS.WebApp.Models
         public string? BaseName { get; set; }
     }
 
-    /// <summary>
-    /// Medicine wise report response model
-    /// </summary>
     public class DiseaseTrendMedicineWiseReportResponse
     {
         public ReportHeaderInfo ReportInfo { get; set; } = new();
@@ -192,9 +164,6 @@ namespace EMS.WebApp.Models
         public DiseaseTrendMedicineWiseSummary Summary { get; set; } = new();
     }
 
-    /// <summary>
-    /// Medicine wise report summary
-    /// </summary>
     public class DiseaseTrendMedicineWiseSummary
     {
         public int TotalRecords { get; set; }
@@ -207,9 +176,6 @@ namespace EMS.WebApp.Models
 
     #region Filter Dropdown Models
 
-    /// <summary>
-    /// All filter dropdown options for disease trend reports
-    /// </summary>
     public class DiseaseTrendFilterOptions
     {
         public List<DropdownItem> Departments { get; set; } = new();

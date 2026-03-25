@@ -22,7 +22,7 @@ namespace EMS.WebApp.Services
             {
                 var user = await _db.SysUsers
                     .FirstOrDefaultAsync(u => (u.adid == userName || u.email == userName || u.full_name == userName) && u.is_active);
-                return user?.plant_id; // short will be implicitly converted to int?
+                return user?.plant_id;
             }
             catch (Exception ex)
             {
@@ -74,11 +74,7 @@ namespace EMS.WebApp.Services
         {
             return await _db.org_departments
                 .OrderBy(d => d.dept_name)
-                .Select(d => new DropdownItem
-                {
-                    Id = d.dept_id,
-                    Name = d.dept_name
-                })
+                .Select(d => new DropdownItem { Id = d.dept_id, Name = d.dept_name })
                 .ToListAsync();
         }
 
@@ -87,17 +83,11 @@ namespace EMS.WebApp.Services
             var query = _db.MedDiseases.AsQueryable();
 
             if (userPlantId.HasValue)
-            {
                 query = query.Where(d => d.plant_id == userPlantId.Value);
-            }
 
             return await query
                 .OrderBy(d => d.DiseaseName)
-                .Select(d => new DropdownItem
-                {
-                    Id = d.DiseaseId,
-                    Name = d.DiseaseName
-                })
+                .Select(d => new DropdownItem { Id = d.DiseaseId, Name = d.DiseaseName })
                 .ToListAsync();
         }
 
@@ -105,25 +95,28 @@ namespace EMS.WebApp.Services
         {
             return await _db.org_plants
                 .OrderBy(p => p.plant_name)
-                .Select(p => new DropdownItem
-                {
-                    Id = p.plant_id,
-                    Name = p.plant_name
-                })
+                .Select(p => new DropdownItem { Id = p.plant_id, Name = p.plant_name })
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// ✅ FIX: Now loads from org_employee_category master table.
+        /// Only shows: TR Employee, Manager, ESP, Others.
+        /// Ensure these 4 names exist in org_employee_category table (case-insensitive match).
+        /// </summary>
         public async Task<List<DropdownItem>> GetEmployeeTypesAsync()
         {
-            // Return static employee types
-            return await Task.FromResult(new List<DropdownItem>
-            {
-                new() { Id = 1, Name = "TR EMPLOYEE" },
-                new() { Id = 2, Name = "CONTRACT" },
-                new() { Id = 3, Name = "TRAINEE" },
-                new() { Id = 4, Name = "DEPENDENT" },
-                new() { Id = 5, Name = "OTHERS" }
-            });
+            var allowedNames = new[] { "tr employee", "manager", "esp", "others" };
+
+            return await _db.org_employee_categories
+                .Where(c => allowedNames.Contains(c.emp_category_name.ToLower()))
+                .OrderBy(c => c.emp_category_name)
+                .Select(c => new DropdownItem
+                {
+                    Id = c.emp_category_id,
+                    Name = c.emp_category_name
+                })
+                .ToListAsync();
         }
 
         private async Task<ReportHeaderInfo> GetReportHeaderAsync(int? userPlantId, string? currentUser)
@@ -143,6 +136,44 @@ namespace EMS.WebApp.Services
             return header;
         }
 
+        /// <summary>
+        /// ✅ FIX: Checks if role is Compounder (for role-based access control).
+        /// Mirrors the same helper used in CompounderIndentRepository.
+        /// </summary>
+        private bool IsCompounderRole(string? userRole)
+        {
+            if (string.IsNullOrEmpty(userRole)) return false;
+            return userRole.ToLower().Contains("compounder");
+        }
+
+        /// <summary>
+        /// ✅ FIX: Checks if role is Store In-charge (for role-based access control).
+        /// </summary>
+        private bool IsStoreRole(string? userRole)
+        {
+            if (string.IsNullOrEmpty(userRole)) return false;
+            return userRole.ToLower().Contains("store");
+        }
+
+        /// <summary>
+        /// ✅ FIX: Checks if role is Admin (for role-based access control).
+        /// </summary>
+        private bool IsAdminRole(string? userRole)
+        {
+            if (string.IsNullOrEmpty(userRole)) return false;
+            return userRole.ToLower().Contains("admin");
+        }
+
+        /// <summary>
+        /// ✅ FIX: Determines whether this user should see ALL records.
+        /// Doctor and Admin → all records.
+        /// Compounder / Store In-charge → only their own records (CreatedBy filter).
+        /// </summary>
+        private bool CanSeeAllRecords(bool isDoctor, string? userRole)
+        {
+            return isDoctor || IsAdminRole(userRole);
+        }
+
         #endregion
 
         #region Age Wise Report
@@ -150,19 +181,19 @@ namespace EMS.WebApp.Services
         public async Task<DiseaseTrendAgeWiseReportResponse> GetDiseaseTrendAgeWiseAsync(
             DiseaseTrendFilterModel filter,
             int? userPlantId = null,
-            string? currentUser = null)
+            string? currentUser = null,
+            bool isDoctor = false,
+            string? userRole = null)
         {
             var response = new DiseaseTrendAgeWiseReportResponse
             {
                 ReportInfo = await GetReportHeaderAsync(userPlantId, currentUser)
             };
-
             response.ReportInfo.FromDate = filter.FromDate;
             response.ReportInfo.ToDate = filter.ToDate;
 
             try
             {
-                // Query employee prescriptions with diseases
                 var query = from p in _db.MedPrescriptions
                             join pd in _db.MedPrescriptionDiseases on p.PrescriptionId equals pd.PrescriptionId
                             join d in _db.MedDiseases on pd.DiseaseId equals d.DiseaseId
@@ -173,6 +204,7 @@ namespace EMS.WebApp.Services
                                 p.PrescriptionId,
                                 p.PrescriptionDate,
                                 p.PlantId,
+                                p.CreatedBy,
                                 d.DiseaseId,
                                 d.DiseaseName,
                                 e.emp_uid,
@@ -182,21 +214,32 @@ namespace EMS.WebApp.Services
                                 e.emp_category_id
                             };
 
-                // Apply filters
+                // Plant filter
                 if (userPlantId.HasValue)
                     query = query.Where(x => x.PlantId == userPlantId.Value);
 
+                // ✅ FIX: Role-based access — Compounder/Store see only their own prescriptions
+                if (!CanSeeAllRecords(isDoctor, userRole) && !string.IsNullOrEmpty(currentUser))
+                    query = query.Where(x => x.CreatedBy == currentUser);
+
+                // Date filters
                 if (filter.FromDate.HasValue)
                     query = query.Where(x => x.PrescriptionDate >= filter.FromDate.Value);
 
                 if (filter.ToDate.HasValue)
                     query = query.Where(x => x.PrescriptionDate <= filter.ToDate.Value.AddDays(1));
 
+                // Department filter
                 if (filter.DepartmentId.HasValue)
                     query = query.Where(x => x.dept_id == filter.DepartmentId.Value);
 
-                if (filter.DiseaseId.HasValue)
-                    query = query.Where(x => x.DiseaseId == filter.DiseaseId.Value);
+                // ✅ FIX: Disease multi-select filter (was single int, now List<int>)
+                if (filter.DiseaseIds != null && filter.DiseaseIds.Any())
+                    query = query.Where(x => filter.DiseaseIds.Contains(x.DiseaseId));
+
+                // ✅ FIX: Employee category filter (was string match, now FK int comparison)
+                if (filter.EmployeeCategoryId.HasValue)
+                    query = query.Where(x => x.emp_category_id == filter.EmployeeCategoryId.Value);
 
                 var results = await query.ToListAsync();
 
@@ -207,15 +250,13 @@ namespace EMS.WebApp.Services
                     {
                         r.DiseaseName,
                         r.emp_uid,
-                        Age = r.emp_DOB.HasValue ? today.Year - r.emp_DOB.Value.Year -
-                            (r.emp_DOB.Value > today.AddYears(-(today.Year - r.emp_DOB.Value.Year)) ? 1 : 0) : (int?)null
+                        Age = r.emp_DOB.HasValue
+                            ? today.Year - r.emp_DOB.Value.Year -
+                              (r.emp_DOB.Value > today.AddYears(-(today.Year - r.emp_DOB.Value.Year)) ? 1 : 0)
+                            : (int?)null
                     })
                     .Where(r => r.Age.HasValue)
-                    .GroupBy(r => new
-                    {
-                        r.DiseaseName,
-                        AgeGroup = GetAgeGroup(r.Age.Value)
-                    })
+                    .GroupBy(r => new { r.DiseaseName, AgeGroup = GetAgeGroup(r.Age!.Value) })
                     .Select(g => new DiseaseTrendAgeWiseViewModel
                     {
                         DiseaseName = g.Key.DiseaseName,
@@ -226,12 +267,8 @@ namespace EMS.WebApp.Services
                     .ThenBy(x => x.AgeGroup)
                     .ToList();
 
-                // Add serial numbers
                 int slNo = 1;
-                foreach (var item in groupedData)
-                {
-                    item.SlNo = slNo++;
-                }
+                foreach (var item in groupedData) item.SlNo = slNo++;
 
                 response.Data = groupedData;
                 response.Summary = new DiseaseTrendAgeWiseSummary
@@ -270,19 +307,19 @@ namespace EMS.WebApp.Services
         public async Task<DiseaseTrendDeptWiseReportResponse> GetDiseaseTrendDeptWiseAsync(
             DiseaseTrendFilterModel filter,
             int? userPlantId = null,
-            string? currentUser = null)
+            string? currentUser = null,
+            bool isDoctor = false,
+            string? userRole = null)
         {
             var response = new DiseaseTrendDeptWiseReportResponse
             {
                 ReportInfo = await GetReportHeaderAsync(userPlantId, currentUser)
             };
-
             response.ReportInfo.FromDate = filter.FromDate;
             response.ReportInfo.ToDate = filter.ToDate;
 
             try
             {
-                // Query employee prescriptions with diseases and departments
                 var query = from p in _db.MedPrescriptions
                             join pd in _db.MedPrescriptionDiseases on p.PrescriptionId equals pd.PrescriptionId
                             join d in _db.MedDiseases on pd.DiseaseId equals d.DiseaseId
@@ -294,6 +331,7 @@ namespace EMS.WebApp.Services
                                 p.PrescriptionId,
                                 p.PrescriptionDate,
                                 p.PlantId,
+                                p.CreatedBy,
                                 d.DiseaseId,
                                 d.DiseaseName,
                                 e.emp_uid,
@@ -302,25 +340,35 @@ namespace EMS.WebApp.Services
                                 e.emp_category_id
                             };
 
-                // Apply filters
+                // Plant filter
                 if (userPlantId.HasValue)
                     query = query.Where(x => x.PlantId == userPlantId.Value);
 
+                // ✅ FIX: Role-based access
+                if (!CanSeeAllRecords(isDoctor, userRole) && !string.IsNullOrEmpty(currentUser))
+                    query = query.Where(x => x.CreatedBy == currentUser);
+
+                // Date filters
                 if (filter.FromDate.HasValue)
                     query = query.Where(x => x.PrescriptionDate >= filter.FromDate.Value);
 
                 if (filter.ToDate.HasValue)
                     query = query.Where(x => x.PrescriptionDate <= filter.ToDate.Value.AddDays(1));
 
+                // Department filter
                 if (filter.DepartmentId.HasValue)
                     query = query.Where(x => x.dept_id == filter.DepartmentId.Value);
 
-                if (filter.DiseaseId.HasValue)
-                    query = query.Where(x => x.DiseaseId == filter.DiseaseId.Value);
+                // ✅ FIX: Disease multi-select filter
+                if (filter.DiseaseIds != null && filter.DiseaseIds.Any())
+                    query = query.Where(x => filter.DiseaseIds.Contains(x.DiseaseId));
+
+                // ✅ FIX: Employee category filter
+                if (filter.EmployeeCategoryId.HasValue)
+                    query = query.Where(x => x.emp_category_id == filter.EmployeeCategoryId.Value);
 
                 var results = await query.ToListAsync();
 
-                // Group by disease and department
                 var groupedData = results
                     .GroupBy(r => new { r.DiseaseName, r.DiseaseId, r.dept_id, r.dept_name })
                     .Select(g => new DiseaseTrendDeptWiseViewModel
@@ -335,12 +383,8 @@ namespace EMS.WebApp.Services
                     .ThenBy(x => x.DepartmentName)
                     .ToList();
 
-                // Add serial numbers
                 int slNo = 1;
-                foreach (var item in groupedData)
-                {
-                    item.SlNo = slNo++;
-                }
+                foreach (var item in groupedData) item.SlNo = slNo++;
 
                 response.Data = groupedData;
                 response.Summary = new DiseaseTrendDeptWiseSummary
@@ -368,19 +412,20 @@ namespace EMS.WebApp.Services
             int? userPlantId = null,
             string? currentUser = null,
             int page = 1,
-            int pageSize = 100)
+            int pageSize = 100,
+            bool isDoctor = false,
+            string? userRole = null)
         {
             var response = new DiseaseTrendPatientWiseReportResponse
             {
                 ReportInfo = await GetReportHeaderAsync(userPlantId, currentUser)
             };
-
             response.ReportInfo.FromDate = filter.FromDate;
             response.ReportInfo.ToDate = filter.ToDate;
 
             try
             {
-                // Combined query for employees and other patients
+                // --- Employee prescriptions query ---
                 var employeeQuery = from p in _db.MedPrescriptions
                                     join pd in _db.MedPrescriptionDiseases on p.PrescriptionId equals pd.PrescriptionId
                                     join d in _db.MedDiseases on pd.DiseaseId equals d.DiseaseId
@@ -401,39 +446,56 @@ namespace EMS.WebApp.Services
                                         DateTimeVisit = p.PrescriptionDate,
                                         DepartmentName = department != null ? department.dept_name : "",
                                         PatientType = "Employee",
-                                        Age = e.emp_DOB.HasValue ?
-                                            DateTime.Today.Year - e.emp_DOB.Value.Year -
-                                            (e.emp_DOB.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-(DateTime.Today.Year - e.emp_DOB.Value.Year))) ? 1 : 0)
+                                        Age = e.emp_DOB.HasValue
+                                            ? DateTime.Today.Year - e.emp_DOB.Value.Year -
+                                              (e.emp_DOB.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-(DateTime.Today.Year - e.emp_DOB.Value.Year))) ? 1 : 0)
                                             : (int?)null,
                                         PlantId = p.PlantId,
+                                        p.CreatedBy,
                                         p.PrescriptionDate,
                                         DiseaseId = d.DiseaseId,
-                                        DeptId = e.dept_id
+                                        DeptId = e.dept_id,
+                                        emp_category_id = e.emp_category_id
                                     };
 
-                // Apply filters to employee query
+                // Plant filter
                 if (userPlantId.HasValue)
                     employeeQuery = employeeQuery.Where(x => x.PlantId == userPlantId.Value);
 
+                // ✅ FIX: Role-based access — employee prescriptions
+                if (!CanSeeAllRecords(isDoctor, userRole) && !string.IsNullOrEmpty(currentUser))
+                    employeeQuery = employeeQuery.Where(x => x.CreatedBy == currentUser);
+
+                // Date filters
                 if (filter.FromDate.HasValue)
                     employeeQuery = employeeQuery.Where(x => x.PrescriptionDate >= filter.FromDate.Value);
 
                 if (filter.ToDate.HasValue)
                     employeeQuery = employeeQuery.Where(x => x.PrescriptionDate <= filter.ToDate.Value.AddDays(1));
 
+                // Department filter
                 if (filter.DepartmentId.HasValue)
                     employeeQuery = employeeQuery.Where(x => x.DeptId == filter.DepartmentId.Value);
 
-                if (filter.DiseaseId.HasValue)
-                    employeeQuery = employeeQuery.Where(x => x.DiseaseId == filter.DiseaseId.Value);
+                // ✅ FIX: Disease multi-select filter
+                if (filter.DiseaseIds != null && filter.DiseaseIds.Any())
+                    employeeQuery = employeeQuery.Where(x => filter.DiseaseIds.Contains(x.DiseaseId));
 
+                // ✅ FIX: Employee category filter (only applicable to employee prescriptions)
+                if (filter.EmployeeCategoryId.HasValue)
+                    employeeQuery = employeeQuery.Where(x => x.emp_category_id == filter.EmployeeCategoryId.Value);
+
+                // PNo range filters
                 if (!string.IsNullOrEmpty(filter.FromPNo))
                     employeeQuery = employeeQuery.Where(x => string.Compare(x.EmpNo, filter.FromPNo) >= 0);
 
                 if (!string.IsNullOrEmpty(filter.ToPNo))
                     employeeQuery = employeeQuery.Where(x => string.Compare(x.EmpNo, filter.ToPNo) <= 0);
 
-                // Query for other patients (non-employees)
+                // --- Others (non-employee) diagnoses query ---
+                // ✅ NOTE: EmployeeCategoryId filter is intentionally NOT applied to OtherPatients
+                //          as they have no emp_category_id. When EmployeeCategoryId is set,
+                //          we exclude others entirely since they are not employees.
                 var othersQuery = from od in _db.OthersDiagnoses
                                   join op in _db.OtherPatients on od.PatientId equals op.PatientId
                                   join odd in _db.OthersDiagnosisDiseases on od.DiagnosisId equals odd.DiagnosisId
@@ -454,30 +516,38 @@ namespace EMS.WebApp.Services
                                       PatientType = "Others",
                                       Age = op.Age,
                                       PlantId = od.PlantId,
+                                      od.CreatedBy,
                                       PrescriptionDate = od.VisitDate,
                                       DiseaseId = d.DiseaseId,
                                       DeptId = (short)0
                                   };
 
-                // Apply filters to others query
+                // Plant filter for others
                 if (userPlantId.HasValue)
                     othersQuery = othersQuery.Where(x => x.PlantId == userPlantId.Value);
 
+                // ✅ FIX: Role-based access — others diagnoses
+                if (!CanSeeAllRecords(isDoctor, userRole) && !string.IsNullOrEmpty(currentUser))
+                    othersQuery = othersQuery.Where(x => x.CreatedBy == currentUser);
+
+                // Date filters for others
                 if (filter.FromDate.HasValue)
                     othersQuery = othersQuery.Where(x => x.PrescriptionDate >= filter.FromDate.Value);
 
                 if (filter.ToDate.HasValue)
                     othersQuery = othersQuery.Where(x => x.PrescriptionDate <= filter.ToDate.Value.AddDays(1));
 
-                if (filter.DiseaseId.HasValue)
-                    othersQuery = othersQuery.Where(x => x.DiseaseId == filter.DiseaseId.Value);
+                // Disease filter for others
+                if (filter.DiseaseIds != null && filter.DiseaseIds.Any())
+                    othersQuery = othersQuery.Where(x => filter.DiseaseIds.Contains(x.DiseaseId));
 
                 // Execute queries
                 var employeeResults = await employeeQuery.ToListAsync();
+                // Always execute othersQuery — the skip happens at the concat step below
                 var othersResults = await othersQuery.ToListAsync();
 
-                // Combine and process results
-                var combinedResults = employeeResults
+                // Map employee results to view model
+                var employeeMapped = employeeResults
                     .Select(r => new DiseaseTrendPatientWiseViewModel
                     {
                         EmpNo = r.EmpNo,
@@ -488,8 +558,16 @@ namespace EMS.WebApp.Services
                         DepartmentName = r.DepartmentName ?? "",
                         PatientType = r.PatientType,
                         Age = r.Age
-                    })
-                    .Concat(othersResults.Select(r => new DiseaseTrendPatientWiseViewModel
+                    });
+
+                // Map others results to view model.
+                // ✅ FIX: If EmployeeCategoryId is selected, OtherPatients are excluded entirely
+                //    because they have no emp_category_id.
+                //    Using Enumerable.Empty<T>() avoids the CS0173 anonymous type mismatch
+                //    that occurs when using a ternary with two different anonymous type shapes.
+                var othersMapped = filter.EmployeeCategoryId.HasValue
+                    ? Enumerable.Empty<DiseaseTrendPatientWiseViewModel>()
+                    : othersResults.Select(r => new DiseaseTrendPatientWiseViewModel
                     {
                         EmpNo = r.EmpNo,
                         PatientName = r.PatientName,
@@ -499,7 +577,11 @@ namespace EMS.WebApp.Services
                         DepartmentName = r.DepartmentName ?? "",
                         PatientType = r.PatientType,
                         Age = r.Age
-                    }))
+                    });
+
+                // Combine and process results
+                var combinedResults = employeeMapped
+                    .Concat(othersMapped)
                     .OrderByDescending(x => x.DateTimeVisit)
                     .ToList();
 
@@ -512,12 +594,8 @@ namespace EMS.WebApp.Services
                     .Take(pageSize)
                     .ToList();
 
-                // Add serial numbers
                 int slNo = (page - 1) * pageSize + 1;
-                foreach (var item in paginatedData)
-                {
-                    item.SlNo = slNo++;
-                }
+                foreach (var item in paginatedData) item.SlNo = slNo++;
 
                 response.Data = paginatedData;
                 response.TotalPages = totalPages;
@@ -546,19 +624,20 @@ namespace EMS.WebApp.Services
         public async Task<DiseaseTrendMedicineWiseReportResponse> GetDiseaseTrendMedicineWiseAsync(
             DiseaseTrendFilterModel filter,
             int? userPlantId = null,
-            string? currentUser = null)
+            string? currentUser = null,
+            bool isDoctor = false,
+            string? userRole = null)
         {
             var response = new DiseaseTrendMedicineWiseReportResponse
             {
                 ReportInfo = await GetReportHeaderAsync(userPlantId, currentUser)
             };
-
             response.ReportInfo.FromDate = filter.FromDate;
             response.ReportInfo.ToDate = filter.ToDate;
 
             try
             {
-                // Query for employee prescriptions
+                // Employee prescriptions query
                 var employeeQuery = from pm in _db.MedPrescriptionMedicines
                                     join p in _db.MedPrescriptions on pm.PrescriptionId equals p.PrescriptionId
                                     join m in _db.med_masters on pm.MedItemId equals m.MedItemId
@@ -577,7 +656,7 @@ namespace EMS.WebApp.Services
                                         p.PlantId
                                     };
 
-                // Query for others diagnoses
+                // Others diagnoses query
                 var othersQuery = from odm in _db.OthersDiagnosisMedicines
                                   join od in _db.OthersDiagnoses on odm.DiagnosisId equals od.DiagnosisId
                                   join m in _db.med_masters on odm.MedItemId equals m.MedItemId
@@ -596,13 +675,21 @@ namespace EMS.WebApp.Services
                                       od.PlantId
                                   };
 
-                // Apply filters
+                // Plant filter
                 if (userPlantId.HasValue)
                 {
                     employeeQuery = employeeQuery.Where(x => x.PlantId == userPlantId.Value);
                     othersQuery = othersQuery.Where(x => x.PlantId == userPlantId.Value);
                 }
 
+                // ✅ FIX: Role-based access — Medicine Wise
+                if (!CanSeeAllRecords(isDoctor, userRole) && !string.IsNullOrEmpty(currentUser))
+                {
+                    employeeQuery = employeeQuery.Where(x => x.CreatedBy == currentUser);
+                    othersQuery = othersQuery.Where(x => x.CreatedBy == currentUser);
+                }
+
+                // Date filters
                 if (filter.FromDate.HasValue)
                 {
                     employeeQuery = employeeQuery.Where(x => x.PrescriptionDate >= filter.FromDate.Value);
@@ -615,11 +702,9 @@ namespace EMS.WebApp.Services
                     othersQuery = othersQuery.Where(x => x.PrescriptionDate <= filter.ToDate.Value.AddDays(1));
                 }
 
-                // Execute queries
                 var employeeResults = await employeeQuery.ToListAsync();
                 var othersResults = await othersQuery.ToListAsync();
 
-                // Combine and group results
                 var combinedResults = employeeResults
                     .Concat(othersResults)
                     .GroupBy(x => new { x.MedItemId, x.MedItemName, x.CompanyName, x.BaseName, x.CreatedBy })
@@ -635,12 +720,8 @@ namespace EMS.WebApp.Services
                     .OrderByDescending(x => x.QuantityUsed)
                     .ToList();
 
-                // Add serial numbers
                 int slNo = 1;
-                foreach (var item in combinedResults)
-                {
-                    item.SlNo = slNo++;
-                }
+                foreach (var item in combinedResults) item.SlNo = slNo++;
 
                 response.Data = combinedResults;
                 response.Summary = new DiseaseTrendMedicineWiseSummary
@@ -663,36 +744,35 @@ namespace EMS.WebApp.Services
 
         #region Export Methods
 
-        public async Task<byte[]> ExportAgeWiseToExcelAsync(DiseaseTrendFilterModel filter, int? userPlantId = null, string? currentUser = null)
+        public async Task<byte[]> ExportAgeWiseToExcelAsync(
+            DiseaseTrendFilterModel filter,
+            int? userPlantId = null,
+            string? currentUser = null,
+            bool isDoctor = false,
+            string? userRole = null)
         {
-            var data = await GetDiseaseTrendAgeWiseAsync(filter, userPlantId, currentUser);
+            var data = await GetDiseaseTrendAgeWiseAsync(filter, userPlantId, currentUser, isDoctor, userRole);
 
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Disease Trend Age Wise");
 
-            // Header
             worksheet.Cell(1, 1).Value = "Unit: ITC LIMITED - PSPD-" + data.ReportInfo.PlantCode;
             worksheet.Range(1, 1, 1, 4).Merge();
-
             worksheet.Cell(2, 1).Value = "Run Date & Time: " + data.ReportInfo.GeneratedOn;
             worksheet.Cell(2, 3).Value = "Generated By: " + data.ReportInfo.GeneratedBy;
-
             worksheet.Cell(4, 1).Value = "DISEASE TREND ANALYSIS AGE WISE REPORT";
             worksheet.Range(4, 1, 4, 4).Merge();
             worksheet.Cell(4, 1).Style.Font.Bold = true;
             worksheet.Cell(4, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            // Column Headers
             worksheet.Cell(6, 1).Value = "SL NO";
             worksheet.Cell(6, 2).Value = "DISEASE NAME";
             worksheet.Cell(6, 3).Value = "COUNT OF EMP";
             worksheet.Cell(6, 4).Value = "AGE GROUP";
-
             var headerRange = worksheet.Range(6, 1, 6, 4);
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
 
-            // Data rows
             int row = 7;
             foreach (var item in data.Data)
             {
@@ -704,42 +784,40 @@ namespace EMS.WebApp.Services
             }
 
             worksheet.Columns().AdjustToContents();
-
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
             return stream.ToArray();
         }
 
-        public async Task<byte[]> ExportDeptWiseToExcelAsync(DiseaseTrendFilterModel filter, int? userPlantId = null, string? currentUser = null)
+        public async Task<byte[]> ExportDeptWiseToExcelAsync(
+            DiseaseTrendFilterModel filter,
+            int? userPlantId = null,
+            string? currentUser = null,
+            bool isDoctor = false,
+            string? userRole = null)
         {
-            var data = await GetDiseaseTrendDeptWiseAsync(filter, userPlantId, currentUser);
+            var data = await GetDiseaseTrendDeptWiseAsync(filter, userPlantId, currentUser, isDoctor, userRole);
 
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Disease Trend Dept Wise");
 
-            // Header
             worksheet.Cell(1, 1).Value = "Unit: ITC LIMITED - PSPD-" + data.ReportInfo.PlantCode;
             worksheet.Range(1, 1, 1, 4).Merge();
-
             worksheet.Cell(2, 1).Value = "Run Date & Time: " + data.ReportInfo.GeneratedOn;
             worksheet.Cell(2, 3).Value = "Generated By: " + data.ReportInfo.GeneratedBy;
-
             worksheet.Cell(4, 1).Value = "DISEASE TREND ANALYSIS DEPARTMENT WISE";
             worksheet.Range(4, 1, 4, 4).Merge();
             worksheet.Cell(4, 1).Style.Font.Bold = true;
             worksheet.Cell(4, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            // Column Headers
             worksheet.Cell(6, 1).Value = "SL NO";
             worksheet.Cell(6, 2).Value = "DISEASE NAME";
             worksheet.Cell(6, 3).Value = "EMPLOYEE COUNT";
             worksheet.Cell(6, 4).Value = "DEPARTMENT";
-
             var headerRange = worksheet.Range(6, 1, 6, 4);
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
 
-            // Data rows
             int row = 7;
             foreach (var item in data.Data)
             {
@@ -751,44 +829,42 @@ namespace EMS.WebApp.Services
             }
 
             worksheet.Columns().AdjustToContents();
-
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
             return stream.ToArray();
         }
 
-        public async Task<byte[]> ExportPatientWiseToExcelAsync(DiseaseTrendFilterModel filter, int? userPlantId = null, string? currentUser = null)
+        public async Task<byte[]> ExportPatientWiseToExcelAsync(
+            DiseaseTrendFilterModel filter,
+            int? userPlantId = null,
+            string? currentUser = null,
+            bool isDoctor = false,
+            string? userRole = null)
         {
-            var data = await GetDiseaseTrendPatientWiseAsync(filter, userPlantId, currentUser, 1, int.MaxValue);
+            var data = await GetDiseaseTrendPatientWiseAsync(filter, userPlantId, currentUser, 1, int.MaxValue, isDoctor, userRole);
 
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Disease Trend Patient Wise");
 
-            // Header
             worksheet.Cell(1, 1).Value = "Unit: ITC LIMITED - PSPD-" + data.ReportInfo.PlantCode;
             worksheet.Range(1, 1, 1, 6).Merge();
-
             worksheet.Cell(2, 1).Value = "Run Date & Time: " + data.ReportInfo.GeneratedOn;
             worksheet.Cell(2, 4).Value = "Generated By: " + data.ReportInfo.GeneratedBy;
-
             worksheet.Cell(4, 1).Value = "DISEASE TREND ANALYSIS PATIENT WISE";
             worksheet.Range(4, 1, 4, 6).Merge();
             worksheet.Cell(4, 1).Style.Font.Bold = true;
             worksheet.Cell(4, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            // Column Headers
             worksheet.Cell(6, 1).Value = "SNO";
             worksheet.Cell(6, 2).Value = "EMPNO";
             worksheet.Cell(6, 3).Value = "PATIENT NAME";
             worksheet.Cell(6, 4).Value = "DISEASE NAME";
             worksheet.Cell(6, 5).Value = "MEDICINE NAME";
             worksheet.Cell(6, 6).Value = "DATE TIME VISIT";
-
             var headerRange = worksheet.Range(6, 1, 6, 6);
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
 
-            // Data rows
             int row = 7;
             foreach (var item in data.Data)
             {
@@ -802,42 +878,40 @@ namespace EMS.WebApp.Services
             }
 
             worksheet.Columns().AdjustToContents();
-
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
             return stream.ToArray();
         }
 
-        public async Task<byte[]> ExportMedicineWiseToExcelAsync(DiseaseTrendFilterModel filter, int? userPlantId = null, string? currentUser = null)
+        public async Task<byte[]> ExportMedicineWiseToExcelAsync(
+            DiseaseTrendFilterModel filter,
+            int? userPlantId = null,
+            string? currentUser = null,
+            bool isDoctor = false,
+            string? userRole = null)
         {
-            var data = await GetDiseaseTrendMedicineWiseAsync(filter, userPlantId, currentUser);
+            var data = await GetDiseaseTrendMedicineWiseAsync(filter, userPlantId, currentUser, isDoctor, userRole);
 
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add("Medicines Consumption");
 
-            // Header
             worksheet.Cell(1, 1).Value = "Unit: ITC LIMITED - PSPD-" + data.ReportInfo.PlantCode;
             worksheet.Range(1, 1, 1, 4).Merge();
-
             worksheet.Cell(2, 1).Value = "Run Date & Time: " + data.ReportInfo.GeneratedOn;
             worksheet.Cell(2, 3).Value = "Generated By: " + data.ReportInfo.GeneratedBy;
-
             worksheet.Cell(4, 1).Value = "MEDICINES CONSUMPTION";
             worksheet.Range(4, 1, 4, 4).Merge();
             worksheet.Cell(4, 1).Style.Font.Bold = true;
             worksheet.Cell(4, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            // Column Headers
             worksheet.Cell(6, 1).Value = "SNO";
             worksheet.Cell(6, 2).Value = "MEDICINE NAME";
             worksheet.Cell(6, 3).Value = "QUANTITY USED";
             worksheet.Cell(6, 4).Value = "CREATEDBY";
-
             var headerRange = worksheet.Range(6, 1, 6, 4);
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
 
-            // Data rows
             int row = 7;
             foreach (var item in data.Data)
             {
@@ -849,7 +923,6 @@ namespace EMS.WebApp.Services
             }
 
             worksheet.Columns().AdjustToContents();
-
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
             return stream.ToArray();

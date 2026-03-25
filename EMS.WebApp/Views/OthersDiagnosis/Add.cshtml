@@ -111,12 +111,21 @@
                 <span asp-validation-for="PNumber" class="text-danger small"></span>
             </div>
 
-            <!-- UPDATED: Category - Optional -->
+            <!-- UPDATED: Category - Dropdown for BCM plant, free-text for others -->
             <div class="col-md-3 col-lg-2">
                 <label class="form-label" asp-for="Category">Category</label>
                 @if (shouldMaskData)
                 {
                     <input asp-for="Category" class="form-control glass" disabled />
+                }
+                else if (ViewBag.IsBCMPlant == true)
+                {
+                    <select asp-for="Category" class="form-select glass optional-field">
+                        <option value="">-- Select --</option>
+                        <option value="Manager">Manager</option>
+                        <option value="ESP">ESP</option>
+                        <option value="Others">Others</option>
+                    </select>
                 }
                 else
                 {
@@ -495,7 +504,7 @@
             // Show diagnosis section if we have patient data
             @if (Model?.PatientId.HasValue == true)
             {
-                                                    <text>showDiagnosisSection();</text>
+                                                        <text>showDiagnosisSection();</text>
             }
 
             // Add medicine row with batch tracking
