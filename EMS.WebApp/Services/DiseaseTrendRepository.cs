@@ -171,7 +171,7 @@ namespace EMS.WebApp.Services
         /// </summary>
         private bool CanSeeAllRecords(bool isDoctor, string? userRole)
         {
-            return isDoctor || IsAdminRole(userRole);
+            return isDoctor || IsAdminRole(userRole) || IsStoreRole(userRole);
         }
 
         #endregion
@@ -199,6 +199,7 @@ namespace EMS.WebApp.Services
                             join d in _db.MedDiseases on pd.DiseaseId equals d.DiseaseId
                             join e in _db.HrEmployees on p.emp_uid equals e.emp_uid
                             where p.ApprovalStatus == "Approved"
+                               && (p.DependentName == null || p.DependentName == "Self")
                             select new
                             {
                                 p.PrescriptionId,
@@ -326,6 +327,7 @@ namespace EMS.WebApp.Services
                             join e in _db.HrEmployees on p.emp_uid equals e.emp_uid
                             join dept in _db.org_departments on e.dept_id equals dept.dept_id
                             where p.ApprovalStatus == "Approved"
+                               && (p.DependentName == null || p.DependentName == "Self")
                             select new
                             {
                                 p.PrescriptionId,
@@ -440,12 +442,14 @@ namespace EMS.WebApp.Services
                                     select new
                                     {
                                         EmpNo = e.emp_id,
-                                        PatientName = e.emp_name,
+                                        PatientName = (p.DependentName == null || p.DependentName == "Self")
+                                                      ? e.emp_name
+                                                      : p.DependentName,
                                         DiseaseName = d.DiseaseName,
                                         MedicineName = medicine != null ? medicine.MedItemName : "",
                                         DateTimeVisit = p.PrescriptionDate,
                                         DepartmentName = department != null ? department.dept_name : "",
-                                        PatientType = "Employee",
+                                        PatientType = (p.DependentName == null || p.DependentName == "Self") ? "Employee" : "Dependent",
                                         Age = e.emp_DOB.HasValue
                                             ? DateTime.Today.Year - e.emp_DOB.Value.Year -
                                               (e.emp_DOB.Value > DateOnly.FromDateTime(DateTime.Today.AddYears(-(DateTime.Today.Year - e.emp_DOB.Value.Year))) ? 1 : 0)
@@ -644,6 +648,7 @@ namespace EMS.WebApp.Services
                                     join mb in _db.med_bases on m.BaseId equals mb.BaseId into bases
                                     from baseName in bases.DefaultIfEmpty()
                                     where p.ApprovalStatus == "Approved"
+                                       && (p.DependentName == null || p.DependentName == "Self")
                                     select new
                                     {
                                         pm.MedItemId,

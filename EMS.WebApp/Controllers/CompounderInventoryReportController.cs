@@ -45,8 +45,8 @@ namespace EMS.WebApp.Controllers
                 var userPlantId = await _repo.GetUserPlantIdAsync(User.Identity?.Name);
 
                 // Check if user is a Doctor (for BCM plant-specific access control)
-                var isDoctor = User.IsInRole("Doctor");
-
+                //var isDoctor = User.IsInRole("Doctor");
+                var isDoctor = User.IsInRole("Doctor") || User.IsInRole("Store");
                 // Get plant details for display
                 using var scope = HttpContext.RequestServices.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -132,8 +132,8 @@ namespace EMS.WebApp.Controllers
                 var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
 
                 // Check if user is a Doctor (for BCM plant-specific access control)
-                var isDoctor = User.IsInRole("Doctor");
-
+                //var isDoctor = User.IsInRole("Doctor");
+                var isDoctor = User.IsInRole("Doctor") || User.IsInRole("Store");
                 // Pass plant filtering with BCM compounder-wise access control to repository
                 var reportData = await _repo.GetCompounderInventoryReportAsync(
                     fromDate,

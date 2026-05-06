@@ -1,6 +1,4 @@
-﻿
-
-using EMS.WebApp.Data;
+﻿using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +13,7 @@ using System.Threading.Tasks;
 namespace EMS.WebApp.Controllers
 {
     [Authorize]
+    [ResponseCache(NoStore = true, Duration = 0, Location = ResponseCacheLocation.None)]
     public class StoreDashboardController : Controller
     {
         private readonly ILogger<StoreDashboardController> _logger;
@@ -184,7 +183,7 @@ namespace EMS.WebApp.Controllers
         public async Task<IActionResult> GetExpired(int top = 100)
         {
             var plant = await ResolvePlantAsync();
-            var today = DateTime.Today; 
+            var today = DateTime.Today;
 
             var rows = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })

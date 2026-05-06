@@ -1290,6 +1290,10 @@
         }
 
         (function () {
+            // Prevent browser from caching AJAX GET responses — ensures every auto-refresh
+            // (setInterval) and manual refresh fetches live data from the server, not stale cache.
+            $.ajaxSetup({ cache: false });
+
             const $nearSel = $('#near-days'), $nearLbl = $('#near-label');
 
             function loadSummary() {

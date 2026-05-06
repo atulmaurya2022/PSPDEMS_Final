@@ -689,7 +689,8 @@ namespace EMS.WebApp.Services
         DateTime? toDate = null,
         int? userPlantId = null,
         string currentUser = null,
-        bool isDoctor = false)
+        bool isDoctor = false,
+        string? userRole = null)
         {
             var query = _db.CompounderIndents
                 .Include(ci => ci.CompounderIndentItems)
@@ -704,7 +705,8 @@ namespace EMS.WebApp.Services
                 query = query.Where(ci => ci.plant_id == userPlantId.Value);
 
                 // BCM plant-specific filtering: Compounders see only their own records, Doctors see all
-                if (!isDoctor && !string.IsNullOrEmpty(currentUser))
+                //if (!isDoctor && !string.IsNullOrEmpty(currentUser))
+                if (!isDoctor && IsCompounderRole(userRole) && !string.IsNullOrEmpty(currentUser))
                 {
                     var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
                     if (plantCode?.ToUpper() == "BCM")
@@ -783,7 +785,8 @@ namespace EMS.WebApp.Services
         int? userPlantId = null,
         bool showOnlyAvailable = false,
         string currentUser = null,
-        bool isDoctor = false)
+        bool isDoctor = false,
+        string? userRole = null)
         {
             var query = _db.CompounderIndents
                 .Include(ci => ci.CompounderIndentItems)
@@ -798,7 +801,8 @@ namespace EMS.WebApp.Services
                 query = query.Where(ci => ci.plant_id == userPlantId.Value);
 
                 // BCM plant-specific filtering: Compounders see only their own records, Doctors see all
-                if (!isDoctor && !string.IsNullOrEmpty(currentUser))
+                //if (!isDoctor && !string.IsNullOrEmpty(currentUser))
+                if (!isDoctor && IsCompounderRole(userRole) && !string.IsNullOrEmpty(currentUser))
                 {
                     var plantCode = await GetPlantCodeByIdAsync(userPlantId.Value);
                     if (plantCode?.ToUpper() == "BCM")

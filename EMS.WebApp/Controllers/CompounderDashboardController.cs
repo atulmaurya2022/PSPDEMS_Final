@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 namespace EMS.WebApp.Controllers
 {
     [Authorize]
+    [ResponseCache(NoStore = true, Duration = 0, Location = ResponseCacheLocation.None)]
     public class CompounderDashboardController : Controller
     {
         private readonly ILogger<CompounderDashboardController> _logger;

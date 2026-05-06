@@ -290,16 +290,13 @@
     }
 
     @@keyframes spin {
-        0%
+        0% {
+            transform: rotate(0deg);
+        }
 
-    {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
-
+        100% {
+            transform: rotate(360deg);
+        }
     }
 
     /* Controls Section */
@@ -567,45 +564,39 @@
 
     /* Responsive Design for 8 Cards */
     @@media (max-width: 768px) {
-        .dashboard-title
+        .dashboard-title {
+            font-size: 24px;
+        }
 
-    {
-        font-size: 24px;
-    }
+        .dashboard-subtitle {
+            margin-left: 36px;
+            font-size: 14px;
+        }
 
-    .dashboard-subtitle {
-        margin-left: 36px;
-        font-size: 14px;
-    }
+        .breadcrumb-custom {
+            margin-left: 36px;
+        }
 
-    .breadcrumb-custom {
-        margin-left: 36px;
-    }
+        .kpi-card-body {
+            padding: 16px;
+        }
 
-    .kpi-card-body {
-        padding: 16px;
-    }
+        .kpi-value {
+            font-size: 36px;
+        }
 
-    .kpi-value {
-        font-size: 36px;
-    }
-
-    .controls-section {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
-
+        .controls-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
     }
 
     @@media (min-width: 1200px) {
-        .row.g-4.mb-4 .col-12.col-sm-6.col-md-4.col-lg-3
-
-    {
-        flex: 0 0 25% !important;
-        max-width: 25% !important;
-    }
-
+        .row.g-4.mb-4 .col-12.col-sm-6.col-md-4.col-lg-3 {
+            flex: 0 0 25% !important;
+            max-width: 25% !important;
+        }
     }
 
     /* Click feedback */
@@ -1297,6 +1288,10 @@
 
 
         (function () {
+            // Prevent browser from caching AJAX GET responses — ensures every auto-refresh
+            // (setInterval) and manual refresh fetches live data from the server, not stale cache.
+            $.ajaxSetup({ cache: false });
+
             const $nearSel = $('#near-days'), $nearLbl = $('#near-label');
 
             function loadSummary() {

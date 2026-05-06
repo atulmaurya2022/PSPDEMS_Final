@@ -33,6 +33,7 @@ namespace EMS.WebApp.Services.Reports
                              join emp in _db.HrEmployees on p.emp_uid equals emp.emp_uid
                              join dept in _db.org_departments on emp.dept_id equals dept.dept_id
                              where p.ApprovalStatus == "Approved"
+                                   && (p.DependentName == null || p.DependentName == "Self")
                                    && p.PlantId == (userPlantId ?? p.PlantId)
                                    && p.PrescriptionDate >= fromDate.Value.Date
                                    && p.PrescriptionDate < toDate.Value.Date.AddDays(1) // half-open safe-range

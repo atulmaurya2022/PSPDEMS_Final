@@ -441,16 +441,13 @@
     }
 
     @@keyframes spin {
-        0%
+        0% {
+            transform: rotate(0deg);
+        }
 
-    {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
-
+        100% {
+            transform: rotate(360deg);
+        }
     }
 
     .empty-state {
@@ -478,57 +475,50 @@
 
     /* Responsive Design */
     @@media (max-width: 768px) {
-        .dashboard-title
+        .dashboard-title {
+            font-size: 24px;
+        }
 
-    {
-        font-size: 24px;
-    }
+        .dashboard-subtitle {
+            margin-left: 36px;
+            font-size: 14px;
+        }
 
-    .dashboard-subtitle {
-        margin-left: 36px;
-        font-size: 14px;
-    }
+        .breadcrumb-custom {
+            margin-left: 36px;
+        }
 
-    .breadcrumb-custom {
-        margin-left: 36px;
-    }
+        .kpi-card-body {
+            padding: 20px;
+        }
 
-    .kpi-card-body {
-        padding: 20px;
-    }
+        .kpi-value {
+            font-size: 28px;
+        }
 
-    .kpi-value {
-        font-size: 28px;
-    }
-
-    .controls-section {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
-
-    /* Make all 5 cards stack on mobile */
-    .row.g-4.mb-4 .col-12.col-sm-6.col-lg-3 {
-        width: 100% !important;
-        max-width: 100% !important;
-    }
-
+        .controls-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        /* Make all 5 cards stack on mobile */
+        .row.g-4.mb-4 .col-12.col-sm-6.col-lg-3 {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
     }
 
     /* Ensure 5 cards in one row on larger screens */
     @@media (min-width: 1200px) {
-        .row.g-4.mb-4 .col-12.col-sm-6.col-lg-3
-
-    {
-        flex: 0 0 20% !important;
-        max-width: 20% !important;
-    }
-
+        .row.g-4.mb-4 .col-12.col-sm-6.col-lg-3 {
+            flex: 0 0 20% !important;
+            max-width: 20% !important;
+        }
     }
     /* =============================
-       CLICKABLE CENTERED KPI CARDS - FINAL DESIGN
-       Entire card clickable, centered count, better alignment
-       ============================= */
+           CLICKABLE CENTERED KPI CARDS - FINAL DESIGN
+           Entire card clickable, centered count, better alignment
+           ============================= */
 
     /* Updated KPI Cards - Clickable with Centered Content */
     .kpi-card {
@@ -669,7 +659,7 @@
         align-items: center;
         justify-content: center;
         /* flex: 1;
-        min-height: 80px; */
+            min-height: 80px; */
     }
 
     /* Value colors */
@@ -734,42 +724,36 @@
 
     /* Responsive adjustments */
     @@media (max-width: 768px) {
-        .kpi-card-body
+        .kpi-card-body {
+            padding: 20px;
+        }
 
-    {
-        padding: 20px;
-    }
+        .kpi-value {
+            font-size: 42px;
+            min-height: 60px;
+            margin: 16px 0;
+        }
 
-    .kpi-value {
-        font-size: 42px;
-        min-height: 60px;
-        margin: 16px 0;
-    }
+        .kpi-icon {
+            width: 36px;
+            height: 36px;
+            font-size: 18px;
+        }
 
-    .kpi-icon {
-        width: 36px;
-        height: 36px;
-        font-size: 18px;
-    }
-
-    .kpi-title {
-        font-size: 13px;
-    }
-
+        .kpi-title {
+            font-size: 13px;
+        }
     }
 
     @@media (max-width: 576px) {
-        .kpi-value
+        .kpi-value {
+            font-size: 36px;
+            min-height: 50px;
+        }
 
-    {
-        font-size: 36px;
-        min-height: 50px;
-    }
-
-    .kpi-title {
-        font-size: 12px;
-    }
-
+        .kpi-title {
+            font-size: 12px;
+        }
     }
 </style>
 
@@ -1397,7 +1381,7 @@
             compounderIndentReview: '@Url.Action("Approve", "CompounderIndent")',
             prescriptionReview:'@Url.Action("Approve", "DoctorDiagnosis")' ,
             batchDetails: '@Url.Action("BatchDetails", "CompounderIndent")',
-            expiredReview:'@Url.Action("Review", "ExpiredMedicine")' 
+            expiredReview:'@Url.Action("Review", "ExpiredMedicine")'
         };
 
         function updateKpiCard(id, value, category) {
@@ -1421,6 +1405,10 @@
         }
 
         (function() {
+            // Prevent browser from caching AJAX GET responses — ensures every auto-refresh
+            // (setInterval) and manual refresh fetches live data from the server, not stale cache.
+            $.ajaxSetup({ cache: false });
+
             const $nearDays = $('#near-days');
             const $nearDaysLabel = $('#near-days-label');
 
@@ -1841,7 +1829,7 @@
             $('.kpi-card').on('mouseenter', function() {
                 $(this).css('cursor', 'pointer');
             });
-        
 
+        
     </script>
 }
