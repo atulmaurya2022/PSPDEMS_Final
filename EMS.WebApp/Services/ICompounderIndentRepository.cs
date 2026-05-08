@@ -59,7 +59,8 @@ namespace EMS.WebApp.Services
             DateTime? toDate = null,
             int? userPlantId = null,
             string currentUser = null,
-            bool isDoctor = false);
+            bool isDoctor = false,
+            string? userRole = null);
 
         Task<IEnumerable<CompounderInventoryReportDto>> GetCompounderInventoryReportAsync(
             DateTime? fromDate = null,
@@ -67,7 +68,8 @@ namespace EMS.WebApp.Services
             int? userPlantId = null,
             bool showOnlyAvailable = false,
             string currentUser = null,
-            bool isDoctor = false);
+            bool isDoctor = false,
+            string? userRole = null);
 
         // UPDATED: Added currentUser and isDoctor parameters for BCM plant-specific compounder-wise filtering
         Task<IEnumerable<DailyMedicineConsumptionReportDto>> GetDailyMedicineConsumptionReportAsync(

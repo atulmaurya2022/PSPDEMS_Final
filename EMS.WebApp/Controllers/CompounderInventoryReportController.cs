@@ -45,8 +45,9 @@ namespace EMS.WebApp.Controllers
                 var userPlantId = await _repo.GetUserPlantIdAsync(User.Identity?.Name);
 
                 // Check if user is a Doctor (for BCM plant-specific access control)
-                var isDoctor = User.IsInRole("Doctor");
-
+                // Use claims-based role check (roles are stored as "RoleName" claim, not standard ASP.NET roles)
+                var roleClaim = User.FindFirst("RoleName")?.Value ?? "";
+                var isDoctor = roleClaim.ToLower().Contains("doctor") || roleClaim.ToLower().Contains("store");
                 // Get plant details for display
                 using var scope = HttpContext.RequestServices.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -63,7 +64,7 @@ namespace EMS.WebApp.Controllers
                     userPlantId,
                     showOnlyAvailable,
                     currentUserName,  // NEW: Pass current user for BCM filtering
-                    isDoctor);        // NEW: Pass isDoctor flag for BCM filtering
+                    isDoctor, roleClaim);        // NEW: Pass isDoctor flag for BCM filtering
 
                 var result = new
                 {
@@ -128,12 +129,13 @@ namespace EMS.WebApp.Controllers
             try
             {
                 // Get current user's plant information
-                var currentUserName = User.Identity?.Name;
-                var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
+                var currentUserName = User.Identity?.Name + " - " + User.GetFullName();
+                var userPlantId = await _repo.GetUserPlantIdAsync(User.Identity?.Name);
 
                 // Check if user is a Doctor (for BCM plant-specific access control)
-                var isDoctor = User.IsInRole("Doctor");
-
+                // Use claims-based role check (roles are stored as "RoleName" claim, not standard ASP.NET roles)
+                var roleClaim = User.FindFirst("RoleName")?.Value ?? "";
+                var isDoctor = roleClaim.ToLower().Contains("doctor") || roleClaim.ToLower().Contains("store");
                 // Pass plant filtering with BCM compounder-wise access control to repository
                 var reportData = await _repo.GetCompounderInventoryReportAsync(
                     fromDate,
@@ -141,7 +143,7 @@ namespace EMS.WebApp.Controllers
                     userPlantId,
                     showOnlyAvailable,
                     currentUserName,  // NEW: Pass current user for BCM filtering
-                    isDoctor);        // NEW: Pass isDoctor flag for BCM filtering
+                    isDoctor, roleClaim);        // NEW: Pass isDoctor flag for BCM filtering
 
                 // CSV format with batch details
                 var csv = new System.Text.StringBuilder();

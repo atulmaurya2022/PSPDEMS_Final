@@ -68,7 +68,7 @@ namespace EMS.WebApp.Services
             return user?.SysRole?.role_name;
         }
 
-        public async Task<CompounderDashboardDto> GetSummaryAsync(string? userName, string? user, int nearExpiryDays = 30, int lowStockFallback = 10)
+        public async Task<CompounderDashboardDto> GetSummaryAsync(string? userName, string? user, int nearExpiryDays = 30, int lowStockFallback = 10, DateTime? fromDate = null, DateTime? toDate = null)
         {
             int? plantId = null;
             if (!string.IsNullOrWhiteSpace(user))
@@ -80,90 +80,90 @@ namespace EMS.WebApp.Services
             // Get user role for ExpiredMedicine repository calls
             string? userRole = await GetUserRoleAsync(user);
 
+            // BCM filter applies ONLY when plant is BCM AND the user is a Compounder.
+            // Doctors and StoreIncharge at BCM plant see all records.
+            bool applyBcmFilter = isBcm &&
+                                  !string.IsNullOrEmpty(userRole) &&
+                                  userRole.ToLower().Contains("compounder");
+
             var today = DateTime.Today;
             var upto = today.AddDays(nearExpiryDays);
 
-            // For BCM: pass currentUser to filter by CreatedBy
-            // For other plants: pass null to show all records
-            string? filterUser = isBcm ? userName : null;
+            // For BCM Compounder: pass currentUser to filter by CreatedBy
+            // For all other roles/plants: pass null to show all records
+            string? filterUser = applyBcmFilter ? userName : null;
 
+            // Pending indents — load, apply BCM filter, then IndentDate filter in-memory
             var pendingIndents = await _compounderRepo.ListByStatusAsync("Pending", currentUser: filterUser, userPlantId: plantId);
-
-            // Apply BCM user filter - only show records created by current user
-            if (isBcm && !string.IsNullOrEmpty(userName))
-            {
+            if (applyBcmFilter && !string.IsNullOrEmpty(userName))
                 pendingIndents = pendingIndents.Where(h => h.CreatedBy == userName);
-            }
-
+            if (fromDate.HasValue) pendingIndents = pendingIndents.Where(h => h.IndentDate >= fromDate.Value);
+            if (toDate.HasValue) pendingIndents = pendingIndents.Where(h => h.IndentDate <= toDate.Value);
             int pendingCount = pendingIndents.Count();
 
+            // Approved awaiting receipt — load, apply BCM filter, then IndentDate filter in-memory
             var approvedIndents = await _compounderRepo.ListByStatusAsync("Approved", currentUser: filterUser, userPlantId: plantId);
-
-            // Apply BCM user filter - only show records created by current user
-            if (isBcm && !string.IsNullOrEmpty(userName))
-            {
+            if (applyBcmFilter && !string.IsNullOrEmpty(userName))
                 approvedIndents = approvedIndents.Where(h => h.CreatedBy == userName);
-            }
-
+            if (fromDate.HasValue) approvedIndents = approvedIndents.Where(h => h.IndentDate >= fromDate.Value);
+            if (toDate.HasValue) approvedIndents = approvedIndents.Where(h => h.IndentDate <= toDate.Value);
             int approvedAwaitingReceipt = approvedIndents
                 .Where(h => h.CompounderIndentItems != null && h.CompounderIndentItems.Any(i => i.RaisedQuantity > i.ReceivedQuantity))
                 .Count();
 
-            // My Drafts - always filtered by current user
+            // My Drafts — always filtered by current user (Drafts are personal regardless of role/plant)
             int myDrafts = await _db.CompounderIndents
                 .Where(h =>
                     (h.Status == "Draft" || h.IndentType == "Draft Indent") &&
                     (string.IsNullOrEmpty(userName) || h.CreatedBy == userName) &&
-                    (!plantId.HasValue || h.plant_id == plantId.Value))
+                    (!plantId.HasValue || h.plant_id == plantId.Value) &&
+                    (!fromDate.HasValue || h.IndentDate >= fromDate.Value) &&
+                    (!toDate.HasValue || h.IndentDate <= toDate.Value))
                 .CountAsync();
 
-            // Near Expiry Batches - BCM filter by CreatedBy on header
+            // Near Expiry Batches — BCM CreatedBy filter + IndentDate filter
             var nearExpiryQuery = _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, Header = h })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate >= today && x.b.ExpiryDate <= upto &&
-                            (!plantId.HasValue || x.Header.plant_id == plantId.Value));
-
-            // Apply BCM user filter
-            if (isBcm && !string.IsNullOrEmpty(userName))
-            {
+                            (!plantId.HasValue || x.Header.plant_id == plantId.Value) &&
+                            (!fromDate.HasValue || x.Header.IndentDate >= fromDate.Value) &&
+                            (!toDate.HasValue || x.Header.IndentDate <= toDate.Value));
+            if (applyBcmFilter && !string.IsNullOrEmpty(userName))
                 nearExpiryQuery = nearExpiryQuery.Where(x => x.Header.CreatedBy == userName);
-            }
-
             int nearExpiryBatches = await nearExpiryQuery.CountAsync();
 
-            // Expired Batches - BCM filter by CreatedBy on header
+            // Expired Batches — BCM Compounder filter + IndentDate filter
             var expiredQuery = _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, Header = h })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate < today &&
-                            (!plantId.HasValue || x.Header.plant_id == plantId.Value));
-
-            // Apply BCM user filter
-            if (isBcm && !string.IsNullOrEmpty(userName))
-            {
+                            (!plantId.HasValue || x.Header.plant_id == plantId.Value) &&
+                            (!fromDate.HasValue || x.Header.IndentDate >= fromDate.Value) &&
+                            (!toDate.HasValue || x.Header.IndentDate <= toDate.Value));
+            if (applyBcmFilter && !string.IsNullOrEmpty(userName))
                 expiredQuery = expiredQuery.Where(x => x.Header.CreatedBy == userName);
-            }
-
             int expiredBatches = await expiredQuery.CountAsync();
 
-            // Expired Pending Disposal - pass userRole AND currentUser for BCM filtering
-            // The repository method signature: ListPendingDisposalAsync(int? userPlantId, string? userRole, string? currentUser)
-            int expiredPendingDisposal = (await _expiredRepo.ListPendingDisposalAsync(plantId, userRole, filterUser)).Count();
+            // Expired Pending Disposal — Compounder SourceType only, ExpiryDate filter
+            var disposalList = await _expiredRepo.ListPendingDisposalAsync(plantId, userRole, filterUser);
+            int expiredPendingDisposal = disposalList
+                .Where(e => e.SourceType == "Compounder")
+                .Where(e => !fromDate.HasValue || e.ExpiryDate >= fromDate.Value)
+                .Where(e => !toDate.HasValue || e.ExpiryDate <= toDate.Value)
+                .Count();
 
-            // Low / OOS in compounder inventory - BCM filter by CreatedBy
+            // Low / OOS in compounder inventory — BCM Compounder filter + IndentDate filter
             var compStocksQuery = _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
-                .Where(x => !plantId.HasValue || x.Header.plant_id == plantId.Value);
-
-            // Apply BCM user filter for stock calculations
-            if (isBcm && !string.IsNullOrEmpty(userName))
-            {
+                .Where(x => (!plantId.HasValue || x.Header.plant_id == plantId.Value) &&
+                            (!fromDate.HasValue || x.Header.IndentDate >= fromDate.Value) &&
+                            (!toDate.HasValue || x.Header.IndentDate <= toDate.Value));
+            if (applyBcmFilter && !string.IsNullOrEmpty(userName))
                 compStocksQuery = compStocksQuery.Where(x => x.Header.CreatedBy == userName);
-            }
 
             var compStocks = await compStocksQuery
                 .GroupBy(x => new { x.i.MedItemId, x.Header.plant_id })

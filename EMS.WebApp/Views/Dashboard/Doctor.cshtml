@@ -441,16 +441,13 @@
     }
 
     @@keyframes spin {
-        0%
+        0% {
+            transform: rotate(0deg);
+        }
 
-    {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
-
+        100% {
+            transform: rotate(360deg);
+        }
     }
 
     .empty-state {
@@ -478,57 +475,50 @@
 
     /* Responsive Design */
     @@media (max-width: 768px) {
-        .dashboard-title
+        .dashboard-title {
+            font-size: 24px;
+        }
 
-    {
-        font-size: 24px;
-    }
+        .dashboard-subtitle {
+            margin-left: 36px;
+            font-size: 14px;
+        }
 
-    .dashboard-subtitle {
-        margin-left: 36px;
-        font-size: 14px;
-    }
+        .breadcrumb-custom {
+            margin-left: 36px;
+        }
 
-    .breadcrumb-custom {
-        margin-left: 36px;
-    }
+        .kpi-card-body {
+            padding: 20px;
+        }
 
-    .kpi-card-body {
-        padding: 20px;
-    }
+        .kpi-value {
+            font-size: 28px;
+        }
 
-    .kpi-value {
-        font-size: 28px;
-    }
-
-    .controls-section {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-    }
-
-    /* Make all 5 cards stack on mobile */
-    .row.g-4.mb-4 .col-12.col-sm-6.col-lg-3 {
-        width: 100% !important;
-        max-width: 100% !important;
-    }
-
+        .controls-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        /* Make all 5 cards stack on mobile */
+        .row.g-4.mb-4 .col-12.col-sm-6.col-lg-3 {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
     }
 
     /* Ensure 5 cards in one row on larger screens */
     @@media (min-width: 1200px) {
-        .row.g-4.mb-4 .col-12.col-sm-6.col-lg-3
-
-    {
-        flex: 0 0 20% !important;
-        max-width: 20% !important;
-    }
-
+        .row.g-4.mb-4 .col-12.col-sm-6.col-lg-3 {
+            flex: 0 0 20% !important;
+            max-width: 20% !important;
+        }
     }
     /* =============================
-       CLICKABLE CENTERED KPI CARDS - FINAL DESIGN
-       Entire card clickable, centered count, better alignment
-       ============================= */
+               CLICKABLE CENTERED KPI CARDS - FINAL DESIGN
+               Entire card clickable, centered count, better alignment
+               ============================= */
 
     /* Updated KPI Cards - Clickable with Centered Content */
     .kpi-card {
@@ -669,7 +659,7 @@
         align-items: center;
         justify-content: center;
         /* flex: 1;
-        min-height: 80px; */
+                min-height: 80px; */
     }
 
     /* Value colors */
@@ -734,42 +724,36 @@
 
     /* Responsive adjustments */
     @@media (max-width: 768px) {
-        .kpi-card-body
+        .kpi-card-body {
+            padding: 20px;
+        }
 
-    {
-        padding: 20px;
-    }
+        .kpi-value {
+            font-size: 42px;
+            min-height: 60px;
+            margin: 16px 0;
+        }
 
-    .kpi-value {
-        font-size: 42px;
-        min-height: 60px;
-        margin: 16px 0;
-    }
+        .kpi-icon {
+            width: 36px;
+            height: 36px;
+            font-size: 18px;
+        }
 
-    .kpi-icon {
-        width: 36px;
-        height: 36px;
-        font-size: 18px;
-    }
-
-    .kpi-title {
-        font-size: 13px;
-    }
-
+        .kpi-title {
+            font-size: 13px;
+        }
     }
 
     @@media (max-width: 576px) {
-        .kpi-value
+        .kpi-value {
+            font-size: 36px;
+            min-height: 50px;
+        }
 
-    {
-        font-size: 36px;
-        min-height: 50px;
-    }
-
-    .kpi-title {
-        font-size: 12px;
-    }
-
+        .kpi-title {
+            font-size: 12px;
+        }
     }
 </style>
 
@@ -881,7 +865,15 @@
 
 
     <!-- Enhanced Controls Section -->
-    <div class="controls-section">
+    <div class="controls-section flex-wrap gap-3">
+        <label class="controls-label">
+            <i class="bi bi-calendar-range me-2"></i>
+            Indent Date Range:
+        </label>
+        <input type="date" id="dash-from-date" class="form-control form-select-enhanced" style="width:160px;" />
+        <span class="text-muted fw-semibold">to</span>
+        <input type="date" id="dash-to-date" class="form-control form-select-enhanced" style="width:160px;" />
+        <div class="vr mx-1 d-none d-md-block" style="height:32px;align-self:center;"></div>
         <label class="controls-label">
             <i class="bi bi-funnel me-2"></i>
             Near-Expiry Window:
@@ -1397,7 +1389,7 @@
             compounderIndentReview: '@Url.Action("Approve", "CompounderIndent")',
             prescriptionReview:'@Url.Action("Approve", "DoctorDiagnosis")' ,
             batchDetails: '@Url.Action("BatchDetails", "CompounderIndent")',
-            expiredReview:'@Url.Action("Review", "ExpiredMedicine")' 
+            expiredReview:'@Url.Action("Review", "ExpiredMedicine")'
         };
 
         function updateKpiCard(id, value, category) {
@@ -1421,14 +1413,35 @@
         }
 
         (function() {
+            // Prevent browser from caching AJAX GET responses — ensures every auto-refresh
+            // (setInterval) and manual refresh fetches live data from the server, not stale cache.
+            $.ajaxSetup({ cache: false });
+
             const $nearDays = $('#near-days');
             const $nearDaysLabel = $('#near-days-label');
 
+            // Initialise date range inputs to last 30 days
+            (function () {
+                const today = new Date();
+                const from  = new Date(today);
+                from.setDate(from.getDate() - 30);
+                $('#dash-to-date').val(today.toISOString().split('T')[0]);
+                $('#dash-from-date').val(from.toISOString().split('T')[0]);
+            })();
+
+            function getDateRange() {
+                return {
+                    fromDate: $('#dash-from-date').val(),
+                    toDate:   $('#dash-to-date').val()
+                };
+            }
+
             function loadSummary() {
-                const days = parseInt($nearDays.val(), 10) || 30;
+                const days  = parseInt($nearDays.val(), 10) || 30;
+                const dates = getDateRange();
                 $nearDaysLabel.text(days);
 
-                $.getJSON('@Url.Action("GetDoctorSummary", "Dashboard")', { nearDays: days })
+                $.getJSON('@Url.Action("GetDoctorSummary", "Dashboard")', { nearDays: days, ...dates })
                     .done(function (data) {
                         updateKpiCard('kpi-store-pending', data.pendingStoreIndentApprovals, 'store');
                         updateKpiCard('kpi-compounder-pending', data.pendingCompounderIndentApprovals, 'compounder');
@@ -1441,7 +1454,7 @@
                         showAlert('danger', 'Failed to load dashboard summary. Please refresh the page.', 'Loading Error');
                     });
 
-                $.getJSON('@Url.Action("GetNearExpiry", "Dashboard")', { days: days })
+                $.getJSON('@Url.Action("GetNearExpiry", "Dashboard")', { days: days, ...dates })
                     .done(function (rows) {
                         const $tb = $('#tbl-near-expiry tbody').empty();
                         if (!rows || rows.length === 0) {
@@ -1466,29 +1479,7 @@
                         showAlert('warning', 'Failed to load near-expiry medicines data.', 'Data Loading Warning');
                     });
 
-                // $.getJSON('@Url.Action("GetExpired", "Dashboard")')
-                //     .done(function (rows) {
-                //         const $tb = $('#tbl-expired tbody').empty();
-                //         if (!rows || rows.length === 0) {
-                //             $tb.append('<tr><td colspan="5" class="text-muted">No records.</td></tr>');
-                //             return;
-                //         }
-                //         rows.forEach(r => {
-                //             const tr = `<tr>
-                //                 <td>${html(r.medicineName)}</td>
-                //                 <td>${html(r.batchNo)}</td>
-                //                 <td>${html(r.typeOfMedicine)}</td>
-                //                 <td>${html(r.status)}</td>
-                //                 <td>${formatDate(r.expiredOn)}</td>
-                //             </tr>`;
-                //             $tb.append(tr);
-                //         });
-                //     })
-                //     .fail(function (xhr) {
-                //         console.error('Expired load failed', xhr);
-                //         showAlert('danger', 'Failed to load expired medicines data.', 'Critical Data Error');
-                //     });
-                $.getJSON('@Url.Action("GetPendingDisposal", "Dashboard")', { top: 10 })
+                $.getJSON('@Url.Action("GetPendingDisposal", "Dashboard")', { top: 10, ...dates })
                 .done(function (rows) {
                     const $tb = $('#tbl-expired tbody').empty();
                     if (!rows || rows.length === 0) {
@@ -1514,6 +1505,7 @@
             }
 
             $nearDays.on('change', loadSummary);
+            $('#dash-from-date, #dash-to-date').on('change', loadSummary);
             $(document).ready(loadSummary);
 
             // Auto-refresh every 30 seconds
@@ -1596,7 +1588,7 @@
                 e.preventDefault();
                 $('#tb-store').html('<tr><td colspan="6" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
 
-                $.getJSON('@Url.Action("ListStoreIndentPending", "Dashboard")')
+                $.getJSON('@Url.Action("ListStoreIndentPending", "Dashboard")', getDateRange())
                     .done(function (rows) {
                         const $tb = $('#tb-store').empty();
                         if (!rows || rows.length === 0) {
@@ -1632,7 +1624,7 @@
                 e.preventDefault();
                 $('#tb-compounder').html('<tr><td colspan="6" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
 
-                $.getJSON('@Url.Action("ListCompounderIndentPending", "Dashboard")')
+                $.getJSON('@Url.Action("ListCompounderIndentPending", "Dashboard")', getDateRange())
                     .done(function (rows) {
                         const $tb = $('#tb-compounder').empty();
                         if (!rows || rows.length === 0) {
@@ -1700,7 +1692,7 @@
                 e.preventDefault();
                 $('#tb-presc').html('<tr><td colspan="9" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
 
-                $.getJSON('@Url.Action("ListPrescriptionPending", "Dashboard")')
+                $.getJSON('@Url.Action("ListPrescriptionPending", "Dashboard")', getDateRange())
                     .done(function (rows) {
                         const $tb = $('#tb-presc').empty();
                         if (!rows || rows.length === 0) {
@@ -1740,7 +1732,7 @@
                 const days = parseInt($('#near-days').val(), 10) || 30;
                 $('#tb-near').html('<tr><td colspan="5" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
 
-                $.getJSON('@Url.Action("GetNearExpiry", "Dashboard")', { days: days, top: 100 })
+                $.getJSON('@Url.Action("GetNearExpiry", "Dashboard")', { days: days, top: 100, ...getDateRange() })
                     .done(function (rows) {
                         const $tb = $('#tb-near').empty();
                         if (!rows || rows.length === 0) {
@@ -1792,7 +1784,7 @@
                 e.preventDefault();
                 $('#tb-expired-modal').html('<tr><td colspan="5" class="loading-skeleton"><div class="loading-spinner"></div>Loading data...</td></tr>');
 
-                $.getJSON('@Url.Action("GetPendingDisposal", "Dashboard")', { top: 100 })
+                $.getJSON('@Url.Action("GetPendingDisposal", "Dashboard")', { top: 100, ...getDateRange() })
                     .done(function (rows) {
                         const $tb = $('#tb-expired-modal').empty();
                         if (!rows || rows.length === 0) {
@@ -1841,7 +1833,7 @@
             $('.kpi-card').on('mouseenter', function() {
                 $(this).css('cursor', 'pointer');
             });
-        
 
+        
     </script>
 }

@@ -98,7 +98,7 @@ namespace EMS.WebApp.Controllers
                         totalReceived = reportData.Sum(r => r.ReceivedQuantity),
                         totalAvailable = reportData.Sum(r => r.AvailableStock),
                         totalConsumed = reportData.Sum(r => r.ConsumedStock),
-                        lowStockBatches = reportData.Count(r => r.StockStatus == "Low Stock"),
+                        lowStockBatches = reportData.Count(r => r.StockStatus == "Low Stock" || r.StockStatus == "Low Stock - Expiring Soon"),
                         outOfStockBatches = reportData.Count(r => r.StockStatus == "Out of Stock")
                     }
                 };

@@ -4,7 +4,7 @@ namespace EMS.WebApp.Services
 {
     public interface ICompounderDashboardService
     {
-        Task<CompounderDashboardDto> GetSummaryAsync(string? userName, string? user, int nearExpiryDays = 30, int lowStockFallback = 10);
+        Task<CompounderDashboardDto> GetSummaryAsync(string? userName, string? user, int nearExpiryDays = 30, int lowStockFallback = 10, DateTime? fromDate = null, DateTime? toDate = null);
 
         /// <summary>
         /// Checks if the given plant ID corresponds to BCM plant (by plant_code).

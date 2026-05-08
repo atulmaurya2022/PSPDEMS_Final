@@ -473,14 +473,18 @@
             tbody.empty();
 
             $.each(data, function(index, item) {
-                var row = `<tr class="inventory-table-row">
+                var isDependent = item.patientType === 'Dependent';
+                var patientCell = isDependent
+                    ? `<span class="patient-name">${item.patientName || ''}</span>
+                       <span class="badge ms-1" style="background-color:#6f42c1;font-size:0.7rem;vertical-align:middle;">Dependent</span>`
+                    : `<span class="patient-name">${item.patientName || ''}</span>`;
+
+                var row = `<tr class="inventory-table-row${isDependent ? ' table-dependent-row' : ''}">
                     <td class="sl-cell">${item.slNo}</td>
                     <td class="empno-cell">
                         <span class="empno-badge">${item.empNo || ''}</span>
                     </td>
-                    <td class="patient-cell">
-                        <span class="patient-name">${item.patientName || ''}</span>
-                    </td>
+                    <td class="patient-cell">${patientCell}</td>
                     <td class="disease-cell">
                         <span class="disease-name">${item.diseaseName || ''}</span>
                     </td>

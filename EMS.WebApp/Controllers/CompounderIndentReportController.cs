@@ -43,9 +43,11 @@ namespace EMS.WebApp.Controllers
                 var currentUserName = User.Identity?.Name + " - " + User.GetFullName();
                 var userPlantId = await _repo.GetUserPlantIdAsync(User.Identity?.Name);
 
+                // Use claims-based role check (roles are stored as "RoleName" claim, not standard ASP.NET roles)
+                var roleClaim = User.FindFirst("RoleName")?.Value ?? "";
                 // Check if user is a Doctor (for BCM plant-specific access control)
-                var isDoctor = User.IsInRole("Doctor");
-
+                //var isDoctor = User.IsInRole("Doctor");
+                var isDoctor = User.IsInRole("Doctor") || User.IsInRole("Store");
                 // Get plant details for display
                 using var scope = HttpContext.RequestServices.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -68,7 +70,7 @@ namespace EMS.WebApp.Controllers
                     toDate,
                     userPlantId,
                     currentUserName,  // NEW: Pass current user for BCM filtering
-                    isDoctor);        // NEW: Pass isDoctor flag for BCM filtering
+                    isDoctor, roleClaim);        // NEW: Pass isDoctor flag for BCM filtering
 
                 var result = new
                 {
@@ -118,12 +120,13 @@ namespace EMS.WebApp.Controllers
             try
             {
                 // Get current user's plant information
-                var currentUserName = User.Identity?.Name;
-                var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
-
+                var currentUserName = User.Identity?.Name + " - " + User.GetFullName();
+                var userPlantId = await _repo.GetUserPlantIdAsync(User.Identity?.Name);
+                // Use claims-based role check (roles are stored as "RoleName" claim, not standard ASP.NET roles)
+                var roleClaim = User.FindFirst("RoleName")?.Value ?? "";
                 // Check if user is a Doctor (for BCM plant-specific access control)
-                var isDoctor = User.IsInRole("Doctor");
-
+                //var isDoctor = User.IsInRole("Doctor");
+                var isDoctor = User.IsInRole("Doctor") || User.IsInRole("Store");
                 // Set default date range if not provided
                 if (!fromDate.HasValue)
                     fromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
@@ -137,7 +140,7 @@ namespace EMS.WebApp.Controllers
                     toDate,
                     userPlantId,
                     currentUserName,  // NEW: Pass current user for BCM filtering
-                    isDoctor);        // NEW: Pass isDoctor flag for BCM filtering
+                    isDoctor, roleClaim);        // NEW: Pass isDoctor flag for BCM filtering
 
                 // CSV format with only the 6 required columns
                 var csv = new System.Text.StringBuilder();

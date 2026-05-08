@@ -5,6 +5,6 @@ namespace EMS.WebApp.Services
 {
     public interface IDashboardService
     {
-        Task<DoctorDashboardDto> GetDoctorSummaryAsync(string? userName, string? user, int nearExpiryDays = 30);
+        Task<DoctorDashboardDto> GetDoctorSummaryAsync(string? userName, string? user, int nearExpiryDays = 30, DateTime? fromDate = null, DateTime? toDate = null);
     }
 }

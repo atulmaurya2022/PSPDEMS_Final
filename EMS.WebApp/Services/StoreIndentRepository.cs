@@ -695,6 +695,28 @@ namespace EMS.WebApp.Services
 
             var indents = await query.OrderBy(si => si.IndentDate).ToListAsync();
 
+            // Pre-compute medicine-level AvailableStock totals from ALL approved indents
+            // in this plant (not date-filtered) — this is the Option A "truth" for stock level.
+            var medicineTotalQuery = from si in _db.StoreIndents
+                                     join sii in _db.StoreIndentItems on si.IndentId equals sii.IndentId
+                                     join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
+                                     where si.Status == "Approved"
+                                     select new { sii.MedItemId, sib.AvailableStock, si.PlantId };
+
+            if (userPlantId.HasValue)
+                medicineTotalQuery = medicineTotalQuery.Where(x => x.PlantId == userPlantId.Value);
+
+            var medicineTotalData = await medicineTotalQuery.ToListAsync();
+
+            var medicineTotals = medicineTotalData
+                .GroupBy(x => x.MedItemId)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.AvailableStock));
+
+            // Load ReorderLimits for all medicines (fallback = 10 if not set)
+            var reorderLimits = await _db.med_masters
+                .Select(m => new { m.MedItemId, Limit = (int?)m.ReorderLimit })
+                .ToDictionaryAsync(m => m.MedItemId, m => m.Limit ?? 10);
+
             var reportData = new List<StoreInventoryBatchReportDto>();
 
             foreach (var indent in indents)
@@ -706,12 +728,16 @@ namespace EMS.WebApp.Services
                         .Where(b => b.IndentItemId == item.IndentItemId)
                         .ToListAsync();
 
+                    // Resolve medicine-level totals and reorder level once per item
+                    var medTotal = medicineTotals.TryGetValue(item.MedItemId, out var t) ? t : 0;
+                    var reorderLevel = reorderLimits.TryGetValue(item.MedItemId, out var rl) ? rl : 10;
+
                     if (batches.Any())
                     {
                         foreach (var batch in batches)
                         {
                             var consumedStock = batch.ReceivedQuantity - batch.AvailableStock - batch.TotalDisposed;
-                            var stockStatus = GetInventoryStockStatus(batch.AvailableStock, batch.ReceivedQuantity, batch.ExpiryDate, batch.TotalDisposed);
+                            var stockStatus = GetInventoryStockStatus(batch.AvailableStock, batch.ReceivedQuantity, batch.ExpiryDate, batch.TotalDisposed, medTotal, reorderLevel);
 
                             reportData.Add(new StoreInventoryBatchReportDto
                             {
@@ -736,6 +762,8 @@ namespace EMS.WebApp.Services
                     }
                     else
                     {
+                        var stockStatus = GetInventoryStockStatus(item.ReceivedQuantity, item.ReceivedQuantity, item.ExpiryDate, 0, medTotal, reorderLevel);
+
                         reportData.Add(new StoreInventoryBatchReportDto
                         {
                             IndentId = indent.IndentId,
@@ -751,7 +779,7 @@ namespace EMS.WebApp.Services
                             ConsumedStock = 0,
                             ExpiryDate = item.ExpiryDate,
                             RaisedBy = indent.CreatedBy ?? "Unknown",
-                            StockStatus = "Unknown",
+                            StockStatus = stockStatus,
                             PlantName = indent.OrgPlant?.plant_name ?? "Unknown Plant"
                         });
                     }
@@ -766,43 +794,40 @@ namespace EMS.WebApp.Services
                 .ThenBy(r => r.ExpiryDate);
             return finalData;
         }
-        private string GetInventoryStockStatus(int availableStock, int receivedQuantity, DateTime? expiryDate, int totalDisposed)
+        private string GetInventoryStockStatus(int availableStock, int receivedQuantity, DateTime? expiryDate, int totalDisposed, int medicineTotalStock, int reorderLevel)
         {
             var today = DateTime.Today;
             var thirtyDaysFromNow = today.AddDays(30);
 
-            // First, check expiry status (highest priority)
+            // Expiry checks are batch-level (this specific batch has expired or is expiring)
             if (expiryDate.HasValue)
             {
                 if (expiryDate.Value.Date < today)
                 {
-                    // Expired medicines
+                    // Expired batch — report its disposal state regardless of medicine-level stock
                     if (availableStock == 0 && totalDisposed > 0)
                         return "Expired - Disposed (" + totalDisposed + ")";
                     else if (availableStock == 0)
-                    {
                         return "Expired - Out of Stock";
-
-                    }
                     else
                         return "Expired - Not Usable";
                 }
                 else if (expiryDate.Value.Date <= thirtyDaysFromNow)
                 {
-                    // Expiring soon (within 30 days)
-                    if (availableStock == 0)
+                    // Expiring soon — use medicine-level total for stock level classification
+                    if (medicineTotalStock <= 0)
                         return "Out of Stock";
-                    else if (availableStock <= (int)Math.Floor(receivedQuantity * 0.2m))
+                    else if (medicineTotalStock <= reorderLevel)
                         return "Low Stock - Expiring Soon";
                     else
                         return "In Stock - Expiring Soon";
                 }
             }
 
-            // Standard stock status logic for non-expired medicines
-            if (availableStock == 0)
+            // Standard stock level — use medicine-level total vs ReorderLevel (Option A)
+            if (medicineTotalStock <= 0)
                 return "Out of Stock";
-            else if (availableStock <= (int)Math.Floor(receivedQuantity * 0.2m))
+            else if (medicineTotalStock <= reorderLevel)
                 return "Low Stock";
             else
                 return "In Stock";
@@ -1058,12 +1083,5 @@ namespace EMS.WebApp.Services
                 return new StoreCompounderSummaryReportResponse();
             }
         }
-
-
-
-
-
-
-
     }
 }

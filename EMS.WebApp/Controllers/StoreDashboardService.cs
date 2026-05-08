@@ -22,7 +22,7 @@ namespace EMS.WebApp.Services
             _db = db;
         }
 
-        public async Task<StoreDashboardDto> GetSummaryAsync(string? userName, string? user, int nearExpiryDays = 30, int lowStockFallback = 10)
+        public async Task<StoreDashboardDto> GetSummaryAsync(string? userName, string? user, int nearExpiryDays = 30, int lowStockFallback = 10, DateTime? fromDate = null, DateTime? toDate = null)
         {
             int? plantId = null;
             if (!string.IsNullOrWhiteSpace(user))
@@ -31,48 +31,75 @@ namespace EMS.WebApp.Services
             var today = DateTime.Today;
             var upto = today.AddDays(nearExpiryDays);
 
-            // Pending indents
-            var pendingIndents = await _storeRepo.ListByStatusAsync("Pending", currentUser: null, userPlantId: plantId);
-            int pendingCount = pendingIndents.Count();
+            // Pending indents — filtered by IndentDate range via EF
+            var pendingQ = _db.StoreIndents
+                .Where(h => h.Status == "Pending" &&
+                            (!plantId.HasValue || h.PlantId == plantId.Value) &&
+                            (!fromDate.HasValue || h.IndentDate >= fromDate.Value) &&
+                            (!toDate.HasValue || h.IndentDate <= toDate.Value));
+            int pendingCount = await pendingQ.CountAsync();
 
-            // Approved awaiting receipt (any item pending quantity)
-            var approvedIndents = await _storeRepo.ListByStatusAsync("Approved", currentUser: null, userPlantId: plantId);
+            // Approved awaiting receipt — filtered by IndentDate range via EF
+            var approvedQ = _db.StoreIndents
+                .Include(h => h.StoreIndentItems)
+                .Where(h => h.Status == "Approved" &&
+                            (!plantId.HasValue || h.PlantId == plantId.Value) &&
+                            (!fromDate.HasValue || h.IndentDate >= fromDate.Value) &&
+                            (!toDate.HasValue || h.IndentDate <= toDate.Value));
+            var approvedIndents = await approvedQ.ToListAsync();
             int approvedAwaitingReceipt = approvedIndents
                 .Where(h => h.StoreIndentItems != null && h.StoreIndentItems.Any(i => i.RaisedQuantity > i.ReceivedQuantity))
                 .Count();
 
-            // My drafts
+            // My drafts — filtered by IndentDate range
             int myDrafts = await _db.StoreIndents
                 .Where(h =>
                     (h.Status == "Draft" || h.IndentType == "Draft Indent") &&
                     (string.IsNullOrEmpty(userName) || h.CreatedBy == userName) &&
-                    (!plantId.HasValue || h.PlantId == plantId.Value))
+                    (!plantId.HasValue || h.PlantId == plantId.Value) &&
+                    (!fromDate.HasValue || h.IndentDate >= fromDate.Value) &&
+                    (!toDate.HasValue || h.IndentDate <= toDate.Value))
                 .CountAsync();
 
-            // Near-expiry & expired batches (store)
+            // Near-expiry batches — from approved indents in date range, expiring within window
             int nearExpiryBatches = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, Header = h })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate >= today && x.b.ExpiryDate <= upto &&
+                            x.Header.Status == "Approved" &&
+                            (!fromDate.HasValue || x.Header.IndentDate >= fromDate.Value) &&
+                            (!toDate.HasValue || x.Header.IndentDate <= toDate.Value) &&
                             (!plantId.HasValue || x.Header.PlantId == plantId.Value))
                 .CountAsync();
 
+            // Expired batches — from approved indents in date range
             int expiredBatches = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, Header = h })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate < today &&
+                            x.Header.Status == "Approved" &&
+                            (!fromDate.HasValue || x.Header.IndentDate >= fromDate.Value) &&
+                            (!toDate.HasValue || x.Header.IndentDate <= toDate.Value) &&
                             (!plantId.HasValue || x.Header.PlantId == plantId.Value))
                 .CountAsync();
 
-            // Central expired medicines (pending disposal)
-            int expiredPendingDisposal = (await _expiredRepo.ListPendingDisposalAsync(plantId)).Count();
+            // Central expired medicines (pending disposal) — Store only, ExpiryDate date-filtered (no repo changes)
+            var pendingDisposalList = await _expiredRepo.ListPendingDisposalAsync(plantId);
+            int expiredPendingDisposal = pendingDisposalList
+                .Where(e => e.SourceType == "Store")
+                .Where(e => !fromDate.HasValue || e.ExpiryDate >= fromDate.Value)
+                .Where(e => !toDate.HasValue || e.ExpiryDate <= toDate.Value)
+                .Count();
 
-            // Low/Out-of-stock (group batches by MedItem within plant)
+            // Low/Out-of-stock (group batches by MedItem within plant, date-filtered)
             var storeStocks = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+                .Where(x => x.Header.Status == "Approved" &&
+                            (!fromDate.HasValue || x.Header.IndentDate >= fromDate.Value) &&
+                            (!toDate.HasValue || x.Header.IndentDate <= toDate.Value))
                 .GroupBy(x => new { x.i.MedItemId, x.Header.PlantId })
                 .Select(g => new
                 {

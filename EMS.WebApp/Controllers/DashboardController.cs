@@ -30,13 +30,13 @@ namespace EMS.WebApp.Controllers
             IExpiredMedicineRepository expiredRepo,
             ISysUserRepository repo,
             ApplicationDbContext db)
-                {
-                    _logger = logger;
-                    _dashboardService = dashboardService;
-                    _storeRepo = storeRepo;
-                    _compounderRepo = compounderRepo;
-                    _doctorRepo = doctorRepo;
-                    _expiredRepo = expiredRepo;
+        {
+            _logger = logger;
+            _dashboardService = dashboardService;
+            _storeRepo = storeRepo;
+            _compounderRepo = compounderRepo;
+            _doctorRepo = doctorRepo;
+            _expiredRepo = expiredRepo;
 
             _repo = repo;
             _db = db;
@@ -60,60 +60,70 @@ namespace EMS.WebApp.Controllers
 
         public IActionResult Index()
         {
-        var currentUserName = User.Identity?.Name;
-            
+            var currentUserName = User.Identity?.Name;
+
             string ScreenName = "Compounder";
             var currentUserRole = User.FindFirst("RoleName")?.Value ?? "";
 
-            if (currentUserRole.ToLower().Contains("store")) 
+            if (currentUserRole.ToLower().Contains("store"))
             {
                 ScreenName = "Store";
             }
-            else if (currentUserRole.ToLower().Contains("compounder")) {
+            else if (currentUserRole.ToLower().Contains("compounder"))
+            {
                 ScreenName = "Compounder";
             }
-            else if (currentUserRole.ToLower().Contains("doctor")) {
+            else if (currentUserRole.ToLower().Contains("doctor"))
+            {
                 ScreenName = "Doctor";
             }
-            else if (currentUserRole.ToLower().Contains("admin")) {
-                return RedirectToAction("Index","AdminDashboard");
+            else if (currentUserRole.ToLower().Contains("admin"))
+            {
+                return RedirectToAction("Index", "AdminDashboard");
             }
             return View(ScreenName);
 
         }
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetDoctorSummary(int nearDays = 30)
+        public async Task<IActionResult> GetDoctorSummary(int nearDays = 30, DateTime? fromDate = null, DateTime? toDate = null)
         {
-            var dto = await _dashboardService.GetDoctorSummaryAsync(User.Identity?.Name + " - " + User.GetFullName(), User.Identity?.Name, nearDays);
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
+            var dto = await _dashboardService.GetDoctorSummaryAsync(
+                User.Identity?.Name + " - " + User.GetFullName(),
+                User.Identity?.Name,
+                nearDays,
+                fromDate,
+                toDate);
             return Json(dto);
         }
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetNearExpiry(int days = 30, int top = 10)
+        public async Task<IActionResult> GetNearExpiry(int days = 30, int top = 10, DateTime? fromDate = null, DateTime? toDate = null)
         {
-            // Resolve plant
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             int? userPlantId = null;
             var userName = User.Identity?.Name;
             if (!string.IsNullOrWhiteSpace(userName))
-            {
                 userPlantId = await _storeRepo.GetUserPlantIdAsync(userName);
-            }
 
             var today = DateTime.Today;
             var upto = today.AddDays(days);
 
-            // Query Compounder Inventory
+            // Compounder Inventory — near-expiry within window, IndentDate in range
             var compounderRows = await _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
                 .Where(x =>
                     x.b.AvailableStock > 0 &&
-                    x.b.ExpiryDate >= today &&
-                    x.b.ExpiryDate <= upto &&
-                    (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value))
+                    x.b.ExpiryDate >= today && x.b.ExpiryDate <= upto &&
+                    (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value) &&
+                    x.Header.IndentDate >= fromDate.Value &&
+                    x.Header.IndentDate <= toDate.Value)
                 .Select(x => new NearExpiryDto
                 {
                     BatchId = x.b.BatchId,
@@ -126,17 +136,18 @@ namespace EMS.WebApp.Controllers
                 })
                 .ToListAsync();
 
-            // Query Store Inventory
+            // Store Inventory — near-expiry within window, IndentDate in range
             var storeRows = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
                 .Where(x =>
                     x.b.AvailableStock > 0 &&
-                    x.b.ExpiryDate >= today &&
-                    x.b.ExpiryDate <= upto &&
+                    x.b.ExpiryDate >= today && x.b.ExpiryDate <= upto &&
                     x.Header.Status == "Approved" &&
-                    (!userPlantId.HasValue || x.Header.PlantId == userPlantId.Value))
+                    (!userPlantId.HasValue || x.Header.PlantId == userPlantId.Value) &&
+                    x.Header.IndentDate >= fromDate.Value &&
+                    x.Header.IndentDate <= toDate.Value)
                 .Select(x => new NearExpiryDto
                 {
                     BatchId = x.b.BatchId,
@@ -149,7 +160,6 @@ namespace EMS.WebApp.Controllers
                 })
                 .ToListAsync();
 
-            // Combine and sort by expiry date, then take top records
             var combinedRows = compounderRows
                 .Concat(storeRows)
                 .OrderBy(x => x.ExpiryDate)
@@ -202,18 +212,20 @@ namespace EMS.WebApp.Controllers
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetPendingDisposal(int top = 10)
+        public async Task<IActionResult> GetPendingDisposal(int top = 10, DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             int? userPlantId = null;
             var userName = User.Identity?.Name;
             if (!string.IsNullOrWhiteSpace(userName))
-            {
                 userPlantId = await _storeRepo.GetUserPlantIdAsync(userName);
-            }
 
+            // Doctor sees both Store and Compounder disposal records — no SourceType filter
             var rows = await _expiredRepo.ListPendingDisposalAsync(userPlantId);
 
             var payload = rows
+                .Where(e => e.ExpiryDate >= fromDate.Value && e.ExpiryDate <= toDate.Value)
                 .OrderByDescending(e => e.ExpiryDate)
                 .Take(top)
                 .Select(e => new ExpiredMedicineDto
@@ -267,25 +279,28 @@ namespace EMS.WebApp.Controllers
         //}
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetExpired(int top = 10)
+        public async Task<IActionResult> GetExpired(int top = 10, DateTime? fromDate = null, DateTime? toDate = null)
         {
-            // Resolve plant
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             int? userPlantId = null;
             var userName = User.Identity?.Name;
             if (!string.IsNullOrWhiteSpace(userName))
-            {
                 userPlantId = await _storeRepo.GetUserPlantIdAsync(userName);
-            }
+
             var today = DateTime.Today;
 
-            // Query Compounder Inventory - Expired
+            // Compounder Inventory — expired, IndentDate in range
             var compounderRows = await _db.CompounderIndentBatches
                 .Join(_db.CompounderIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.CompounderIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
-                .Where(x => x.b.AvailableStock > 0 &&
-                            x.b.ExpiryDate < today &&
-                            (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value))
+                .Where(x =>
+                    x.b.AvailableStock > 0 &&
+                    x.b.ExpiryDate < today &&
+                    (!userPlantId.HasValue || x.Header.plant_id == userPlantId.Value) &&
+                    x.Header.IndentDate >= fromDate.Value &&
+                    x.Header.IndentDate <= toDate.Value)
                 .Select(x => new NearExpiryDto
                 {
                     BatchId = x.b.BatchId,
@@ -298,15 +313,18 @@ namespace EMS.WebApp.Controllers
                 })
                 .ToListAsync();
 
-            // Query Store Inventory - Expired
+            // Store Inventory — expired, IndentDate in range
             var storeRows = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
-                .Where(x => x.b.AvailableStock > 0 &&
-                            x.b.ExpiryDate < today &&
-                            x.Header.Status == "Approved" &&
-                            (!userPlantId.HasValue || x.Header.PlantId == userPlantId.Value))
+                .Where(x =>
+                    x.b.AvailableStock > 0 &&
+                    x.b.ExpiryDate < today &&
+                    x.Header.Status == "Approved" &&
+                    (!userPlantId.HasValue || x.Header.PlantId == userPlantId.Value) &&
+                    x.Header.IndentDate >= fromDate.Value &&
+                    x.Header.IndentDate <= toDate.Value)
                 .Select(x => new NearExpiryDto
                 {
                     BatchId = x.b.BatchId,
@@ -319,7 +337,6 @@ namespace EMS.WebApp.Controllers
                 })
                 .ToListAsync();
 
-            // Combine and sort by expiry date, then take top records
             var combinedRows = compounderRows
                 .Concat(storeRows)
                 .OrderBy(x => x.ExpiryDate)
@@ -338,55 +355,72 @@ namespace EMS.WebApp.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> ListStoreIndentPending()
+        public async Task<IActionResult> ListStoreIndentPending(DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plantId = await ResolveUserPlantIdAsync();
-            var list = await _storeRepo.ListByStatusAsync("Pending", currentUser: null, userPlantId: plantId);
 
-            var payload = list
+            var list = await _db.StoreIndents
+                .Include(s => s.OrgPlant)
+                .Where(s => s.Status == "Pending" &&
+                            (!plantId.HasValue || s.PlantId == plantId.Value) &&
+                            s.IndentDate >= fromDate.Value &&
+                            s.IndentDate <= toDate.Value)
                 .OrderByDescending(s => s.IndentDate)
-                .Select(s => new StoreIndentPendingDto
-                {
-                    IndentId = s.IndentId,
-                    IndentType = s.IndentType ?? "",
-                    IndentDate = s.IndentDate,
-                    CreatedBy = s.CreatedBy ?? "",
-                    PlantName = s.OrgPlant?.plant_name ?? "",
-                    Status = s.Status ?? ""
-                })
-                .ToList();
+                .ToListAsync();
+
+            var payload = list.Select(s => new StoreIndentPendingDto
+            {
+                IndentId = s.IndentId,
+                IndentType = s.IndentType ?? "",
+                IndentDate = s.IndentDate,
+                CreatedBy = s.CreatedBy ?? "",
+                PlantName = s.OrgPlant?.plant_name ?? "",
+                Status = s.Status ?? ""
+            }).ToList();
 
             return Json(payload);
         }
         [HttpGet]
-        public async Task<IActionResult> ListCompounderIndentPending()
+        public async Task<IActionResult> ListCompounderIndentPending(DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plantId = await ResolveUserPlantIdAsync();
-            var list = await _compounderRepo.ListByStatusAsync("Pending", currentUser: null, userPlantId: plantId);
 
-            var payload = list
+            var list = await _db.CompounderIndents
+                .Include(s => s.OrgPlant)
+                .Where(s => s.Status == "Pending" &&
+                            (!plantId.HasValue || s.plant_id == plantId.Value) &&
+                            s.IndentDate >= fromDate.Value &&
+                            s.IndentDate <= toDate.Value)
                 .OrderByDescending(s => s.IndentDate)
-                .Select(s => new CompounderIndentPendingDto
-                {
-                    IndentId = s.IndentId,
-                    IndentType = s.IndentType ?? "",
-                    IndentDate = s.IndentDate,
-                    CreatedBy = s.CreatedBy ?? "",
-                    PlantName = s.OrgPlant?.plant_name ?? "",
-                    Status = s.Status ?? ""
-                })
-                .ToList();
+                .ToListAsync();
+
+            var payload = list.Select(s => new CompounderIndentPendingDto
+            {
+                IndentId = s.IndentId,
+                IndentType = s.IndentType ?? "",
+                IndentDate = s.IndentDate,
+                CreatedBy = s.CreatedBy ?? "",
+                PlantName = s.OrgPlant?.plant_name ?? "",
+                Status = s.Status ?? ""
+            }).ToList();
 
             return Json(payload);
         }
 
         [HttpGet]
-        public async Task<IActionResult> ListPrescriptionPending()
+        public async Task<IActionResult> ListPrescriptionPending(DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plantId = await ResolveUserPlantIdAsync();
             var list = await _doctorRepo.GetPendingApprovalsAsync(plantId);
 
             var payload = list
+                .Where(p => p.PrescriptionDate >= fromDate.Value && p.PrescriptionDate <= toDate.Value)
                 .OrderByDescending(p => p.PrescriptionDate)
                 .Select(p => new PrescriptionPendingDto
                 {

@@ -1,6 +1,4 @@
-﻿
-
-using EMS.WebApp.Data;
+﻿using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -15,6 +13,7 @@ using System.Threading.Tasks;
 namespace EMS.WebApp.Controllers
 {
     [Authorize]
+    [ResponseCache(NoStore = true, Duration = 0, Location = ResponseCacheLocation.None)]
     public class StoreDashboardController : Controller
     {
         private readonly ILogger<StoreDashboardController> _logger;
@@ -48,22 +47,38 @@ namespace EMS.WebApp.Controllers
         public IActionResult Index() => View("Store");
 
         [HttpGet]
-        public async Task<IActionResult> GetSummary(int nearDays = 30)
+        public async Task<IActionResult> GetSummary(int nearDays = 30, DateTime? fromDate = null, DateTime? toDate = null)
         {
-            var dto = await _svc.GetSummaryAsync(User.Identity?.Name + " - " + User.GetFullName()/*User?.Identity?.Name*/, User.Identity?.Name, nearDays);
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
+            var dto = await _svc.GetSummaryAsync(
+                User.Identity?.Name + " - " + User.GetFullName(),
+                User.Identity?.Name,
+                nearDays,
+                fromDate: fromDate,
+                toDate: toDate);
             return Json(dto);
         }
 
         // --- Drill-downs ---
 
         [HttpGet]
-        public async Task<IActionResult> ListPending()
+        public async Task<IActionResult> ListPending(DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plant = await ResolvePlantAsync();
-            var list = await _storeRepo.ListByStatusAsync("Pending", currentUser: null, userPlantId: plant);
+
+            var list = await _db.StoreIndents
+                .Include(h => h.OrgPlant)
+                .Where(h => h.Status == "Pending" &&
+                            (!plant.HasValue || h.PlantId == plant.Value) &&
+                            h.IndentDate >= fromDate.Value &&
+                            h.IndentDate <= toDate.Value)
+                .OrderByDescending(h => h.IndentDate)
+                .ToListAsync();
 
             var payload = list
-                .OrderByDescending(h => h.IndentDate)
                 .Select(h => new StoreIndentPendingDto
                 {
                     IndentId = h.IndentId,
@@ -79,14 +94,24 @@ namespace EMS.WebApp.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> ListApprovedAwaitingReceipt()
+        public async Task<IActionResult> ListApprovedAwaitingReceipt(DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plant = await ResolvePlantAsync();
-            var list = await _storeRepo.ListByStatusAsync("Approved", currentUser: null, userPlantId: plant);
+
+            var list = await _db.StoreIndents
+                .Include(h => h.OrgPlant)
+                .Include(h => h.StoreIndentItems)
+                .Where(h => h.Status == "Approved" &&
+                            (!plant.HasValue || h.PlantId == plant.Value) &&
+                            h.IndentDate >= fromDate.Value &&
+                            h.IndentDate <= toDate.Value)
+                .OrderBy(h => h.IndentDate)
+                .ToListAsync();
 
             var payload = list
                 .Where(h => h.StoreIndentItems != null && h.StoreIndentItems.Any(i => i.RaisedQuantity > i.ReceivedQuantity))
-                .OrderBy(h => h.IndentDate)
                 .Select(h => new StoreIndentPendingDto
                 {
                     IndentId = h.IndentId,
@@ -102,15 +127,19 @@ namespace EMS.WebApp.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> ListMyDrafts()
+        public async Task<IActionResult> ListMyDrafts(DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plant = await ResolvePlantAsync();
             var user = User.Identity?.Name + " - " + User.GetFullName() ?? "";
             var rows = await _db.StoreIndents
                 .Where(h =>
                     (h.Status == "Draft" || h.IndentType == "Draft Indent") &&
                     h.CreatedBy == user &&
-                    (!plant.HasValue || h.PlantId == plant.Value))
+                    (!plant.HasValue || h.PlantId == plant.Value) &&
+                    h.IndentDate >= fromDate.Value &&
+                    h.IndentDate <= toDate.Value)
                 .OrderByDescending(h => h.IndentDate)
                 .Select(h => new StoreIndentPendingDto
                 {
@@ -129,8 +158,10 @@ namespace EMS.WebApp.Controllers
 
 
         [HttpGet]
-        public async Task<IActionResult> GetNearExpiry(int days = 30, int top = 100)
+        public async Task<IActionResult> GetNearExpiry(int days = 30, int top = 100, DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plant = await ResolvePlantAsync();
             var today = DateTime.Today; var upto = today.AddDays(days);
 
@@ -140,6 +171,9 @@ namespace EMS.WebApp.Controllers
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate >= today && x.b.ExpiryDate <= upto &&
+                            x.Header.Status == "Approved" &&
+                            x.Header.IndentDate >= fromDate.Value &&
+                            x.Header.IndentDate <= toDate.Value &&
                             (!plant.HasValue || x.Header.PlantId == plant.Value))
                 .OrderBy(x => x.b.ExpiryDate)
                 .Select(x => new NearExpiryDto
@@ -160,10 +194,14 @@ namespace EMS.WebApp.Controllers
 
 
         [HttpGet]
-        public async Task<IActionResult> GetPendingDisposal(int top = 100)
+        public async Task<IActionResult> GetPendingDisposal(int top = 100, DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plant = await ResolvePlantAsync();
             var rows = (await _expiredRepo.ListPendingDisposalAsync(plant))
+                .Where(e => e.SourceType == "Store")
+                .Where(e => e.ExpiryDate >= fromDate.Value && e.ExpiryDate <= toDate.Value)
                 .OrderByDescending(e => e.ExpiryDate)
                 .Take(top)
                 .Select(e => new ExpiredMedicineDto
@@ -181,10 +219,12 @@ namespace EMS.WebApp.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetExpired(int top = 100)
+        public async Task<IActionResult> GetExpired(int top = 100, DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plant = await ResolvePlantAsync();
-            var today = DateTime.Today; 
+            var today = DateTime.Today;
 
             var rows = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
@@ -192,6 +232,9 @@ namespace EMS.WebApp.Controllers
                 .Join(_db.med_masters, bih => bih.i.MedItemId, m => m.MedItemId, (bih, m) => new { bih.b, bih.Header, Med = m })
                 .Where(x => x.b.AvailableStock > 0 &&
                             x.b.ExpiryDate < today &&
+                            x.Header.Status == "Approved" &&
+                            x.Header.IndentDate >= fromDate.Value &&
+                            x.Header.IndentDate <= toDate.Value &&
                             (!plant.HasValue || x.Header.PlantId == plant.Value))
                 .OrderBy(x => x.b.ExpiryDate)
                  .Select(x => new NearExpiryDto
@@ -210,13 +253,18 @@ namespace EMS.WebApp.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetLowStock(int fallback = 10, int top = 100)
+        public async Task<IActionResult> GetLowStock(int fallback = 10, int top = 100, DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plant = await ResolvePlantAsync();
 
             var stocks = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+                .Where(x => x.Header.Status == "Approved" &&
+                            x.Header.IndentDate >= fromDate.Value &&
+                            x.Header.IndentDate <= toDate.Value)
                 .GroupBy(x => new { x.i.MedItemId, x.Header.PlantId })
                 .Select(g => new { g.Key.MedItemId, PlantId = g.Key.PlantId, Total = g.Sum(z => (int?)z.b.AvailableStock) ?? 0 })
                 .Where(s => !plant.HasValue || s.PlantId == plant.Value)
@@ -249,13 +297,18 @@ namespace EMS.WebApp.Controllers
 
 
         [HttpGet]
-        public async Task<IActionResult> GetOutOfStock(int top = 100)
+        public async Task<IActionResult> GetOutOfStock(int top = 100, DateTime? fromDate = null, DateTime? toDate = null)
         {
+            fromDate ??= DateTime.Today.AddDays(-30);
+            toDate ??= DateTime.Today;
             var plant = await ResolvePlantAsync();
 
             var stocks = await _db.StoreIndentBatches
                 .Join(_db.StoreIndentItems, b => b.IndentItemId, i => i.IndentItemId, (b, i) => new { b, i })
                 .Join(_db.StoreIndents, bi => bi.i.IndentId, h => h.IndentId, (bi, h) => new { bi.b, bi.i, Header = h })
+                .Where(x => x.Header.Status == "Approved" &&
+                            x.Header.IndentDate >= fromDate.Value &&
+                            x.Header.IndentDate <= toDate.Value)
                 .GroupBy(x => new { x.i.MedItemId, x.Header.PlantId })
                 .Select(g => new { g.Key.MedItemId, PlantId = g.Key.PlantId, Total = g.Sum(z => (int?)z.b.AvailableStock) ?? 0 })
                 .Where(s => !plant.HasValue || s.PlantId == plant.Value)
