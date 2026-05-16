@@ -989,7 +989,7 @@ namespace EMS.WebApp.Services
                     {
                         // FIX: Get all possible user identifiers INCLUDING combined format
                         var userRecord = await _db.SysUsers
-                            .Where(u => (u.adid == currentUser || u.email == currentUser || u.full_name == currentUser) && u.is_active)
+                            .Where(u => (u.adid == currentUser || u.email == currentUser || u.adid +" - "+ u.full_name == currentUser) && u.is_active)
                             .Select(u => new { u.adid, u.email, u.full_name })
                             .FirstOrDefaultAsync();
 
@@ -1130,7 +1130,9 @@ namespace EMS.WebApp.Services
                     reportData.Add(new DailyMedicineConsumptionReportDto
                     {
                         MedicineName = consumption.MedicineName,
-                        TotalStockInCompounderInventory = currentStock,
+                        //TotalStockInCompounderInventory = currentStock,
+                        // Available Stock = Received Qty - Consumed Qty (in date range) - Expired Qty (current)
+                        TotalStockInCompounderInventory = receivedQty - consumption.ConsumedQty - expiredStock,
                         IssuedQty = consumption.ConsumedQty,
                         ExpiredQty = expiredStock,
                         PlantName = "N/A",
