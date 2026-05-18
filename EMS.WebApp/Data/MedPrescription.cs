@@ -10,7 +10,7 @@ namespace EMS.WebApp.Data
 
         public int emp_uid { get; set; }
         public int exam_id { get; set; }
-        public string? DependentName { get; set; } = "Self";
+        public string? DependentName { get; set; } //= "Self";
         public DateTime PrescriptionDate { get; set; }
 
         [StringLength(20)]
