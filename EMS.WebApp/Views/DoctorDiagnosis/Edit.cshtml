@@ -285,7 +285,7 @@
                                     <div class="form-check mb-2">
                                         <input class="form-check-input disease-checkbox" type="checkbox"
                                                value="@disease.DiseaseId" id="disease_@disease.DiseaseId"
-                                               @(isChecked ? "checked" : "")>
+                                        @(isChecked ? "checked" : "")>
                                         <label class="form-check-label small" for="disease_@disease.DiseaseId">
                                             @disease.DiseaseId - @disease.DiseaseName
                                         </label>
@@ -307,7 +307,7 @@
                             <i class="bi bi-plus-lg"></i> Add medicine
                         </button>
                         <div class="form-text">
-                            <i class="bi bi-info-circle"></i> Medicines are sorted by expiry date (Format: ID - Name - Batch)
+                            <i class="bi bi-info-circle"></i> Medicines are sorted by expiry date (Format: ID - Name - Batch - Indent)
                         </div>
                     </div>
                 </form>
@@ -318,7 +318,7 @@
                         <thead>
                             <tr>
                                 <th style="width:50px">Sl.</th>
-                                <th>Medicine (ID - Base - Name - Batch)</th>
+                                <th>Medicine (ID - Base - Name - Batch - Indent)</th>
                                 <th style="width:100px">Available Stock</th>
                                 <th style="width:100px">Quantity</th>
                                 <th style="width:120px">Dose</th>
@@ -485,65 +485,65 @@
              }
              @if (Model.CurrentMedicines?.Any() == true)
              {
-                                 <text>
-                                 else {
-                                     // Fallback to inline data
-                                     var existingMedicines = @Html.Raw(Json.Serialize(Model.CurrentMedicines));
+                                     <text>
+                                         else {
+                                             // Fallback to inline data
+                                             var existingMedicines = @Html.Raw(Json.Serialize(Model.CurrentMedicines));
 
-                                     console.log('Fallback: Loading existing medicines from inline data:', existingMedicines);
+                                             console.log('Fallback: Loading existing medicines from inline data:', existingMedicines);
 
-                                     if (existingMedicines && existingMedicines.length > 0) {
-                                         existingMedicines.forEach(function(medicine, index) {
-                                             // Use actual batch data from Model.CurrentMedicines
-                                             var batchNo = medicine.BatchNo || medicine.batchNo || 'N/A';
-                                             var availStock = medicine.AvailableStock || medicine.availableStock || 0;
-                                             var expDate = medicine.ExpiryDate || medicine.expiryDate || '';
-                                             var indItemId = medicine.IndentItemId || medicine.indentItemId || 0;
-                                             var batchId = medicine.BatchId || medicine.batchId || 0;
+                                             if (existingMedicines && existingMedicines.length > 0) {
+                                                 existingMedicines.forEach(function(medicine, index) {
+                                                     // Use actual batch data from Model.CurrentMedicines
+                                                     var batchNo = medicine.BatchNo || medicine.batchNo || 'N/A';
+                                                     var availStock = medicine.AvailableStock || medicine.availableStock || 0;
+                                                     var expDate = medicine.ExpiryDate || medicine.expiryDate || '';
+                                                     var indItemId = medicine.IndentItemId || medicine.indentItemId || 0;
+                                                     var batchId = medicine.BatchId || medicine.batchId || 0;
 
-                                             // Calculate expiry label from date
-                                             var expiryLabel = 'No expiry info';
-                                             var expiryClass = 'text-muted';
-                                             if (expDate) {
-                                                 var expiry = new Date(expDate);
-                                                 var today = new Date();
-                                                 var diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-                                                 var dateStr = expiry.toISOString().split('T')[0];
-                                                 expiryLabel = dateStr + ' - (' + diffDays + 'd)';
-                                                 if (0 >= diffDays) expiryClass = 'text-danger';
-                                                 else if (90 >= diffDays) expiryClass = 'text-warning';
-                                                 else expiryClass = 'text-success';
+                                                     // Calculate expiry label from date
+                                                     var expiryLabel = 'No expiry info';
+                                                     var expiryClass = 'text-muted';
+                                                     if (expDate) {
+                                                         var expiry = new Date(expDate);
+                                                         var today = new Date();
+                                                         var diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+                                                         var dateStr = expiry.toISOString().split('T')[0];
+                                                         expiryLabel = dateStr + ' - (' + diffDays + 'd)';
+                                                         if (0 >= diffDays) expiryClass = 'text-danger';
+                                                         else if (90 >= diffDays) expiryClass = 'text-warning';
+                                                         else expiryClass = 'text-success';
+                                                     }
+
+                                                     var medicineWithDefaults = {
+                                                         medItemId: medicine.MedItemId || medicine.medItemId,
+                                                         medicineName: medicine.MedicineName || medicine.medicineName,
+                                                         baseName: medicine.BaseName || medicine.baseName,
+                                                         quantity: medicine.Quantity || medicine.quantity || 1,
+                                                         dose: medicine.Dose || medicine.dose || '',
+                                                         availableStock: availStock,
+                                                         batchNo: batchNo,
+                                                         indentItemId: indItemId,
+                                                         batchId: batchId,
+                                                         expiryDate: expDate,
+                                                         expiryLabel: expiryLabel,
+                                                         expiryClass: expiryClass
+                                                     };
+                                                     addExistingMedicineRow(medicineWithDefaults, index + 1);
+                                                 });
+                                             } else {
+                                                 console.warn('No existing medicines found in inline data');
                                              }
-
-                                             var medicineWithDefaults = {
-                                                 medItemId: medicine.MedItemId || medicine.medItemId,
-                                                 medicineName: medicine.MedicineName || medicine.medicineName,
-                                                 baseName: medicine.BaseName || medicine.baseName,
-                                                 quantity: medicine.Quantity || medicine.quantity || 1,
-                                                 dose: medicine.Dose || medicine.dose || '',
-                                                 availableStock: availStock,
-                                                 batchNo: batchNo,
-                                                 indentItemId: indItemId,
-                                                 batchId: batchId,
-                                                 expiryDate: expDate,
-                                                 expiryLabel: expiryLabel,
-                                                 expiryClass: expiryClass
-                                             };
-                                             addExistingMedicineRow(medicineWithDefaults, index + 1);
-                                         });
-                                     } else {
-                                         console.warn('No existing medicines found in inline data');
-                                     }
-                                 }
-                                 </text>
+                                         }
+                                     </text>
              }
              else
              {
-                                 <text>
-                                 else {
-                                     console.log('No current medicines available');
-                                 }
-                                 </text>
+                                     <text>
+                                         else {
+                                             console.log('No current medicines available');
+                                         }
+                                     </text>
              }
 
              // If no existing medicines, show the "no medicine" row
@@ -640,7 +640,7 @@
 
              const idx = tbody.children().length + 1;
 
-             var medicineOptions = '<option value="">-- Select Medicine (ID - Base - Name - Batch) --</option>';
+             var medicineOptions = '<option value="">-- Select Medicine (ID - Base - Name - Batch - Indent) --</option>';
 
              if (prescriptionData.medicines && prescriptionData.medicines.length > 0) {
                  prescriptionData.medicines.forEach(function (medicine) {
@@ -696,7 +696,7 @@
              // Initialize Select2 on the medicine dropdown
              tr.find('.medicine-select').select2({
                  theme: 'bootstrap-5',
-                 placeholder: '-- Select Medicine (ID - Base - Name - Batch) --',
+                 placeholder: '-- Select Medicine (ID - Base - Name - Batch - Indent) --',
                  allowClear: true,
                  width: '100%',
                  dropdownParent: $('#editPrescriptionModal'),
@@ -1129,6 +1129,19 @@
 
     .select2-container--bootstrap-5 .select2-results__option {
         padding: 0.375rem 0.75rem;
+        white-space: nowrap; /* NEW: Keep medicine ID-Base-Name-Batch-Indent on one line */
+    }
+
+    /* NEW: Widen edit prescription modal so dropdown text fits on one line */
+    @@media (min-width: 992px) {
+        #editPrescriptionModal .modal-dialog {
+            max-width: 1400px;
+        }
+    }
+
+    /* NEW: Allow horizontal scroll inside dropdown if content is very long */
+    #editPrescriptionModal .select2-results__options {
+        overflow-x: auto;
     }
 
     .select2-container {

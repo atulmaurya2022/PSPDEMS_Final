@@ -326,8 +326,8 @@ namespace EMS.WebApp.Services
                             join d in _db.MedDiseases on pd.DiseaseId equals d.DiseaseId
                             join e in _db.HrEmployees on p.emp_uid equals e.emp_uid
                             join dept in _db.org_departments on e.dept_id equals dept.dept_id
-                            where p.ApprovalStatus == "Approved"
-                               && (p.DependentName == null || p.DependentName == "Self")
+                            //where p.ApprovalStatus == "Approved" && (p.DependentName == null || p.DependentName == "Self")
+                            where p.ApprovalStatus == "Approved" && p.DependentName == null 
                             select new
                             {
                                 p.PrescriptionId,
@@ -349,7 +349,6 @@ namespace EMS.WebApp.Services
                 // ✅ FIX: Role-based access
                 if (!CanSeeAllRecords(isDoctor, userRole) && !string.IsNullOrEmpty(currentUser))
                     query = query.Where(x => x.CreatedBy == currentUser);
-
                 // Date filters
                 if (filter.FromDate.HasValue)
                     query = query.Where(x => x.PrescriptionDate >= filter.FromDate.Value);

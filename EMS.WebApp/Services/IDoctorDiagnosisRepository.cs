@@ -72,6 +72,7 @@ namespace EMS.WebApp.Services
     public class MedicineStockInfo
     {
         public int IndentItemId { get; set; }
+        public int IndentId { get; set; } // NEW: Parent CompounderIndent header ID for disambiguation in dropdown
         public int MedItemId { get; set; }
         public string MedItemName { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;

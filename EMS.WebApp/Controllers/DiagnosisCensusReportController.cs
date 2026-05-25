@@ -35,18 +35,68 @@ namespace EMS.WebApp.Controllers
             return View("DiagnosisCensusReport");
         }
 
+        // ============================================================
+        // ✅ BCM Role-based access helpers — mirror DiseaseTrendReportController.
+        // ============================================================
+
+        /// <summary>
+        /// Returns "ADID - FullName" — exact format stored in MedPrescriptions.CreatedBy.
+        /// Required for the CreatedBy filter to match anything.
+        /// </summary>
+        private string GetCurrentUserDisplay()
+            => (User.Identity?.Name + " - " + User.GetFullName()).Trim(' ', '-');
+
+        /// <summary>
+        /// Reads role from SysUsers → SysRole.role_name. Mirrors DiseaseTrendReportController.GetUserRoleAsync.
+        /// </summary>
+        private async Task<string?> GetUserRoleAsync()
+        {
+            try
+            {
+                var userName = User.Identity?.Name;
+                if (string.IsNullOrEmpty(userName)) return null;
+
+                var user = await _db.SysUsers
+                    .Include(u => u.SysRole)
+                    .FirstOrDefaultAsync(u => u.full_name == userName
+                                           || u.email == userName
+                                           || u.adid == userName);
+
+                return user?.SysRole?.role_name;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Doctor or Admin → see all records. Matches DiseaseTrendReportController.IsDocterOrAdmin.
+        /// </summary>
+        private static bool IsDocterOrAdmin(string? userRole)
+        {
+            if (string.IsNullOrEmpty(userRole)) return false;
+            var role = userRole.ToLower();
+            return role == "doctor" || role.Contains("admin");
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetReport(DateTime? fromDate = null, DateTime? toDate = null, short? deptId = null)
         {
             try
             {
                 var currentUserName = User.Identity?.Name;
+                var currentUserDisplay = GetCurrentUserDisplay();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
                 var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
 
                 if (!fromDate.HasValue) fromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
                 if (!toDate.HasValue) toDate = DateTime.Now.Date;
 
-                var counts = (await _service.GetDiagnosisCensusCountsAsync(currentUserName, fromDate, toDate, deptId)).ToList();
+                var counts = (await _service.GetDiagnosisCensusCountsAsync(
+                    currentUserName, fromDate, toDate, deptId,
+                    isDoctor, userRole, currentUserDisplay)).ToList();
                 var diseases = await _service.GetAllDiseasesAsync(userPlantId);
                 var departments = (await _service.GetDepartmentsAsync()).ToList();
 
@@ -98,12 +148,17 @@ namespace EMS.WebApp.Controllers
             try
             {
                 var currentUserName = User.Identity?.Name;
+                var currentUserDisplay = GetCurrentUserDisplay();
+                var userRole = await GetUserRoleAsync();
+                var isDoctor = IsDocterOrAdmin(userRole);
                 var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
 
                 if (!fromDate.HasValue) fromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
                 if (!toDate.HasValue) toDate = DateTime.Now.Date;
 
-                var counts = (await _service.GetDiagnosisCensusCountsAsync(currentUserName, fromDate, toDate, deptId)).ToList();
+                var counts = (await _service.GetDiagnosisCensusCountsAsync(
+                    currentUserName, fromDate, toDate, deptId,
+                    isDoctor, userRole, currentUserDisplay)).ToList();
                 var diseases = (await _service.GetAllDiseasesAsync(userPlantId)).ToList();
                 var departments = (await _service.GetDepartmentsAsync()).ToList();
 

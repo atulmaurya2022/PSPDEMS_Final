@@ -345,7 +345,7 @@
                         <thead>
                             <tr>
                                 <th style="width:50px">Sl.</th>
-                                <th style="width:200px">ID - Base - Name - Batch</th>
+                                <th style="width:200px">ID - Base - Name - Batch - Indent</th>
                                 <th style="width:80px">Available Stock</th>
                                 <th style="width:80px">Quantity</th>
                                 <th style="width:100px">Dose</th>
@@ -504,7 +504,7 @@
             // Show diagnosis section if we have patient data
             @if (Model?.PatientId.HasValue == true)
             {
-                                                        <text>showDiagnosisSection();</text>
+                                                            <text>showDiagnosisSection();</text>
             }
 
             // Add medicine row with batch tracking
@@ -637,7 +637,7 @@
             // Remove "no medicine" row if it exists
             $('#noMedicineRow').remove();
 
-            var medicineOptions = '<option value="">-- Select Medicine (Base - Name - Batch) --</option>';
+            var medicineOptions = '<option value="">-- Select Medicine (Base - Name - Batch - Indent) --</option>';
 
             if (prescriptionData.medicines && prescriptionData.medicines.length > 0) {
                 // prescriptionData.medicines.forEach(function (medicine) {
@@ -717,9 +717,10 @@
             // Initialize Select2 on the medicine dropdown
             tr.find('.medicine-select').select2({
                 theme: 'bootstrap-5',
-                placeholder: '-- Select Medicine (Base - Name - Batch) --',
+                placeholder: '-- Select Medicine (Base - Name - Batch - Indent) --',
                 allowClear: true,
                 width: '100%',
+                dropdownAutoWidth: true, // NEW: Auto-size dropdown so text fits on one line
                 templateResult: formatMedicineOption,
                 templateSelection: formatMedicineSelection
             });
@@ -1215,10 +1216,24 @@
 
     .select2-container--bootstrap-5 .select2-results__option {
         padding: 0.375rem 0.75rem;
+        white-space: nowrap; /* NEW: Keep medicine ID-Base-Name-Batch-Indent on one line */
     }
 
     .select2-container {
         width: 100% !important;
+    }
+
+    /* NEW: When dropdown is OPEN (body-level container), don't force 100% body width.
+           Let it size to content with sensible min/max so it doesn't overflow the page. */
+    .select2-container--open.select2-container--bootstrap-5 {
+        width: auto !important;
+        min-width: 300px;
+        max-width: 700px;
+    }
+
+    /* NEW: Horizontal scroll fallback if a single option exceeds the max-width cap */
+    .select2-container--bootstrap-5 .select2-results__options {
+        overflow-x: auto;
     }
 
     /* Maintain color coding in Select2 dropdown */

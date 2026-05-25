@@ -7,7 +7,14 @@ namespace EMS.WebApp.Services.Reports
 {
     public interface IDiagnosisCensusReportService
     {
-        Task<IEnumerable<DiagnosisCensusCountDto>> GetDiagnosisCensusCountsAsync(string currentUserName, DateTime? fromDate = null, DateTime? toDate = null, short? departmentId = null);
+        Task<IEnumerable<DiagnosisCensusCountDto>> GetDiagnosisCensusCountsAsync(
+            string currentUserName,
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            short? departmentId = null,
+            bool isDoctor = false,
+            string? userRole = null,
+            string? currentUserCreatedBy = null);
         Task<IEnumerable<OrgDepartmentDto>> GetDepartmentsAsync();
 
         Task<IEnumerable<MedDiseaseDto>> GetAllDiseasesAsync(int? userPlantId = null);

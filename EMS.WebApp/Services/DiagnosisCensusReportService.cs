@@ -20,47 +20,61 @@ namespace EMS.WebApp.Services.Reports
         }
 
         // Only med_prescription + med_prescription_disease used (others removed as requested)
-        public async Task<IEnumerable<DiagnosisCensusCountDto>> GetDiagnosisCensusCountsAsync(string currentUserName, DateTime? fromDate = null, DateTime? toDate = null, short? departmentId = null)
+        public async Task<IEnumerable<DiagnosisCensusCountDto>> GetDiagnosisCensusCountsAsync(
+            string currentUserName,
+            DateTime? fromDate = null,
+            DateTime? toDate = null,
+            short? departmentId = null,
+            bool isDoctor = false,
+            string? userRole = null,
+            string? currentUserCreatedBy = null)
         {
             if (!fromDate.HasValue) fromDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
             if (!toDate.HasValue) toDate = DateTime.Now.Date;
 
             var userPlantId = await _repo.GetUserPlantIdAsync(currentUserName);
 
-            // Prescription-based counts
-            var presCounts = from pd in _db.MedPrescriptionDiseases
-                             join p in _db.MedPrescriptions on pd.PrescriptionId equals p.PrescriptionId
-                             join emp in _db.HrEmployees on p.emp_uid equals emp.emp_uid
-                             join dept in _db.org_departments on emp.dept_id equals dept.dept_id
-                             where p.ApprovalStatus == "Approved"
-                                   //&& (p.DependentName == null || p.DependentName == "Self")
-                                   && p.DependentName == null
-                                   && p.PlantId == (userPlantId ?? p.PlantId)
-                                   && p.PrescriptionDate >= fromDate.Value.Date
-                                   && p.PrescriptionDate < toDate.Value.Date.AddDays(1) // half-open safe-range
-                                   && (departmentId == null || emp.dept_id == departmentId)
-                             group pd by new { dept.dept_id, dept.dept_name, pd.DiseaseId } into g
-                             select new DiagnosisCensusCountDto
-                             {
-                                 DeptId = g.Key.dept_id,
-                                 DeptName = g.Key.dept_name,
-                                 DiseaseId = g.Key.DiseaseId,
-                                 DiseaseName = "",
-                                 Count = g.LongCount()
-                             };
+            // ✅ BCM compounder-wise filter: Doctor/Admin/Store see all; others restricted to own CreatedBy.
+            // CreatedBy in MedPrescriptions is stored as "ADID - FullName" — passed in via currentUserCreatedBy.
+            var createdByFilter = !string.IsNullOrEmpty(currentUserCreatedBy) ? currentUserCreatedBy : currentUserName;
+            var applyCreatedByFilter = !CanSeeAllRecords(isDoctor, userRole) && !string.IsNullOrEmpty(createdByFilter);
 
-            var grouped = from p in presCounts
-                          group p by new { p.DeptId, p.DeptName, p.DiseaseId } into gg
-                          select new DiagnosisCensusCountDto
-                          {
-                              DeptId = gg.Key.DeptId,
-                              DeptName = gg.Key.DeptName,
-                              DiseaseId = gg.Key.DiseaseId,
-                              DiseaseName = "",
-                              Count = gg.Sum(x => x.Count)
-                          };
+            // Pull flat (dept, disease, emp_uid) rows — emp_uid required for the DISTINCT count.
+            // Materialize-then-group mirrors DT-DeptWise's proven pattern → predictable EF Core translation.
+            var rowsQuery = from pd in _db.MedPrescriptionDiseases
+                            join p in _db.MedPrescriptions on pd.PrescriptionId equals p.PrescriptionId
+                            join d in _db.MedDiseases on pd.DiseaseId equals d.DiseaseId
+                            join emp in _db.HrEmployees on p.emp_uid equals emp.emp_uid
+                            join dept in _db.org_departments on emp.dept_id equals dept.dept_id
+                            where p.ApprovalStatus == "Approved"
+                                  && (p.DependentName == null || p.DependentName == "Self")
+                                  && (!applyCreatedByFilter || p.CreatedBy == createdByFilter)
+                                  && p.PlantId == (userPlantId ?? p.PlantId)
+                                  && p.PrescriptionDate >= fromDate.Value.Date
+                                  && p.PrescriptionDate < toDate.Value.Date.AddDays(1) // half-open safe-range
+                                  && (departmentId == null || emp.dept_id == departmentId)
+                            select new
+                            {
+                                dept.dept_id,
+                                dept.dept_name,
+                                pd.DiseaseId,
+                                emp.emp_uid
+                            };
 
-            var list = await grouped.ToListAsync();
+            var rows = await rowsQuery.ToListAsync();
+
+            // Group in memory: DISTINCT employees per (dept, disease) — matches DT-DeptWise semantics.
+            var list = rows
+                .GroupBy(r => new { r.dept_id, r.dept_name, r.DiseaseId })
+                .Select(g => new DiagnosisCensusCountDto
+                {
+                    DeptId = g.Key.dept_id,
+                    DeptName = g.Key.dept_name,
+                    DiseaseId = g.Key.DiseaseId,
+                    DiseaseName = "",
+                    Count = g.Select(x => x.emp_uid).Distinct().Count()
+                })
+                .ToList();
 
             // Map disease names
             var diseaseMap = await _db.MedDiseases
@@ -75,6 +89,20 @@ namespace EMS.WebApp.Services.Reports
 
             return list;
         }
+
+        // ============================================================
+        // ✅ BCM Role-based access helpers — mirror DiseaseTrendRepository.
+        // Doctor / Admin / Store In-charge see ALL records.
+        // Compounder (and any other role) restricted to own CreatedBy.
+        // ============================================================
+        private static bool IsAdminRole(string? userRole)
+            => !string.IsNullOrEmpty(userRole) && userRole.ToLower().Contains("admin");
+
+        private static bool IsStoreRole(string? userRole)
+            => !string.IsNullOrEmpty(userRole) && userRole.ToLower().Contains("store");
+
+        private static bool CanSeeAllRecords(bool isDoctor, string? userRole)
+            => isDoctor || IsAdminRole(userRole) || IsStoreRole(userRole);
 
         // Departments: global master (not plant-filtered)
         public async Task<IEnumerable<OrgDepartmentDto>> GetDepartmentsAsync()

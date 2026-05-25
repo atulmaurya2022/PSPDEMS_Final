@@ -381,7 +381,7 @@ namespace EMS.WebApp.Controllers
                         medItemId = m.MedItemId,
                         baseName = m.BaseName,
                         medItemName = m.MedItemName,
-                        text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo}",
+                        text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo} | Indent: {m.IndentId}",
                         stockInfo = $"Stock: {m.AvailableStock}",
                         expiryInfo = m.ExpiryDateFormatted,
                         daysToExpiry = m.DaysToExpiry,
@@ -1330,8 +1330,18 @@ namespace EMS.WebApp.Controllers
             // Get plant-wise diseases
             var diseases = await _repository.GetDiseasesAsync(userPlantId);
 
+            // BUG FIX: Pass currentUser and isDoctor for BCM plant filtering (matches Add flow).
+            // Without these, repository returns empty list for non-doctors at BCM plant.
+            var userRole = await GetUserRoleAsync();
+            var isDoctor = userRole?.ToLower() == "doctor";
+            var currentUser = User.Identity?.Name + " - " + User.GetFullName();
+
             // Get plant-wise medicines with batch information
-            var medicineStocks = await _repository.GetMedicinesFromCompounderIndentAsync(userPlantId);
+            var medicineStocks = await _repository.GetMedicinesFromCompounderIndentAsync(
+                userPlantId,
+                currentUser,
+                isDoctor
+            );
 
             // Convert medicines to dropdown format
             var medicineDropdownItems = medicineStocks
@@ -1345,7 +1355,7 @@ namespace EMS.WebApp.Controllers
                     medItemId = m.MedItemId,
                     baseName = m.BaseName,
                     //text = $"{m.MedItemId} - {m.BaseName} - {m.MedItemName} | Batch: {m.BatchNo}",
-                    text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo}",
+                    text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo} | Indent: {m.IndentId}",
                     stockInfo = $"Stock: {m.AvailableStock}",
                     expiryInfo = m.ExpiryDateFormatted,
                     daysToExpiry = m.DaysToExpiry,

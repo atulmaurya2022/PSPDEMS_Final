@@ -108,6 +108,7 @@ namespace EMS.WebApp.Services
                         .Select(b => new MedicineStockInfo
                         {
                             IndentItemId = i.IndentItemId,
+                            IndentId = i.IndentId, // NEW: Expose parent indent header ID for dropdown display
                             MedItemId = i.MedItemId,
                             MedItemName = i.MedMaster.MedItemName,
                             CompanyName = i.MedMaster.CompanyName ?? "Not Defined",
@@ -136,6 +137,7 @@ namespace EMS.WebApp.Services
                 return fallbackMedicines.Select(m => new MedicineStockInfo
                 {
                     IndentItemId = 0,
+                    IndentId = 0, // NEW: No indent available in fallback path
                     MedItemId = m.MedItemId,
                     MedItemName = m.MedItemName,
                     CompanyName = m.CompanyName ?? "Not Defined",

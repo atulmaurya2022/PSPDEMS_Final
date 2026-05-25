@@ -69,7 +69,38 @@ namespace EMS.WebApp.Controllers
                 return View(new List<EmployeeDiagnosisListViewModel>());
             }
         }
-       
+        //public async Task<IActionResult> Index()
+        //{
+        //    try
+        //    {
+        //        var userPlantId = await GetCurrentUserPlantIdAsync();
+        //        var userRole = await GetUserRoleAsync();
+
+        //        // NEW: Get current user identifier
+        //        var currentUser = User.FindFirst("user_id")?.Value ??
+        //                         User.Identity?.Name + " - " + User.GetFullName() ??
+        //                         "unknown";
+
+        //        ViewBag.UserRole = userRole;
+        //        ViewBag.IsDoctor = userRole?.ToLower() == "doctor";
+        //        ViewBag.ShouldMaskData = _maskingService.ShouldMaskData(userRole);
+        //        ViewBag.CurrentUser = currentUser; // NEW: Pass current user to view
+
+        //        var diagnoses = await _doctorDiagnosisRepository.GetAllEmployeeDiagnosesAsync(userPlantId);
+
+        //        await _auditService.LogAsync("doctor_diagnosis", "INDEX_VIEW", "main", null, null,
+        //            $"Doctor diagnosis list loaded - Count: {diagnoses.Count()}, Role: {userRole}, Plant: {userPlantId}");
+
+        //        return View(diagnoses);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error loading doctor diagnosis list");
+        //        await _auditService.LogAsync("doctor_diagnosis", "INDEX_FAILED", "main", null, null,
+        //            $"Failed to load doctor diagnosis index: {ex.Message}");
+        //        return View(new List<EmployeeDiagnosisListViewModel>());
+        //    }
+        //}
 
         public async Task<IActionResult> Create()
         {
@@ -401,7 +432,7 @@ namespace EMS.WebApp.Controllers
                         medItemId = m.MedItemId,
                         baseName = m.BaseName,
                         //text = $"{m.MedItemId} - {m.BaseName} - {m.MedItemName} | Batch: {m.BatchNo}",
-                        text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo}",
+                        text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo} | Indent: {m.IndentId}",
                         stockInfo = $"Stock: {m.AvailableStock}",
                         expiryInfo = m.ExpiryDateFormatted,
                         daysToExpiry = m.DaysToExpiry,
@@ -1536,7 +1567,7 @@ namespace EMS.WebApp.Controllers
                     medItemId = m.MedItemId,
                     baseName = m.BaseName,
                     //text = $"{m.MedItemId} - {m.BaseName} - {m.MedItemName} | Batch: {m.BatchNo}",
-                    text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo}",
+                    text = $"{m.MedItemId} - {(string.IsNullOrEmpty(m.BaseName) || m.BaseName == "Not Defined" ? "" : $"{m.BaseName} - ")}{m.MedItemName} | Batch: {m.BatchNo} | Indent: {m.IndentId}",
                     stockInfo = $"Stock: {m.AvailableStock}",
                     expiryInfo = m.ExpiryDateFormatted,
                     daysToExpiry = m.DaysToExpiry,

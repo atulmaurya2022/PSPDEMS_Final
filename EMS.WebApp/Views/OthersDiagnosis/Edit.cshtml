@@ -198,7 +198,7 @@
                                     <div class="form-check mb-2">
                                         <input class="form-check-input disease-checkbox" type="checkbox"
                                                value="@disease.DiseaseId" id="disease_@disease.DiseaseId"
-                                               @(isChecked ? "checked" : "")>
+                                        @(isChecked ? "checked" : "")>
                                         <label class="form-check-label small" for="disease_@disease.DiseaseId">
                                             @disease.DiseaseId - @disease.DiseaseName
                                         </label>
@@ -236,7 +236,7 @@
                         <thead>
                             <tr>
                                 <th style="width:50px">Sl.</th>
-                                <th style="width:200px">ID - Base - Name - Batch</th>
+                                <th style="width:200px">ID - Base - Name - Batch - Indent</th>
                                 <th style="width:80px">Available Stock</th>
                                 <th style="width:80px">Quantity</th>
                                 <th style="width:100px">Dose</th>
@@ -330,6 +330,13 @@
                         prescriptionData = data;
                         currentMedicinesData = data.diagnosis.currentMedicines || [];
                         console.log('Diagnosis edit data loaded:', data);
+
+                        // RACE CONDITION FIX: If user already clicked "Edit Prescription" while AJAX was pending,
+                        // the existing medicines table rendered as empty (because currentMedicinesData was []).
+                        // Re-render it now that data is available.
+                        if ($('#prescEditCard').is(':visible')) {
+                            loadExistingMedicinesIntoTable();
+                        }
                     } else {
                         showAlert('error', 'Failed to load diagnosis data: ' + (data.message || 'Unknown error'));
                     }
@@ -343,6 +350,20 @@
         function loadExistingMedicinesIntoTable() {
             const tbody = $('#tblEditPresc tbody');
             tbody.empty();
+
+            // RACE CONDITION FIX: If AJAX hasn't completed yet (prescriptionData.diagnosis not set),
+            // show a loading state instead of "No medicines added yet". The success callback will
+            // re-call this function when the data arrives.
+            if (!prescriptionData.diagnosis) {
+                tbody.append(`
+                    <tr id="noMedicineRow">
+                        <td colspan="7" class="text-center text-muted">
+                            <i class="bi bi-hourglass-split"></i> Loading existing medicines...
+                        </td>
+                    </tr>
+                `);
+                return;
+            }
 
             if (currentMedicinesData && currentMedicinesData.length > 0) {
                 console.log('Loading existing medicines:', currentMedicinesData);
@@ -441,7 +462,7 @@
             $('#noMedicineRow').remove();
             medicineRowCount++;
 
-            var medicineOptions = '<option value="">-- Select Medicine (ID - Base - Name - Batch) --</option>';
+            var medicineOptions = '<option value="">-- Select Medicine (ID - Base - Name - Batch - Indent) --</option>';
 
             if (prescriptionData.medicines && prescriptionData.medicines.length > 0) {
                 prescriptionData.medicines.forEach(function (medicine) {
@@ -503,9 +524,10 @@
             // Initialize Select2 on the medicine dropdown
             tr.find('.medicine-select').select2({
                 theme: 'bootstrap-5',
-                placeholder: '-- Select Medicine (ID - Base - Name - Batch) --',
+                placeholder: '-- Select Medicine (ID - Base - Name - Batch - Indent) --',
                 allowClear: true,
                 width: '100%',
+                dropdownAutoWidth: true, // NEW: Auto-size dropdown so text fits on one line
                 templateResult: formatMedicineOption,
                 templateSelection: formatMedicineSelection
             });
@@ -909,10 +931,24 @@
 
     .select2-container--bootstrap-5 .select2-results__option {
         padding: 0.375rem 0.75rem;
+        white-space: nowrap; /* NEW: Keep medicine ID-Base-Name-Batch-Indent on one line */
     }
 
     .select2-container {
         width: 100% !important;
+    }
+
+    /* NEW: When dropdown is OPEN (body-level container), don't force 100% body width.
+           Let it size to content with sensible min/max so it doesn't overflow the page. */
+    .select2-container--open.select2-container--bootstrap-5 {
+        width: auto !important;
+        min-width: 300px;
+        max-width: 700px;
+    }
+
+    /* NEW: Horizontal scroll fallback if a single option exceeds the max-width cap */
+    .select2-container--bootstrap-5 .select2-results__options {
+        overflow-x: auto;
     }
 
     /* Maintain color coding in Select2 dropdown */
