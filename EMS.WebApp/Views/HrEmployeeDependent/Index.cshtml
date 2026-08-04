@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Employee Dependent Master";
 }
 
@@ -522,13 +522,7 @@
                     showFieldError(validationSpan, relationInput, 'Relation is required.');
                     isValid = false;
                 } else {
-                    const allowedRelations = ['Wife', 'Husband', 'Child'];
-                    if (!allowedRelations.includes(relation)) {
-                        showFieldError(validationSpan, relationInput, 'Only Wife, Husband, and Child relations are allowed.');
-                        isValid = false;
-                    } else {
-                        relationInput.addClass('is-valid');
-                    }
+                    relationInput.addClass('is-valid');
                 }
 
                 return isValid;

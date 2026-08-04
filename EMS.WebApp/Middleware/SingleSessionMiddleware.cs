@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Configuration;
+using EMS.WebApp.Configuration;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
@@ -76,11 +76,15 @@ namespace EMS.WebApp.Middleware
                         }
                     }
 
-                    // Update last activity time for non-heartbeat requests
+                    // Update last activity time only if at least 5 minutes have elapsed since last DB update
                     if (!path.Contains("/session/heartbeat"))
                     {
-                        user.LastActivityTime = DateTime.UtcNow;
-                        await repo.UpdateAsync(user);
+                        var nowUtc = DateTime.UtcNow;
+                        if (!user.LastActivityTime.HasValue || (nowUtc - user.LastActivityTime.Value).TotalMinutes >= 5)
+                        {
+                            user.LastActivityTime = nowUtc;
+                            await repo.UpdateAsync(user);
+                        }
                     }
                 }
             }

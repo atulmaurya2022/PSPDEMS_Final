@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data.Migrations;
+using EMS.WebApp.Data.Migrations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System;
@@ -22,6 +22,7 @@ public partial class ApplicationDbContext : DbContext
     public virtual DbSet<SysAuditLog> SysAuditLogs { get; set; }
     public virtual DbSet<HrEmployee> HrEmployees { get; set; }
     public virtual DbSet<HrEmployeeDependent> HrEmployeeDependents { get; set; }
+    public virtual DbSet<RefDependentRelation> ref_dependent_relations { get; set; }
     public virtual DbSet<OrgEmployeeCategory> org_employee_categories { get; set; }
     public virtual DbSet<MedAmbulanceMaster> med_ambulance_masters { get; set; }
     public virtual DbSet<MedBase> med_bases { get; set; }

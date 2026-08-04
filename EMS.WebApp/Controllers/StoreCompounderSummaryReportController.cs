@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -73,6 +73,7 @@ namespace EMS.WebApp.Controllers
                     totalStoreStock = item.TotalStoreStock,
                     compounderQuantities = item.CompounderQuantities,
                     totalIssuedToCompounders = item.TotalIssuedToCompounders,
+                    disposedQty = item.DisposedQty,
                     remainingStock = item.RemainingStock
                 });
 
@@ -85,6 +86,7 @@ namespace EMS.WebApp.Controllers
                     {
                         totalStoreStockSum = reportResponse.TotalStoreStockSum,
                         totalIssuedSum = reportResponse.TotalIssuedSum,
+                        totalDisposedSum = reportResponse.TotalDisposedSum,
                         totalRemainingSum = reportResponse.TotalRemainingSum,
                         compounderTotals = reportResponse.CompounderTotals
                     },
@@ -144,6 +146,7 @@ namespace EMS.WebApp.Controllers
                 // Build header row with dynamic compounder columns
                 var headerParts = new List<string> { "MEDICINE NAME", "TOTAL STORE STOCK" };
                 headerParts.AddRange(reportResponse.CompounderNames.Select(c => c.ToUpper()));
+                headerParts.Add("DISPOSED QTY");
                 headerParts.Add("REMAINING STOCK");
                 csv.AppendLine(string.Join(",", headerParts));
 
@@ -165,6 +168,7 @@ namespace EMS.WebApp.Controllers
                         rowParts.Add(qty.ToString());
                     }
 
+                    rowParts.Add(item.DisposedQty.ToString());
                     rowParts.Add(item.RemainingStock.ToString());
                     csv.AppendLine(string.Join(",", rowParts));
                 }
@@ -184,6 +188,7 @@ namespace EMS.WebApp.Controllers
                     totalRowParts.Add(total.ToString());
                 }
 
+                totalRowParts.Add(reportResponse.TotalDisposedSum.ToString());
                 totalRowParts.Add(reportResponse.TotalRemainingSum.ToString());
                 csv.AppendLine(string.Join(",", totalRowParts));
 

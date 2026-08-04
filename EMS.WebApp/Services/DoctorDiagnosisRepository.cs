@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Data.Migrations;
 using Microsoft.EntityFrameworkCore;
 
@@ -423,6 +423,7 @@ namespace EMS.WebApp.Services
 
         public async Task<bool> UpdateAvailableStockAsync(int indentItemId, int quantityUsed, int? userPlantId = null)
         {
+            using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
                 Console.WriteLine($"🔄 Updating available stock for IndentItemId {indentItemId}, using {quantityUsed} units with FIFO logic (Plant: {userPlantId})");
@@ -439,42 +440,51 @@ namespace EMS.WebApp.Services
                                 cib.BatchNo
                             };
 
-                // Plant-wise filtering
                 if (userPlantId.HasValue)
                 {
                     query = query.Where(x => x.plant_id == userPlantId.Value);
                 }
 
-                // FIXED: Use FIFO logic - order by expiry date (earliest first)
-                var result = await query
-                    .OrderBy(x => x.ExpiryDate) // FIFO: earliest expiry first
-                    .ThenBy(x => x.BatchNo) // Then by batch number for consistency
-                    .FirstOrDefaultAsync();
+                var batches = await query
+                    .OrderBy(x => x.ExpiryDate)
+                    .ThenBy(x => x.BatchNo)
+                    .ToListAsync();
 
-                if (result?.Batch == null)
+                if (!batches.Any())
                 {
                     Console.WriteLine($"❌ Compounder indent item {indentItemId} not found or no available stock for plant {userPlantId}");
                     return false;
                 }
 
-                var batch = result.Batch;
-                if (batch.AvailableStock < quantityUsed)
+                int totalAvailable = batches.Sum(b => b.Batch.AvailableStock);
+                if (totalAvailable < quantityUsed)
                 {
-                    Console.WriteLine($"❌ Insufficient stock in FIFO batch. Available: {batch.AvailableStock}, Requested: {quantityUsed} (Batch: {result.BatchNo})");
+                    Console.WriteLine($"❌ Insufficient total stock across batches. Total Available: {totalAvailable}, Requested: {quantityUsed}");
                     return false;
                 }
 
-                var oldStock = batch.AvailableStock;
-                batch.AvailableStock = oldStock - quantityUsed;
+                int remainingToDeduct = quantityUsed;
+                foreach (var item in batches)
+                {
+                    if (remainingToDeduct <= 0) break;
 
-                _db.CompounderIndentBatches.Update(batch);
+                    var batch = item.Batch;
+                    int deductAmount = Math.Min(batch.AvailableStock, remainingToDeduct);
+                    batch.AvailableStock -= deductAmount;
+                    remainingToDeduct -= deductAmount;
+
+                    _db.CompounderIndentBatches.Update(batch);
+                }
+
                 await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
 
-                Console.WriteLine($"✅ FIFO Stock updated for IndentItemId {indentItemId}: {oldStock} → {batch.AvailableStock} (Batch: {result.BatchNo}, Expiry: {result.ExpiryDate.ToString("dd/MM/yyyy") ?? "N/A"}, Plant: {userPlantId})");
+                Console.WriteLine($"✅ FIFO Stock updated successfully for IndentItemId {indentItemId}: Deducted {quantityUsed} units across batches.");
                 return true;
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 Console.WriteLine($"❌ Error updating available stock for item {indentItemId}: {ex.Message}");
                 return false;
             }

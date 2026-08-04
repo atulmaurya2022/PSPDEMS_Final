@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml.FormulaParsing.ExpressionGraph;
 using System.Collections.Generic;
@@ -34,6 +34,7 @@ namespace EMS.WebApp.Services
             }
 
             return await query
+                .AsNoTracking()
                 .Include(s => s.OrgPlant)
                 .OrderByDescending(s => s.CreatedDate)
                 .ToListAsync();
@@ -986,6 +987,55 @@ namespace EMS.WebApp.Services
 
                 var compounderData = await compounderDataQuery.ToListAsync();
 
+                // Step 3b: Get disposed medicines (issued to biomedical waste)
+                var disposedQuery = _db.ExpiredMedicines
+                    .Where(e => e.Status == "Issued to Biomedical Waste");
+
+                if (userPlantId.HasValue)
+                {
+                    disposedQuery = disposedQuery.Where(e => e.PlantId == userPlantId.Value);
+                }
+
+                if (fromDate.HasValue)
+                {
+                    disposedQuery = disposedQuery.Where(e => (e.BiomedicalWasteIssuedDate ?? e.DetectedDate) >= fromDate.Value);
+                }
+
+                if (toDate.HasValue)
+                {
+                    var endOfDay = toDate.Value.Date.AddDays(1).AddTicks(-1);
+                    disposedQuery = disposedQuery.Where(e => (e.BiomedicalWasteIssuedDate ?? e.DetectedDate) <= endOfDay);
+                }
+
+                var disposedRawData = await disposedQuery
+                    .Select(e => new
+                    {
+                        e.MedicineName,
+                        StoreMedItemId = e.StoreIndentItem != null ? (int?)e.StoreIndentItem.MedItemId : null,
+                        CompounderMedItemId = e.CompounderIndentItem != null ? (int?)e.CompounderIndentItem.MedItemId : null,
+                        Qty = e.QuantityExpired ?? 0
+                    })
+                    .ToListAsync();
+
+                var disposedByMedicine = new Dictionary<int, int>();
+                foreach (var d in disposedRawData)
+                {
+                    int? matchedMedId = d.StoreMedItemId ?? d.CompounderMedItemId;
+                    if (!matchedMedId.HasValue && !string.IsNullOrWhiteSpace(d.MedicineName))
+                    {
+                        var match = allMedicines.FirstOrDefault(m => string.Equals(m.MedItemName, d.MedicineName, StringComparison.OrdinalIgnoreCase));
+                        if (match != null) matchedMedId = match.MedItemId;
+                    }
+
+                    if (matchedMedId.HasValue)
+                    {
+                        if (disposedByMedicine.ContainsKey(matchedMedId.Value))
+                            disposedByMedicine[matchedMedId.Value] += d.Qty;
+                        else
+                            disposedByMedicine[matchedMedId.Value] = d.Qty;
+                    }
+                }
+
                 // Step 4: Get unique compounder names
                 var uniqueCompounders = compounderData
                     .Select(x => x.CreatedBy ?? "Unknown")
@@ -1009,9 +1059,10 @@ namespace EMS.WebApp.Services
                 // Step 6: Build the report data
                 var reportData = new List<StoreCompounderSummaryReportDto>();
 
-                // Get all medicines that have either store stock or compounder issues
+                // Get all medicines that have store stock, compounder issues, or disposed quantities
                 var allMedicineIds = storeStockByMedicine.Keys
                     .Union(compounderByMedicineAndUser.Select(x => x.MedItemId))
+                    .Union(disposedByMedicine.Keys)
                     .Distinct();
 
                 foreach (var medId in allMedicineIds)
@@ -1042,10 +1093,11 @@ namespace EMS.WebApp.Services
                     }
 
                     var totalIssued = compounderQuantities.Values.Sum();
-                    var remainingStock = storeStock - totalIssued;
+                    var disposedQty = disposedByMedicine.ContainsKey(medId) ? disposedByMedicine[medId] : 0;
+                    var remainingStock = storeStock - totalIssued - disposedQty;
 
-                    // Only include medicines that have store stock or have been issued to compounders
-                    if (storeStock > 0 && totalIssued > 0)
+                    // Include medicines that have store stock, issued quantities, or disposed quantities
+                    if (storeStock > 0 || totalIssued > 0 || disposedQty > 0)
                     {
                         reportData.Add(new StoreCompounderSummaryReportDto
                         {
@@ -1054,6 +1106,7 @@ namespace EMS.WebApp.Services
                             TotalStoreStock = storeStock,
                             CompounderQuantities = compounderQuantities,
                             TotalIssuedToCompounders = totalIssued,
+                            DisposedQty = disposedQty,
                             RemainingStock = remainingStock,
                             PlantName = plantName
                         });
@@ -1066,6 +1119,7 @@ namespace EMS.WebApp.Services
                 // Calculate totals
                 response.TotalStoreStockSum = response.Data.Sum(d => d.TotalStoreStock);
                 response.TotalIssuedSum = response.Data.Sum(d => d.TotalIssuedToCompounders);
+                response.TotalDisposedSum = response.Data.Sum(d => d.DisposedQty);
                 response.TotalRemainingSum = response.Data.Sum(d => d.RemainingStock);
 
                 // Calculate per-compounder totals

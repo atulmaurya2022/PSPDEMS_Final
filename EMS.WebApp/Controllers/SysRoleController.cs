@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -313,7 +313,7 @@ namespace EMS.WebApp.Controllers
 
         // FIXED Delete Method - NOW ACTUALLY DELETES THE RECORD
         [HttpPost]
-        //[ValidateAntiForgeryToken]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)
         {
             SysRole? roleToDelete = null;

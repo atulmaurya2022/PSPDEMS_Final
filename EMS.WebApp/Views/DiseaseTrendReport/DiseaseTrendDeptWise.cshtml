@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Disease Trend Analysis - Department Wise";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
@@ -25,62 +25,60 @@
 
 <div class="container-fluid">
     <!-- Enhanced Filter Controls Section -->
-    <div class="report-controls-section">
-        <div class="controls-row">
-            <div class="control-group">
-                <label class="control-label">
-                    <i class="bi bi-calendar-range me-2"></i>
-                    Date Range
+    <div class="report-controls-section shadow-sm mb-4">
+        <div class="row g-3 align-items-end">
+            <!-- Date Range -->
+            <div class="col-xl-4 col-lg-5 col-md-6">
+                <label class="control-label mb-1 fw-semibold">
+                    <i class="bi bi-calendar-range me-2 text-primary"></i>Date Range
                 </label>
-                <div class="date-range-inputs">
+                <div class="date-range-inputs d-flex align-items-center gap-2">
                     <input type="date" class="form-control form-control-enhanced" id="fromDate" />
-                    <span class="date-separator">to</span>
+                    <span class="date-separator text-muted font-weight-medium">to</span>
                     <input type="date" class="form-control form-control-enhanced" id="toDate" />
                 </div>
             </div>
 
-            <div class="control-group">
-                <label class="control-label">
-                    <i class="bi bi-building me-2"></i>
-                    Department
+            <!-- Department -->
+            <div class="col-xl-2 col-lg-3 col-md-6">
+                <label class="control-label mb-1 fw-semibold">
+                    <i class="bi bi-building me-2 text-primary"></i>Department
                 </label>
-                <select class="form-select form-control-enhanced" id="departmentFilter">
+                <select class="form-select form-control-enhanced w-100" id="departmentFilter">
                     <option value="">ALL</option>
                 </select>
             </div>
 
-            <div class="control-group">
-                <label class="control-label">
-                    <i class="bi bi-heart-pulse me-2"></i>
-                    Disease
+            <!-- Disease -->
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <label class="control-label mb-1 fw-semibold">
+                    <i class="bi bi-heart-pulse me-2 text-primary"></i>Disease
                 </label>
-                <select class="form-select form-control-enhanced select2-disease" id="diseaseFilter" multiple="multiple" style="width: 100%;">
+                <select class="form-select form-control-enhanced select2-disease w-100" id="diseaseFilter" multiple="multiple">
                 </select>
             </div>
 
-            <div class="control-group">
-                <label class="control-label">
-                    <i class="bi bi-person-badge me-2"></i>
-                    Employee Type
+            <!-- Employee Type -->
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <label class="control-label mb-1 fw-semibold">
+                    <i class="bi bi-person-badge me-2 text-primary"></i>Employee Type
                 </label>
-                <select class="form-select form-control-enhanced" id="employeeTypeFilter">
+                <select class="form-select form-control-enhanced w-100" id="employeeTypeFilter">
                     <option value="">ALL</option>
                 </select>
             </div>
 
-            <div class="control-actions">
-                <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
-                    <i class="bi bi-search"></i>
-                    View Report
+            <!-- Action Buttons -->
+            <div class="col-12 d-flex align-items-center justify-content-end flex-wrap gap-2 mt-3">
+                <button type="button" class="btn btn-primary btn-enhanced text-nowrap px-4" onclick="loadReport()">
+                    <i class="bi bi-search me-1"></i> View Report
                 </button>
-                <div class="action-buttons" id="actionButtons" style="display: none;">
-                    <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
-                        <i class="bi bi-download"></i>
-                        Export
+                <div class="action-buttons d-inline-flex flex-wrap gap-2" id="actionButtons" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-enhanced text-nowrap" onclick="exportReport()">
+                        <i class="bi bi-download me-1"></i> Export
                     </button>
-                    <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="printReport()">
-                        <i class="bi bi-printer"></i>
-                        Print
+                    <button type="button" class="btn btn-outline-secondary btn-enhanced text-nowrap" onclick="printReport()">
+                        <i class="bi bi-printer me-1"></i> Print
                     </button>
                 </div>
             </div>

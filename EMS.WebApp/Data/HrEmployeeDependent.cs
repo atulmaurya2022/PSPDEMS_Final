@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
@@ -37,8 +37,6 @@ public partial class HrEmployeeDependent
     public DateOnly? dep_dob { get; set; }
 
     [Required(ErrorMessage = "Relation is required.")]
-    //[StringLength(50, MinimumLength = 2, ErrorMessage = "Relation must be between 2 and 50 characters.")]
-    [AllowedDependentRelation]
     [Display(Name = "Relation")]
     [Column("relation")]
     public string relation { get; set; } = null!;
@@ -102,34 +100,14 @@ public partial class HrEmployeeDependent
     {
         get
         {
-            return relation?.ToLower() == "child" && Age.HasValue && Age.Value > 21;
+            if (relation?.ToLower() != "child" || !Age.HasValue) return false;
+            int maxAge = OrgPlant != null ? OrgPlant.EffectiveMaxChildAge : 21;
+            return Age.Value > maxAge;
         }
     }
 }
 
 // Custom validation attributes
-public class AllowedDependentRelationAttribute : ValidationAttribute
-{
-    private readonly string[] _allowedRelations = { "Wife", "Husband", "Child" };
-
-    protected override ValidationResult IsValid(object value, ValidationContext validationContext)
-    {
-        if (value == null || string.IsNullOrWhiteSpace(value.ToString()))
-        {
-            return new ValidationResult("Relation is required.");
-        }
-
-        var relation = value.ToString();
-
-        // Check if relation is in allowed list
-        if (!_allowedRelations.Contains(relation, StringComparer.OrdinalIgnoreCase))
-        {
-            return new ValidationResult("Only Wife, Husband, and Child relations are allowed. Parents are not permitted as dependents.");
-        }
-
-        return ValidationResult.Success;
-    }
-}
 
 public class DependentDateOfBirthValidationAttribute : ValidationAttribute
 {
@@ -157,10 +135,14 @@ public class DependentDateOfBirthValidationAttribute : ValidationAttribute
                 return new ValidationResult("Age cannot exceed 100 years.");
             }
 
-            // Check child age limit
-            if (dependent.relation?.ToLower() == "child" && age > 21)
+            // Check child age limit dynamically per plant
+            if (dependent.relation?.ToLower() == "child")
             {
-                return new ValidationResult("Child dependents cannot be older than 21 years.");
+                int maxAge = dependent.OrgPlant != null ? dependent.OrgPlant.EffectiveMaxChildAge : 21;
+                if (age > maxAge)
+                {
+                    return new ValidationResult($"Child dependents cannot be older than {maxAge} years for this plant.");
+                }
             }
         }
 

@@ -1,4 +1,4 @@
-﻿/* =============================
+/* =============================
    COMPOUNDER INDENT REPORT - ENHANCED STYLING
    Professional Report Design System
    Add this to your dedicated reporting CSS file
@@ -93,6 +93,8 @@
     align-items: center;
     gap: 8px;
     box-shadow: var(--shadow-xs) !important;
+    white-space: nowrap !important;
+    flex-shrink: 0;
 }
 
     .btn-enhanced:hover {

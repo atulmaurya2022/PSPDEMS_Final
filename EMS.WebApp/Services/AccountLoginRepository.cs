@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace EMS.WebApp.Services
@@ -18,12 +18,12 @@ namespace EMS.WebApp.Services
         public async Task<SysUser?> GetByEmailAndPasswordAsync(string user_name, string password)
         {
             return await _db.SysUsers
-                .FirstOrDefaultAsync(u => u.full_name == user_name && u.adid == password && u.is_active);
+                .FirstOrDefaultAsync(u => (u.adid == user_name || u.email == user_name || u.full_name == user_name) && u.is_active);
         }
 
         public async Task<SysUser?> GetByEmailAsync(string user_name)
         {
-            return await _db.SysUsers.FirstOrDefaultAsync(u => u.adid == user_name && u.is_active);
+            return await _db.SysUsers.FirstOrDefaultAsync(u => (u.adid == user_name || u.email == user_name || u.full_name == user_name) && u.is_active);
         }
 
         public async Task UpdateAsync(SysUser user)

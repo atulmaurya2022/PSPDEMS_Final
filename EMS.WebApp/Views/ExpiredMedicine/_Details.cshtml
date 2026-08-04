@@ -1,4 +1,11 @@
-﻿@model EMS.WebApp.Data.ExpiredMedicine
+@model EMS.WebApp.Data.ExpiredMedicine
+@{
+    var userPlant = User.FindFirst("PlantName")?.Value ?? "";
+    var userPlantCode = User.FindFirst("PlantCode")?.Value ?? "";
+    var isTribeniPlant = userPlant.Equals("Tribeni", StringComparison.OrdinalIgnoreCase)
+                         || userPlantCode.Equals("TRB", StringComparison.OrdinalIgnoreCase);
+    var sourceDisplay = Model.SourceType == "Store" ? "🏪 Store" : (isTribeniPlant ? "🧪 Pharmacist" : "🧪 Compounder");
+}
 
 <div class="row">
     <div class="col-md-12">
@@ -23,7 +30,7 @@
                     <td>
                         <!-- NEW: Source type display with icon -->
                         <span class="badge @Model.SourceBadgeClass">
-                            @Model.SourceDisplay
+                            @sourceDisplay
                         </span>
                     </td>
                     <td>
@@ -133,7 +140,7 @@
                 <td class="fw-bold" style="width: 150px;">Source Type:</td>
                 <td>
                     <span class="badge @Model.SourceBadgeClass">
-                        @Model.SourceDisplay
+                        @sourceDisplay
                     </span>
                 </td>
             </tr>

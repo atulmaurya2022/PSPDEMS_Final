@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 
 namespace EMS.WebApp.Services
 {
@@ -22,6 +22,8 @@ namespace EMS.WebApp.Services
 
         // NEW: Helper methods for plant-based operations
         Task<int?> GetUserPlantIdAsync(string userName);
+        Task<OrgPlant?> GetPlantByIdAsync(int plantId);
+        Task<List<string>> GetAllowedRelationsByPlantAsync(int? userPlantId = null);
         Task<bool> IsUserAuthorizedForDependentAsync(int dependentId, int userPlantId);
         Task<bool> IsEmployeeInUserPlantAsync(int empUid, int userPlantId);
     }

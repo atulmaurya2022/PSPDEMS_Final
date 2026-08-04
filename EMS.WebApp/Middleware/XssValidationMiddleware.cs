@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.Extensions.Logging;
 
 namespace EMS.WebApp.Middleware
@@ -69,16 +69,16 @@ namespace EMS.WebApp.Middleware
             await _next(context);
         }
 
-        private bool IsInputValid(string input)
+        private static readonly System.Text.RegularExpressions.Regex XssRegex = new System.Text.RegularExpressions.Regex(
+            @"(<script[^>]*>[\s\S]*?</script>|%3Cscript[^>]*%3E[\s\S]*?%3C/script%3E|javascript:|vbscript:|onload\s*=|onerror\s*=|onclick\s*=|onmouseover\s*=|onfocus\s*=|onblur\s*=|<iframe|%3Ciframe)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private bool IsInputValid(string? input)
         {
             if (string.IsNullOrWhiteSpace(input))
                 return true;
 
-            string pattern = @"(<[^>]+>|%3C[^>]+%3E|<script.*?>.*?</script>|%3Cscript.*?%3E.*?%3C/script%3E)";
-            if (System.Text.RegularExpressions.Regex.IsMatch(input, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-                return false;
-
-            return true;
+            return !XssRegex.IsMatch(input);
         }
     }
 

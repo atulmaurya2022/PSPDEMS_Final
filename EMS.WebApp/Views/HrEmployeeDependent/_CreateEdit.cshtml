@@ -1,4 +1,4 @@
-﻿@model EMS.WebApp.Data.HrEmployeeDependent
+@model EMS.WebApp.Data.HrEmployeeDependent
 
 @if (ViewBag.Error != null)
 {
@@ -81,15 +81,19 @@
                 <i class="bi bi-diagram-3"></i>
                 Relation <span class="text-danger">*</span>
             </label>
-            <select asp-for="relation" class="form-control form-control-master" id="relationInput">
+            <select asp-for="relation" class="form-control form-control-master" asp-items="ViewBag.RelationList" id="relationInput">
                 <option value="">-- Select Relation --</option>
-                <option value="Wife">Wife</option>
-                <option value="Husband">Husband</option>
-                <option value="Child">Child</option>
             </select>
             <div class="char-counter-container">
                 <span asp-validation-for="relation" class="field-validation-error" id="relationValidation"></span>
-                <small class="text-muted">Max limits: 1 Spouse (Wife/Husband), 2 Children. Parents not allowed.</small>
+                @{
+                    bool hasParentsOption = false;
+                    if (ViewBag.RelationList is IEnumerable<SelectListItem> relationItems)
+                    {
+                        hasParentsOption = relationItems.Any(x => string.Equals(x.Text, "Parent", StringComparison.OrdinalIgnoreCase) || string.Equals(x.Value, "Parent", StringComparison.OrdinalIgnoreCase));
+                    }
+                }
+                <small class="text-muted">Max limits: 1 Spouse (Wife/Husband), 2 Children@(hasParentsOption ? ", Parents allowed." : ".")</small>
             </div>
         </div>
     </div>
@@ -135,7 +139,7 @@
                 <span asp-validation-for="is_active" class="field-validation-error" id="isActiveValidation"></span>
             </div>
             <div id="ageWarning" class="alert alert-warning mt-2" style="display: none;">
-                <small><i class="bi bi-exclamation-triangle"></i> Children over 21 years will be automatically deactivated.</small>
+                <small><i class="bi bi-exclamation-triangle"></i> Children over @(ViewBag.MaxChildAge ?? (Model?.OrgPlant?.EffectiveMaxChildAge ?? 21)) years will be automatically deactivated.</small>
             </div>
         </div>
     </div>
@@ -217,13 +221,8 @@
     </div>
 </form>
 
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
-
-    @* <script type="text/javascript">
-        $(document).ready(function() {
+<script type="text/javascript">
+    $(document).ready(function() {
             // Form elements
             const form = $('#hrEmployeeDependentForm');
             const submitBtn = $('#submitBtn');
@@ -237,6 +236,7 @@
             const ageDisplay = $('#ageDisplay');
             const ageWarning = $('#ageWarning');
             const existingDependentsInfo = $('#existingDependentsInfo');
+            const maxChildAge = parseInt('@(ViewBag.MaxChildAge ?? Model?.OrgPlant?.EffectiveMaxChildAge ?? 21)') || 21;
             const existingDependentsList = $('#existingDependentsList');
 
             // Character count elements
@@ -288,8 +288,8 @@
                     const age = calculateAge(dob);
                     ageDisplay.text(`Age: ${age} years`);
 
-                    // Show warning for children over 21
-                    if (relation?.toLowerCase() === 'child' && age > 21) {
+                    // Show warning for children over maxChildAge limit
+                    if (relation?.toLowerCase() === 'child' && age > maxChildAge) {
                         ageWarning.show();
                         ageDisplay.addClass('text-warning');
                     } else {
@@ -315,9 +315,13 @@
                             let html = '<strong>Current Dependents:</strong><br>';
                             const spouses = response.data.filter(d => d.relation?.toLowerCase() === 'wife' || d.relation?.toLowerCase() === 'husband');
                             const children = response.data.filter(d => d.relation?.toLowerCase() === 'child');
+                            const parents = response.data.filter(d => d.relation?.toLowerCase() === 'parent');
 
                             html += `• Spouses: ${spouses.length}/1<br>`;
                             html += `• Children: ${children.length}/2<br>`;
+                            if (parents.length > 0) {
+                                html += `• Parents: ${parents.length}<br>`;
+                            }
 
                             if (response.data.some(d => d.isOverAgeLimit)) {
                                 html += '<span class="text-warning">⚠ Some children are over age limit</span>';
@@ -413,13 +417,7 @@
                     showFieldError(validationSpan, relationInput, 'Relation is required.');
                     isValid = false;
                 } else {
-                    const allowedRelations = ['Wife', 'Husband', 'Child'];
-                    if (!allowedRelations.includes(relation)) {
-                        showFieldError(validationSpan, relationInput, 'Only Wife, Husband, and Child relations are allowed.');
-                        isValid = false;
-                    } else {
-                        relationInput.addClass('is-valid');
-                    }
+                    relationInput.addClass('is-valid');
                 }
 
                 return isValid;
@@ -463,8 +461,8 @@
                     } else if (age > 100) {
                         showFieldError(validationSpan, depDobInput, 'Age cannot exceed 100 years.');
                         isValid = false;
-                    } else if (relation?.toLowerCase() === 'child' && age > 21) {
-                        showFieldError(validationSpan, depDobInput, 'Child dependents cannot be older than 21 years.');
+                    } else if (relation?.toLowerCase() === 'child' && age > maxChildAge) {
+                        showFieldError(validationSpan, depDobInput, `Child dependents cannot be older than ${maxChildAge} years for this plant.`);
                         isValid = false;
                     } else {
                         depDobInput.addClass('is-valid');
@@ -597,5 +595,4 @@
 
             handleDangerousPaste(depNameInput, 'Dependent Name');
         });
-    </script> *@
-}
+    </script>

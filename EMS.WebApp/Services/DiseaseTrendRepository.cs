@@ -510,7 +510,7 @@ namespace EMS.WebApp.Services
                                   where od.ApprovalStatus == "Approved"
                                   select new
                                   {
-                                      EmpNo = op.TreatmentId,
+                                      EmpNo = op.PNumber ?? "",
                                       PatientName = op.PatientName,
                                       DiseaseName = d.DiseaseName,
                                       MedicineName = medicine != null ? medicine.MedItemName : "",
@@ -543,6 +543,13 @@ namespace EMS.WebApp.Services
                 // Disease filter for others
                 if (filter.DiseaseIds != null && filter.DiseaseIds.Any())
                     othersQuery = othersQuery.Where(x => filter.DiseaseIds.Contains(x.DiseaseId));
+
+                // PNo range filters for others
+                if (!string.IsNullOrEmpty(filter.FromPNo))
+                    othersQuery = othersQuery.Where(x => string.Compare(x.EmpNo, filter.FromPNo) >= 0);
+
+                if (!string.IsNullOrEmpty(filter.ToPNo))
+                    othersQuery = othersQuery.Where(x => string.Compare(x.EmpNo, filter.ToPNo) <= 0);
 
                 // Execute queries
                 var employeeResults = await employeeQuery.ToListAsync();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -31,6 +31,26 @@ public partial class OrgPlant
     [Display(Name = "Description")]
     [Column("Description")]
     public string? Description { get; set; }
+
+    [Display(Name = "Max Child Dependent Age")]
+    [Column("max_child_dependent_age")]
+    public int? max_child_dependent_age { get; set; }
+
+    [NotMapped]
+    public int EffectiveMaxChildAge
+    {
+        get
+        {
+            if (max_child_dependent_age.HasValue && max_child_dependent_age.Value > 0)
+                return max_child_dependent_age.Value;
+
+            if (plant_id == 2)
+            {
+                return 24;
+            }
+            return 21;
+        }
+    }
 
     [StringLength(100)]
     [Column("created_by")]

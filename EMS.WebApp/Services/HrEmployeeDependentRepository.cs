@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace EMS.WebApp.Services
@@ -159,14 +159,11 @@ namespace EMS.WebApp.Services
         // Updated method to get children over age limit with plant filtering
         public async Task<List<HrEmployeeDependent>> GetChildrenOverAgeLimitAsync(int? userPlantId = null)
         {
-            var today = DateOnly.FromDateTime(DateTime.Today);
-            var cutoffDate = today.AddYears(-21);
-
             var query = _db.HrEmployeeDependents
+                .Include(d => d.OrgPlant)
                 .Where(d => d.is_active &&
                            d.relation.ToLower() == "child" &&
-                           d.dep_dob.HasValue &&
-                           d.dep_dob.Value <= cutoffDate);
+                           d.dep_dob.HasValue);
 
             // Plant-wise filtering
             if (userPlantId.HasValue)
@@ -174,7 +171,18 @@ namespace EMS.WebApp.Services
                 query = query.Where(d => d.plant_id == userPlantId.Value);
             }
 
-            return await query.ToListAsync();
+            var allActiveChildren = await query.ToListAsync();
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            var overLimitChildren = allActiveChildren.Where(d =>
+            {
+                var age = today.Year - d.dep_dob.Value.Year;
+                if (d.dep_dob.Value > today.AddYears(-age)) age--;
+                int maxAge = d.OrgPlant != null ? d.OrgPlant.EffectiveMaxChildAge : 21;
+                return age > maxAge;
+            }).ToList();
+
+            return overLimitChildren;
         }
 
         // Updated method to deactivate children over age limit with plant filtering
@@ -219,21 +227,22 @@ namespace EMS.WebApp.Services
                 existingEntity.gender = entity.gender;
                 existingEntity.is_active = entity.is_active;
                 existingEntity.marital_status = entity.marital_status;
-                // Note: plant_id should generally not be updated after creation for security reasons
 
                 // Update modification audit fields
                 existingEntity.ModifiedBy = modifiedBy;
                 existingEntity.ModifiedOn = modifiedOn;
 
-                // Auto-deactivate if child is over age limit
+                // Auto-deactivate if child is over dynamic plant age limit
                 if (existingEntity.relation?.ToLower() == "child" &&
                     existingEntity.dep_dob.HasValue)
                 {
+                    var plant = existingEntity.OrgPlant ?? await _db.org_plants.FindAsync(existingEntity.plant_id);
+                    int maxAge = plant != null ? plant.EffectiveMaxChildAge : 21;
                     var age = CalculateAge(existingEntity.dep_dob.Value);
-                    if (age > 21)
+                    if (age > maxAge)
                     {
                         existingEntity.is_active = false;
-                        existingEntity.ModifiedBy = modifiedBy + " - Auto-deactivated (Age > 21)";
+                        existingEntity.ModifiedBy = modifiedBy + $" - Auto-deactivated (Age > {maxAge})";
                     }
                 }
 
@@ -270,6 +279,54 @@ namespace EMS.WebApp.Services
                 .FirstOrDefaultAsync(u => (u.adid == userName || u.email == userName || u.full_name == userName) && u.is_active);
 
             return user?.plant_id;
+        }
+
+        public async Task<OrgPlant?> GetPlantByIdAsync(int plantId)
+        {
+            return await _db.org_plants.FirstOrDefaultAsync(p => p.plant_id == (short)plantId);
+        }
+
+        public async Task<List<string>> GetAllowedRelationsByPlantAsync(int? userPlantId = null)
+        {
+            try
+            {
+                var query = _db.ref_dependent_relations.Where(r => r.is_active);
+                List<string> relations = new();
+
+                if (userPlantId.HasValue)
+                {
+                    relations = await query
+                        .Where(r => r.plant_id == (short)userPlantId.Value)
+                        .OrderBy(r => r.relation_id)
+                        .Select(r => r.relation_name)
+                        .ToListAsync();
+                }
+
+                if (!relations.Any())
+                {
+                    relations = await query
+                        .Where(r => r.plant_id == null)
+                        .OrderBy(r => r.relation_id)
+                        .Select(r => r.relation_name)
+                        .ToListAsync();
+                }
+
+                if (relations.Any())
+                {
+                    return relations;
+                }
+            }
+            catch
+            {
+                // Fallback gracefully if ref_dependent_relation table does not exist in DB yet
+            }
+
+            if (userPlantId.HasValue && userPlantId.Value == 2)
+            {
+                return new List<string> { "Wife", "Husband", "Child", "Parent" };
+            }
+
+            return new List<string> { "Wife", "Husband", "Child" };
         }
 
         public async Task<bool> IsUserAuthorizedForDependentAsync(int dependentId, int userPlantId)

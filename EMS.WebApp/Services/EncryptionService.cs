@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace EMS.WebApp.Services
@@ -11,12 +11,13 @@ namespace EMS.WebApp.Services
         private const int NONCE_SIZE = 12; // 96 bits recommended for GCM
         private const int TAG_SIZE = 16;   // 128 bits authentication tag
 
-        public EncryptionService(IConfiguration configuration)
+        private readonly ILogger<EncryptionService> _logger;
+
+        public EncryptionService(IConfiguration configuration, ILogger<EncryptionService> logger)
         {
-            // Get encryption key from configuration or use a default one
+            _logger = logger;
             string keyString = configuration["EncryptionSettings:Key"] ?? "YourDefaultEncryptionKey2024!@#";
 
-            // Ensure key is exactly 32 bytes for AES-256
             if (keyString.Length < 32)
             {
                 keyString = keyString.PadRight(32, '0');
@@ -34,7 +35,6 @@ namespace EMS.WebApp.Services
             if (string.IsNullOrEmpty(plainText))
                 return string.Empty;
 
-            // If already encrypted (either format), return as is
             if (IsEncrypted(plainText))
                 return plainText;
 
@@ -42,34 +42,28 @@ namespace EMS.WebApp.Services
             {
                 byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
 
-                // Generate random nonce (96 bits for GCM)
                 byte[] nonce = new byte[NONCE_SIZE];
                 RandomNumberGenerator.Fill(nonce);
 
-                // Prepare buffers
                 byte[] cipherBytes = new byte[plainBytes.Length];
                 byte[] tag = new byte[TAG_SIZE];
 
-                // Encrypt using AES-GCM
                 using (var aesGcm = new AesGcm(_encryptionKey, TAG_SIZE))
                 {
                     aesGcm.Encrypt(nonce, plainBytes, cipherBytes, tag);
                 }
 
-                // Combine: nonce + ciphertext + authentication tag
                 byte[] result = new byte[nonce.Length + cipherBytes.Length + tag.Length];
                 Buffer.BlockCopy(nonce, 0, result, 0, nonce.Length);
                 Buffer.BlockCopy(cipherBytes, 0, result, nonce.Length, cipherBytes.Length);
                 Buffer.BlockCopy(tag, 0, result, nonce.Length + cipherBytes.Length, tag.Length);
 
-                // Use new GCM prefix for new encryptions
                 return GCM_PREFIX + Convert.ToBase64String(result);
             }
             catch (Exception ex)
             {
-                // Log the error and return the original text
-                Console.WriteLine($"Encryption error: {ex.Message}");
-                return plainText;
+                _logger.LogError(ex, "Encryption operation failed.");
+                throw new CryptographicException("Failed to encrypt sensitive data.", ex);
             }
         }
 
@@ -78,13 +72,11 @@ namespace EMS.WebApp.Services
             if (string.IsNullOrEmpty(cipherText))
                 return cipherText;
 
-            // If not encrypted, return as is
             if (!IsEncrypted(cipherText))
                 return cipherText;
 
             try
             {
-                // Check if it's GCM format (new) or CBC format (legacy)
                 if (cipherText.StartsWith(GCM_PREFIX))
                 {
                     return DecryptGcm(cipherText);
@@ -98,9 +90,8 @@ namespace EMS.WebApp.Services
             }
             catch (Exception ex)
             {
-                // Log the error and return the original text
-                Console.WriteLine($"Decryption error: {ex.Message}");
-                return cipherText;
+                _logger.LogError(ex, "Decryption operation failed for payload.");
+                throw new CryptographicException("Failed to decrypt payload.", ex);
             }
         }
 

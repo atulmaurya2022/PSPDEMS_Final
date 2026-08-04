@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Configuration;
+using EMS.WebApp.Configuration;
 using EMS.WebApp.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -143,18 +143,6 @@ namespace EMS.WebApp.Services
             }
         }
 
-        public AuditService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
-        {
-            _context = context;
-            _httpContextAccessor = httpContextAccessor;
-            _jsonOptions = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-        }
-
         public async Task LogAsync(string tableName, string actionType, string recordId, object? oldValues, object? newValues, string? additionalInfo = null)
         {
             try
@@ -162,13 +150,16 @@ namespace EMS.WebApp.Services
                 var httpContext = _httpContextAccessor.HttpContext;
                 var user = httpContext?.User;
 
+                var sanitizedOld = SanitizeSensitiveData(oldValues);
+                var sanitizedNew = SanitizeSensitiveData(newValues);
+
                 var auditLog = new SysAuditLog
                 {
                     TableName = tableName,
                     ActionType = actionType.ToUpper(),
                     RecordId = recordId,
-                    OldValues = oldValues != null ? JsonSerializer.Serialize(oldValues, _jsonOptions) : null,
-                    NewValues = newValues != null ? JsonSerializer.Serialize(newValues, _jsonOptions) : null,
+                    OldValues = sanitizedOld != null ? JsonSerializer.Serialize(sanitizedOld, _jsonOptions) : null,
+                    NewValues = sanitizedNew != null ? JsonSerializer.Serialize(sanitizedNew, _jsonOptions) : null,
                     UserName = GetCurrentUserName(),
                     UserId = user?.FindFirst("user_id")?.Value,
                     IpAddress = GetClientIpAddress(),
@@ -183,8 +174,8 @@ namespace EMS.WebApp.Services
             }
             catch (Exception ex)
             {
-                // Log error but don't throw to avoid disrupting main business logic
-                Console.WriteLine($"Audit logging failed: {ex.Message}");
+                _logger.LogError(ex, "Audit logging failed for table {TableName}, action {ActionType}, record {RecordId}",
+                    tableName, actionType, recordId);
             }
         }
 

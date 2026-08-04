@@ -1,4 +1,11 @@
-﻿@model IEnumerable<EMS.WebApp.Data.ExpiredMedicine>
+@model IEnumerable<EMS.WebApp.Data.ExpiredMedicine>
+@{
+    var userPlant = User.FindFirst("PlantName")?.Value ?? "";
+    var userPlantCode = User.FindFirst("PlantCode")?.Value ?? "";
+    var isTribeniPlant = userPlant.Equals("Tribeni", StringComparison.OrdinalIgnoreCase)
+                         || userPlantCode.Equals("TRB", StringComparison.OrdinalIgnoreCase);
+    var compounderLabel = isTribeniPlant ? "Pharmacist" : "Compounder";
+}
 
 <div class="header">
     <div class="text-center mb-4">
@@ -62,7 +69,7 @@
                     <!-- Source Type Summary -->
                     <td class="fw-bold">Store Medicines:</td>
                     <td><span class="badge bg-primary">@storeCount items</span></td>
-                    <td class="fw-bold">Compounder Medicines:</td>
+                    <td class="fw-bold">@compounderLabel Medicines:</td>
                     <td><span class="badge bg-info">@compounderCount items</span></td>
                 </tr>
                 <tr>
@@ -259,7 +266,7 @@
                 </tr>
                 <tr>
                     <td><span class="source-indicator store">S</span> = Store Medicines (From Store Indent)</td>
-                    <td><span class="source-indicator compounder">C</span> = Compounder Medicines (From Compounder Indent)</td>
+                    <td><span class="source-indicator compounder">C</span> = @compounderLabel Medicines (From @compounderLabel Indent)</td>
                     <td></td>
                 </tr>
                 <tr>

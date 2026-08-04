@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -74,7 +74,12 @@ namespace EMS.WebApp.Services
         public int TotalIssuedToCompounders { get; set; }
 
         /// <summary>
-        /// Remaining stock = TotalStoreStock - TotalIssuedToCompounders
+        /// Quantity of disposed medicine (issued to biomedical waste)
+        /// </summary>
+        public int DisposedQty { get; set; }
+
+        /// <summary>
+        /// Remaining stock = TotalStoreStock - TotalIssuedToCompounders - DisposedQty
         /// </summary>
         public int RemainingStock { get; set; }
 
@@ -101,6 +106,7 @@ namespace EMS.WebApp.Services
         /// </summary>
         public int TotalStoreStockSum { get; set; }
         public int TotalIssuedSum { get; set; }
+        public int TotalDisposedSum { get; set; }
         public int TotalRemainingSum { get; set; }
 
         /// <summary>

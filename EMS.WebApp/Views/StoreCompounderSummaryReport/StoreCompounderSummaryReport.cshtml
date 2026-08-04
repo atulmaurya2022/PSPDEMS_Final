@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Store Compounder Summary Report";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
@@ -91,6 +91,19 @@
                 </div>
                 <div class="summary-value" id="totalIssued">0</div>
                 <div class="summary-subtitle" id="issuedToLabel">Units issued to compounders</div>
+            </div>
+        </div>
+
+        <div class="summary-card" data-category="total-disposed">
+            <div class="summary-card-body">
+                <div class="summary-header">
+                    <h6 class="summary-title">Disposed Quantity</h6>
+                    <div class="summary-icon">
+                        <i class="bi bi-trash text-danger"></i>
+                    </div>
+                </div>
+                <div class="summary-value text-danger" id="totalDisposed">0</div>
+                <div class="summary-subtitle">Issued to biomedical waste</div>
             </div>
         </div>
 
@@ -487,6 +500,7 @@
                 headerRow += `<th class="col-compounder text-center" title="${name}">${displayName}</th>`;
             });
 
+            headerRow += '<th class="col-disposed text-center text-danger">DISPOSED QTY</th>';
             headerRow += '<th class="col-remaining text-center">REMAINING STOCK</th>';
             headerRow += '</tr>';
 
@@ -558,6 +572,7 @@
             tfoot.empty();
 
             var totalStoreStock = 0;
+            var totalDisposed = 0;
             var totalRemaining = 0;
             var compounderSums = {};
 
@@ -567,7 +582,9 @@
             });
 
             $.each(data, function(index, item) {
+                var disposed = item.disposedQty || 0;
                 totalStoreStock += item.totalStoreStock;
+                totalDisposed += disposed;
                 totalRemaining += item.remainingStock;
 
                 var row = '<tr class="table-row-enhanced">';
@@ -581,6 +598,10 @@
                     var badgeClass = qty === 0 ? 'compounder-qty-badge zero' : 'compounder-qty-badge';
                     row += `<td class="text-center"><span class="${badgeClass}">${qty.toLocaleString()}</span></td>`;
                 });
+
+                // Disposed Qty
+                var disposedBadgeClass = disposed > 0 ? 'badge bg-danger text-white' : 'text-muted';
+                row += `<td class="text-center"><span class="${disposedBadgeClass}">${disposed.toLocaleString()}</span></td>`;
 
                 // Remaining stock
                 var remainingClass = 'remaining-badge';
@@ -601,6 +622,8 @@
             compounderNames.forEach(function(name) {
                 footerRow += `<th class="text-center total-value">${compounderSums[name].toLocaleString()}</th>`;
             });
+
+            footerRow += `<th class="text-center total-value text-danger">${totalDisposed.toLocaleString()}</th>`;
 
             var remainingClass = totalRemaining < 0 ? 'total-value text-danger' : 'total-value';
             footerRow += `<th class="text-center ${remainingClass}">${totalRemaining.toLocaleString()}</th>`;
@@ -647,6 +670,7 @@
             animateValue('totalMedicines', 0, reportInfo.totalMedicines, 800);
             animateValue('totalStoreStock', 0, totals.totalStoreStockSum, 1000);
             animateValue('totalIssued', 0, totals.totalIssuedSum, 1200);
+            animateValue('totalDisposed', 0, totals.totalDisposedSum || 0, 1300);
             animateValue('totalRemaining', 0, totals.totalRemainingSum, 1400);
         }
 

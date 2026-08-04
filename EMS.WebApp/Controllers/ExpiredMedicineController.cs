@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -96,34 +96,43 @@ namespace EMS.WebApp.Controllers
                     _logger.LogInformation($"After source filtering ({sourceType}): {expiredMedicines.Count()} medicines");
                 }
 
-                var result = expiredMedicines.Select((item, index) => new
-                {
-                    slNo = index + 1,
-                    expiredMedicineId = item.ExpiredMedicineId,
-                    medicineName = item.MedicineName ?? "Unknown",
-                    companyName = item.CompanyName ?? "Not Defined",
-                    batchNumber = item.BatchNumber ?? "N/A",
-                    vendorCode = item.VendorCode ?? "N/A",
-                    expiredOn = item.ExpiryDate.ToString("dd/MM/yyyy"),
-                    daysOverdue = item.DaysOverdue,
-                    qtyExpired = item.QuantityExpired ?? 0,
-                    unitPrice = item.UnitPrice?.ToString("C") ?? "N/A",
-                    totalValue = item.TotalValue?.ToString("C") ?? "N/A",
-                    indentNo = item.IndentNumber ?? item.IndentId.ToString(),
-                    status = item.Status ?? "Unknown",
-                    priorityLevel = item.PriorityLevel,
-                    detectedDate = item.DetectedDate.ToString("dd/MM/yyyy"),
-                    issuedDate = item.BiomedicalWasteIssuedDate?.ToString("dd/MM/yyyy HH:mm") ?? "",
-                    issuedBy = item.BiomedicalWasteIssuedBy ?? "",
-                    typeOfMedicine = item.TypeOfMedicine ?? "Select Type of Medicine",
-                    typeBadgeClass = item.TypeBadgeClass,
-                    isDisposed = item.IsDisposed,
-                    isCritical = item.IsCritical,
-                    canDispose = item.TypeOfMedicine != "Select Type of Medicine",
-                    plantName = item.OrgPlant?.plant_name ?? "Unknown Plant",
-                    sourceType = item.SourceType,
-                    sourceDisplay = item.SourceDisplay,
-                    sourceBadgeClass = item.SourceBadgeClass
+                var list = expiredMedicines.ToList();
+                var userPlantName = User.FindFirst("PlantName")?.Value ?? "";
+                var isTribeniUser = userPlantName.Equals("Tribeni", StringComparison.OrdinalIgnoreCase);
+
+                var result = list.Select((item, index) => {
+                    var isTribeniRow = isTribeniUser || (item.OrgPlant != null && item.OrgPlant.plant_name.Equals("Tribeni", StringComparison.OrdinalIgnoreCase));
+                    var sourceLabel = (isTribeniRow && item.SourceType == "Compounder") ? "Pharmacist" : item.SourceType;
+                    var sourceDisp = (isTribeniRow && item.SourceType == "Compounder") ? "🧪 Pharmacist" : item.SourceDisplay;
+
+                    return new {
+                        slNo = index + 1,
+                        expiredMedicineId = item.ExpiredMedicineId,
+                        medicineName = item.MedicineName ?? "Unknown",
+                        companyName = item.CompanyName ?? "Not Defined",
+                        batchNumber = item.BatchNumber ?? "N/A",
+                        vendorCode = item.VendorCode ?? "N/A",
+                        expiredOn = item.ExpiryDate.ToString("dd/MM/yyyy"),
+                        daysOverdue = item.DaysOverdue,
+                        qtyExpired = item.QuantityExpired ?? 0,
+                        unitPrice = item.UnitPrice?.ToString("C") ?? "N/A",
+                        totalValue = item.TotalValue?.ToString("C") ?? "N/A",
+                        indentNo = item.IndentNumber ?? item.IndentId.ToString(),
+                        status = item.Status ?? "Unknown",
+                        priorityLevel = item.PriorityLevel,
+                        detectedDate = item.DetectedDate.ToString("dd/MM/yyyy"),
+                        issuedDate = item.BiomedicalWasteIssuedDate?.ToString("dd/MM/yyyy HH:mm") ?? "",
+                        issuedBy = item.BiomedicalWasteIssuedBy ?? "",
+                        typeOfMedicine = item.TypeOfMedicine ?? "Select Type of Medicine",
+                        typeBadgeClass = item.TypeBadgeClass,
+                        isDisposed = item.IsDisposed,
+                        isCritical = item.IsCritical,
+                        canDispose = item.TypeOfMedicine != "Select Type of Medicine",
+                        plantName = item.OrgPlant?.plant_name ?? "Unknown Plant",
+                        sourceType = sourceLabel,
+                        sourceDisplay = sourceDisp,
+                        sourceBadgeClass = item.SourceBadgeClass
+                    };
                 }).ToList();
                 _logger.LogInformation($"Returning {result.Count} medicines to frontend");
 

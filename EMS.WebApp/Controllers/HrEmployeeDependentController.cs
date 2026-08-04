@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -117,6 +117,12 @@ namespace EMS.WebApp.Controllers
                     ViewBag.EmpDependentList = new SelectList(empDependent, "emp_uid", "emp_name");
                 }
 
+                var plantObj = userPlantId.HasValue ? await _repo.GetPlantByIdAsync(userPlantId.Value) : null;
+                ViewBag.MaxChildAge = plantObj != null ? plantObj.EffectiveMaxChildAge : 21;
+
+                var allowedRelations = await _repo.GetAllowedRelationsByPlantAsync(userPlantId);
+                ViewBag.RelationList = new SelectList(allowedRelations);
+
                 var model = new HrEmployeeDependent
                 {
                     plant_id = (short)userPlantId.Value
@@ -158,6 +164,10 @@ namespace EMS.WebApp.Controllers
                 }
 
                 model.plant_id = (short)userPlantId.Value;
+
+                var currentPlant = await _repo.GetPlantByIdAsync(userPlantId.Value);
+                int maxChildAge = currentPlant != null ? currentPlant.EffectiveMaxChildAge : 21;
+                ViewBag.MaxChildAge = maxChildAge;
 
                 // Security check: Ensure selected employee belongs to user's plant
                 if (!await _repo.IsEmployeeInUserPlantAsync(model.emp_uid, userPlantId.Value))
@@ -225,12 +235,12 @@ namespace EMS.WebApp.Controllers
                         await _auditService.LogAsync("hr_employee_dependent", "CREATE_INVALID_AGE_TOO_OLD", recordId, null, model,
                             $"Invalid age over 100 years: {age}");
                     }
-                    else if (model.relation?.ToLower() == "child" && age > 21)
+                    else if (model.relation?.ToLower() == "child" && age > maxChildAge)
                     {
-                        ModelState.AddModelError("dep_dob", "Child dependents cannot be older than 21 years.");
+                        ModelState.AddModelError("dep_dob", $"Child dependents cannot be older than {maxChildAge} years for this plant.");
 
                         await _auditService.LogAsync("hr_employee_dependent", "CREATE_INVALID_CHILD_AGE", recordId, null, model,
-                            $"Invalid child age over 21 years: {age}");
+                            $"Invalid child age over {maxChildAge} years: {age}");
                     }
                 }
 
@@ -347,6 +357,12 @@ namespace EMS.WebApp.Controllers
                 await _auditService.LogViewAsync("hr_employee_dependent", id.ToString(),
                     $"Edit form accessed for employee dependent: {item.dep_name} (Relation: {item.relation}) in plant: {item.OrgPlant?.plant_name}");
 
+                var plantObj = userPlantId.HasValue ? await _repo.GetPlantByIdAsync(userPlantId.Value) : item.OrgPlant;
+                ViewBag.MaxChildAge = plantObj != null ? plantObj.EffectiveMaxChildAge : (item.OrgPlant?.EffectiveMaxChildAge ?? 21);
+
+                var allowedRelations = await _repo.GetAllowedRelationsByPlantAsync(userPlantId);
+                ViewBag.RelationList = new SelectList(allowedRelations, item.relation);
+
                 ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", item.emp_uid);
                 return PartialView("_CreateEdit", item);
             }
@@ -440,6 +456,10 @@ namespace EMS.WebApp.Controllers
                     var age = today.Year - dobDate.Year;
                     if (dobDate > today.AddYears(-age)) age--;
 
+                    var currentPlant = userPlantId.HasValue ? await _repo.GetPlantByIdAsync(userPlantId.Value) : null;
+                    int maxChildAge = currentPlant != null ? currentPlant.EffectiveMaxChildAge : 21;
+                    ViewBag.MaxChildAge = maxChildAge;
+
                     if (dobDate > today)
                     {
                         ModelState.AddModelError("dep_dob", "Date of Birth cannot be in the future.");
@@ -454,12 +474,12 @@ namespace EMS.WebApp.Controllers
                         await _auditService.LogAsync("hr_employee_dependent", "UPDATE_INVALID_AGE_TOO_OLD", recordId, oldDependent, model,
                             $"Invalid age over 100 years: {age}");
                     }
-                    else if (model.relation?.ToLower() == "child" && age > 21)
+                    else if (model.relation?.ToLower() == "child" && age > maxChildAge)
                     {
-                        ModelState.AddModelError("dep_dob", "Child dependents cannot be older than 21 years.");
+                        ModelState.AddModelError("dep_dob", $"Child dependents cannot be older than {maxChildAge} years for this plant.");
 
                         await _auditService.LogAsync("hr_employee_dependent", "UPDATE_INVALID_CHILD_AGE", recordId, oldDependent, model,
-                            $"Invalid child age over 21 years: {age}");
+                            $"Invalid child age over {maxChildAge} years: {age}");
                     }
                 }
 
@@ -704,12 +724,12 @@ namespace EMS.WebApp.Controllers
         {
             var result = new BusinessValidationResult { IsValid = true };
 
-            // Check if relation is allowed
-            var allowedRelations = new[] { "Wife", "Husband", "Child" };
+            // Check if relation is allowed for user's plant
+            var allowedRelations = await _repo.GetAllowedRelationsByPlantAsync(userPlantId);
             if (!allowedRelations.Contains(model.relation, StringComparer.OrdinalIgnoreCase))
             {
                 result.IsValid = false;
-                result.ErrorMessage = "Only Wife, Husband, and Child relations are allowed. Parents are not permitted as dependents.";
+                result.ErrorMessage = $"Relation '{model.relation}' is not permitted for your plant. Allowed options: {string.Join(", ", allowedRelations)}.";
                 return result;
             }
 

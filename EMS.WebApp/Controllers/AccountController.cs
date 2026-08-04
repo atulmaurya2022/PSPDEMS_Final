@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Configuration;
+using EMS.WebApp.Configuration;
 using EMS.WebApp.Data;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -15,13 +15,16 @@ namespace EMS.WebApp.Controllers
     public class AccountController : Controller
     {
         private readonly IAccountLoginRepository _repo;
+        private readonly ApplicationDbContext _db;
         private readonly SessionTimeoutOptions _timeoutOptions;
 
-        public AccountController(IAccountLoginRepository repo, IOptions<SessionTimeoutOptions> timeoutOptions)
+        public AccountController(IAccountLoginRepository repo, ApplicationDbContext db, IOptions<SessionTimeoutOptions> timeoutOptions)
         {
             _repo = repo;
+            _db = db;
             _timeoutOptions = timeoutOptions.Value;
         }
+
         // GET: /Account/Login
         public async Task<IActionResult> Login()
        {
@@ -32,13 +35,11 @@ namespace EMS.WebApp.Controllers
             Response.Cookies.Delete(".AspNetCore.Cookies");
 
             return View();
-            //return null;
         }
-
-
 
         // POST: /Account/Login
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(string user_name, string password)
         {
             if (string.IsNullOrWhiteSpace(user_name) || string.IsNullOrWhiteSpace(password))
@@ -59,21 +60,21 @@ namespace EMS.WebApp.Controllers
             if (!string.IsNullOrEmpty(user.SessionToken))
             {
                 TempData["user_name"] = user_name;
-                TempData["password"] = password;
                 return RedirectToAction("ConfirmSessionOverride");
             }
             await SignInUser(user);
             return RedirectToAction("Index", "Home");
         }
+
         [HttpGet]
         public IActionResult ConfirmSessionOverride()
         {
             ViewBag.user_name = TempData["user_name"];
-            ViewBag.password = TempData["password"];
             return View();
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ProceedConfirmedLogin(string user_name, string password)
         {
             var user = await _repo.GetByEmailAndPasswordAsync(user_name, password);
@@ -89,9 +90,10 @@ namespace EMS.WebApp.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult ConfirmSessionOverride(string user_name, string password)
         {
-            return RedirectToAction("Login", new { user_name, password, confirm = true });
+            return RedirectToAction("Login", new { user_name, confirm = true });
         }
 
         private async Task SignInUser(SysUser user)
@@ -100,10 +102,27 @@ namespace EMS.WebApp.Controllers
             var sessionToken = Guid.NewGuid().ToString();
             user.SessionToken = sessionToken;
 
-            // Convert current UTC time to IST (Indian Standard Time)
-            TimeZoneInfo istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
-            user.TokenIssuedAt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, istZone);
-            user.LastActivityTime = DateTime.UtcNow; // Set initial activity time
+            // Cross-platform UTC/IST TimeZone handling
+            TimeZoneInfo istZone;
+            try
+            {
+                istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            }
+            catch
+            {
+                try
+                {
+                    istZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
+                }
+                catch
+                {
+                    istZone = TimeZoneInfo.CreateCustomTimeZone("IST", TimeSpan.FromHours(5.5), "IST", "IST");
+                }
+            }
+
+            var nowUtc = DateTime.UtcNow;
+            user.TokenIssuedAt = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, istZone);
+            user.LastActivityTime = nowUtc; // Set initial activity time in UTC
 
             // Save changes asynchronously
             await _repo.UpdateAsync(user);
@@ -112,13 +131,13 @@ namespace EMS.WebApp.Controllers
             var userWithDetails = await GetUserWithDetailsAsync(user.user_id);
 
             var claims = new List<Claim>
-    {
-        new Claim(ClaimTypes.Name, user.adid),
-        new Claim("LoginId", user.user_id.ToString()),
-        new Claim("FullName", user.full_name.ToString()),
-        new Claim("LoginType", "local"),
-        new Claim("SessionToken", sessionToken)
-    };
+            {
+                new Claim(ClaimTypes.Name, user.adid),
+                new Claim("LoginId", user.user_id.ToString()),
+                new Claim("FullName", user.full_name.ToString()),
+                new Claim("LoginType", "local"),
+                new Claim("SessionToken", sessionToken)
+            };
 
             // Add role and plant information to claims
             if (userWithDetails?.SysRole != null)
@@ -131,7 +150,6 @@ namespace EMS.WebApp.Controllers
             {
                 claims.Add(new Claim("PlantName", userWithDetails.OrgPlant.plant_name));
                 claims.Add(new Claim("PlantId", userWithDetails.plant_id.ToString()));
-                
             }
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -140,21 +158,9 @@ namespace EMS.WebApp.Controllers
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
         }
 
-        // Add this helper method to AccountController
         private async Task<SysUser?> GetUserWithDetailsAsync(int userId)
         {
-            // You'll need to inject ISysUserRepository into AccountController
-            // Add this to AccountController constructor: ISysUserRepository sysUserRepo
-            // private readonly ISysUserRepository _sysUserRepo;
-
-            // For now, assuming you have access to ApplicationDbContext
-            // If not, you can inject ISysUserRepository instead
-
-            // This is a temporary implementation - adjust based on your DI setup
-            using var scope = HttpContext.RequestServices.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-            return await context.SysUsers
+            return await _db.SysUsers
                 .Include(u => u.SysRole)
                 .Include(u => u.OrgPlant)
                 .FirstOrDefaultAsync(u => u.user_id == userId);

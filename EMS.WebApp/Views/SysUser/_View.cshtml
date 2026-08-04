@@ -1,4 +1,4 @@
-﻿@model EMS.WebApp.Data.SysUser
+@model EMS.WebApp.Data.SysUser
 
 <!-- User Information Display -->
 <div class="row mb-4">
@@ -81,7 +81,13 @@
         <div class="form-control form-control-master" style="background: var(--bg-secondary); border-style: dashed;">
             @if (Model.SysRole != null)
             {
-                <span class="badge bg-success" style="font-size: 12px;">@Model.SysRole.role_name</span>
+                var userPlantName = User.FindFirst("PlantName")?.Value ?? "";
+                var isTribeni = userPlantName.Equals("Tribeni", StringComparison.OrdinalIgnoreCase) || (Model.OrgPlant != null && Model.OrgPlant.plant_name.Equals("Tribeni", StringComparison.OrdinalIgnoreCase));
+                var roleDisplayName = (isTribeni && Model.SysRole.role_name.Contains("Compounder", StringComparison.OrdinalIgnoreCase))
+                    ? System.Text.RegularExpressions.Regex.Replace(Model.SysRole.role_name, "compounder", "Pharmacist", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                    : Model.SysRole.role_name;
+
+                <span class="badge bg-success" style="font-size: 12px;">@roleDisplayName</span>
             }
             else
             {

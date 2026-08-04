@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -74,18 +74,29 @@ namespace EMS.WebApp.Controllers
                     }
                 }
 
-                var result = list.Select(x => new {
-                    x.user_id,
-                    x.adid,
-                    role_name = x.SysRole != null ? x.SysRole.role_name : "",
-                    plant_name = x.OrgPlant != null ? x.OrgPlant.plant_name : "",
-                    x.full_name,
-                    x.email,
-                    x.is_active,
-                    x.CreatedBy,
-                    x.CreatedOn,
-                    x.ModifiedBy,
-                    x.ModifiedOn
+                var currentUserPlant = User.FindFirst("PlantName")?.Value ?? "";
+                var isTribeniSession = currentUserPlant.Equals("Tribeni", StringComparison.OrdinalIgnoreCase);
+
+                var result = list.Select(x => {
+                    var isTribeniRow = isTribeniSession || (x.OrgPlant != null && x.OrgPlant.plant_name.Equals("Tribeni", StringComparison.OrdinalIgnoreCase));
+                    var roleName = x.SysRole != null ? x.SysRole.role_name : "";
+                    if (isTribeniRow && roleName.Contains("Compounder", StringComparison.OrdinalIgnoreCase))
+                    {
+                        roleName = System.Text.RegularExpressions.Regex.Replace(roleName, "compounder", "Pharmacist", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    }
+                    return new {
+                        x.user_id,
+                        x.adid,
+                        role_name = roleName,
+                        plant_name = x.OrgPlant != null ? x.OrgPlant.plant_name : "",
+                        x.full_name,
+                        x.email,
+                        x.is_active,
+                        x.CreatedBy,
+                        x.CreatedOn,
+                        x.ModifiedBy,
+                        x.ModifiedOn
+                    };
                 });
 
                 // Log data access for security monitoring
@@ -641,7 +652,19 @@ namespace EMS.WebApp.Controllers
             var roleList = await _repo.GetBaseListAsync();
             var plantList = await _repo.GetPlantListAsync();
 
-            ViewBag.SysRoleList = new SelectList(roleList, "role_id", "role_name", selectedRoleId);
+            var currentUserPlant = User.FindFirst("PlantName")?.Value ?? "";
+            var isTribeniSession = currentUserPlant.Equals("Tribeni", StringComparison.OrdinalIgnoreCase);
+
+            var mappedRoles = roleList.Select(r => new SelectListItem
+            {
+                Value = r.role_id.ToString(),
+                Text = (isTribeniSession && r.role_name.Contains("Compounder", StringComparison.OrdinalIgnoreCase))
+                    ? System.Text.RegularExpressions.Regex.Replace(r.role_name, "compounder", "Pharmacist", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                    : r.role_name,
+                Selected = selectedRoleId.HasValue && r.role_id == selectedRoleId.Value
+            });
+
+            ViewBag.SysRoleList = new SelectList(mappedRoles, "Value", "Text", selectedRoleId);
             ViewBag.PlantMasterList = new SelectList(plantList, "plant_id", "plant_name", selectedPlantId);
         }
 
