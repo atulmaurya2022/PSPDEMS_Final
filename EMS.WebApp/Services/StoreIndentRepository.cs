@@ -834,11 +834,12 @@ namespace EMS.WebApp.Services
                 return "In Stock";
         }
 
-        public async Task<IEnumerable<MedicineMasterStoreReportDto>> GetMedicineMasterStoreReportAsync(int? userPlantId = null)
+        public async Task<IEnumerable<MedicineMasterStoreReportDto>> GetMedicineMasterStoreReportAsync(
+            int? userPlantId = null, DateTime? fromDate = null, DateTime? toDate = null)
         {
             var today = DateTime.Today;
 
-            // FIXED: Start with medicines filtered by plant
+            // Start with medicines filtered by plant
             var medicinesQuery = _db.med_masters.AsQueryable();
 
             if (userPlantId.HasValue)
@@ -865,8 +866,13 @@ namespace EMS.WebApp.Services
                                  join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
                                  where sii.MedItemId == medicine.MedItemId
                                        && si.Status == "Approved"
-                                       && si.PlantId == medicine.plant_id  // FIXED: Use medicine's plant_id
-                                 select new { sib.AvailableStock, sib.ExpiryDate, si.OrgPlant.plant_name };
+                                       && si.PlantId == medicine.plant_id
+                                 select new { si.CreatedDate, sib.AvailableStock, sib.ExpiryDate, si.OrgPlant.plant_name };
+
+                if (fromDate.HasValue)
+                    stockQuery = stockQuery.Where(x => x.CreatedDate >= fromDate.Value.Date);
+                if (toDate.HasValue)
+                    stockQuery = stockQuery.Where(x => x.CreatedDate < toDate.Value.Date.AddDays(1));
 
                 var stockData = await stockQuery.ToListAsync();
 

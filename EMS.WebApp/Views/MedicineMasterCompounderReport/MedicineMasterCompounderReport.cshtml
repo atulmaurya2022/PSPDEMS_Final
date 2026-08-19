@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Medicine Master Compounder Report";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
@@ -22,24 +22,25 @@
 </div>
 
 <div class="container-fluid">
-    <!-- Enhanced Control Section (Master Report - No Date Filters) -->
+    <!-- Enhanced Filter Controls Section -->
     <div class="report-controls-section">
         <div class="controls-row">
             <div class="control-group">
                 <label class="control-label">
-                    <i class="bi bi-file-earmark-medical me-2"></i>
-                    Report Type
+                    <i class="bi bi-calendar-range me-2"></i>
+                    Date Range (Created Date)
                 </label>
-                <div class="filter-controls">
-                    <span class="badge bg-info">Medicine Master Report</span>
-                    <small class="text-muted ms-2">Complete catalog overview</small>
+                <div class="date-range-inputs">
+                    <input type="date" class="form-control form-control-enhanced" id="fromDate" />
+                    <span class="date-separator">to</span>
+                    <input type="date" class="form-control form-control-enhanced" id="toDate" />
                 </div>
             </div>
 
             <div class="control-actions">
                 <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
-                    <i class="bi bi-arrow-clockwise"></i>
-                    Refresh Data
+                    <i class="bi bi-search"></i>
+                    Generate Report
                 </button>
                 <div class="action-buttons" id="actionButtons" style="display: none;">
                     <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
@@ -280,6 +281,18 @@
         }
 
         $(document).ready(function() {
+            // Set default dates (current month)
+            var now = new Date();
+            var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            var today = new Date();
+
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(today.toISOString().split('T')[0]);
+
+            $('#fromDate, #toDate').on('change', function() {
+                validateDateRange();
+            });
+
             // Fetch plant info and update labels
             $.get('@Url.Action("GetPlantInfo", "CompounderDashboard")')
                 .done(function(response) {
@@ -301,6 +314,18 @@
             }, 300));
         });
 
+        // Enhanced date validation
+        function validateDateRange() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                showAlert('warning', 'From Date cannot be greater than To Date', 'Invalid Date Range');
+                return false;
+            }
+            return true;
+        }
+
         // Debounce function for search input
         function debounce(func, wait) {
             let timeout;
@@ -315,6 +340,13 @@
         }
 
         function loadReport() {
+            if (!validateDateRange()) {
+                return;
+            }
+
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
             // Show loading state
             $('#loadingSpinner').show();
             $('#reportTableSection').hide();
@@ -328,6 +360,10 @@
             $.ajax({
                 url: '@Url.Action("GetReport", "MedicineMasterCompounderReport")',
                 type: 'GET',
+                data: {
+                    fromDate: fromDate,
+                    toDate: toDate
+                },
                 success: function(response) {
                     $('#loadingSpinner').hide();
 
@@ -522,7 +558,14 @@
         function exportReport() {
             showAlert('info', 'Preparing medicine master export file...', 'Export Started');
 
-            window.location.href = '@Url.Action("Export", "MedicineMasterCompounderReport")';
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+            var url = '@Url.Action("Export", "MedicineMasterCompounderReport")';
+            if (fromDate && toDate) {
+                url += '?fromDate=' + encodeURIComponent(fromDate) + '&toDate=' + encodeURIComponent(toDate);
+            }
+
+            window.location.href = url;
         }
 
         function printReport() {

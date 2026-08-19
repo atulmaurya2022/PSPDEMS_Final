@@ -171,15 +171,41 @@
             // Function to format date
             function formatDate(dateString) {
                 if (!dateString) return 'N/A';
+                if (typeof dateString === 'string') {
+                    const cleanStr = dateString.trim().split(' ')[0];
+                    const delimiter = cleanStr.includes('/') ? '/' : cleanStr.includes('-') ? '-' : cleanStr.includes('.') ? '.' : null;
+                    if (delimiter) {
+                        const parts = cleanStr.split(delimiter);
+                        if (parts.length === 3) {
+                            let day, month, year;
+                            if (parts[0].length === 4) { // yyyy-MM-dd
+                                year = parseInt(parts[0], 10);
+                                month = parseInt(parts[1], 10) - 1;
+                                day = parseInt(parts[2], 10);
+                            } else if (parts[2].length === 4) { // dd-MM-yyyy
+                                year = parseInt(parts[2], 10);
+                                month = parseInt(parts[1], 10) - 1;
+                                day = parseInt(parts[0], 10);
+                            }
+                            if (!isNaN(day) && !isNaN(month) && !isNaN(year) && year > 1900 && month >= 0 && month < 12 && day >= 1 && day <= 31) {
+                                const date = new Date(year, month, day);
+                                return date.toLocaleDateString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric'
+                                });
+                            }
+                        }
+                    }
+                }
+                // Fallback for standard ISO date strings
                 try {
                     const date = new Date(dateString);
+                    if (isNaN(date.getTime()) || date.getFullYear() <= 1900) return 'N/A';
                     return date.toLocaleDateString('en-IN', {
                         day: '2-digit',
                         month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
+                        year: 'numeric'
                     });
                 } catch (e) {
                     return 'N/A';
@@ -196,6 +222,11 @@
                         showAlert('danger', 'Failed to load employee dependent data. Please refresh the page.', 'Loading Error');
                     }
                 },
+                columnDefs: [
+                    { responsivePriority: 1, targets: -1 }, // Actions column ALWAYS highest priority
+                    { responsivePriority: 2, targets: 1 },  // Employee Name
+                    { responsivePriority: 3, targets: 2 }   // Dependent Name
+                ],
                 columns: [
                     {
                         data: 'emp_dep_id',
@@ -281,7 +312,7 @@
                     },
                     {
                         data: null,
-                        className: 'text-center',
+                        className: 'text-center text-nowrap',
                         orderable: false,
                         render: function(data, type, row) {
                             const id = row.emp_dep_id;

@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Employee Master";
 }
 
@@ -172,8 +172,37 @@
             // Function to format date
             function formatDate(dateString) {
                 if (!dateString) return 'N/A';
+                if (typeof dateString === 'string') {
+                    const cleanStr = dateString.trim().split(' ')[0];
+                    const delimiter = cleanStr.includes('/') ? '/' : cleanStr.includes('-') ? '-' : cleanStr.includes('.') ? '.' : null;
+                    if (delimiter) {
+                        const parts = cleanStr.split(delimiter);
+                        if (parts.length === 3) {
+                            let day, month, year;
+                            if (parts[0].length === 4) { // yyyy-MM-dd
+                                year = parseInt(parts[0], 10);
+                                month = parseInt(parts[1], 10) - 1;
+                                day = parseInt(parts[2], 10);
+                            } else if (parts[2].length === 4) { // dd-MM-yyyy
+                                year = parseInt(parts[2], 10);
+                                month = parseInt(parts[1], 10) - 1;
+                                day = parseInt(parts[0], 10);
+                            }
+                            if (!isNaN(day) && !isNaN(month) && !isNaN(year) && year > 1900 && month >= 0 && month < 12 && day >= 1 && day <= 31) {
+                                const date = new Date(year, month, day);
+                                return date.toLocaleDateString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric'
+                                });
+                            }
+                        }
+                    }
+                }
+                // Fallback for standard ISO date strings
                 try {
                     const date = new Date(dateString);
+                    if (isNaN(date.getTime()) || date.getFullYear() <= 1900) return 'N/A';
                     return date.toLocaleDateString('en-IN', {
                         day: '2-digit',
                         month: 'short',
@@ -194,6 +223,11 @@
                         showAlert('danger', 'Failed to load employee data. Please refresh the page.', 'Loading Error');
                     }
                 },
+                columnDefs: [
+                    { responsivePriority: 1, targets: -1 }, // Actions column ALWAYS highest priority
+                    { responsivePriority: 2, targets: 1 },  // Employee ID
+                    { responsivePriority: 3, targets: 2 }   // Name
+                ],
                 columns: [
                     {
                         data: 'emp_uid',
@@ -214,9 +248,9 @@
                     },
                     {
                         data: 'emp_DOB',
-                        // render: function(data) {
-                        //     return formatDate(data);
-                        // }
+                        render: function(data) {
+                            return formatDate(data);
+                        }
                     },
                     {
                         data: 'emp_Gender',
@@ -261,13 +295,13 @@
                     {
                         data: 'createdOn',
                         title: 'Created On',
-                        // render: function(data) {
-                        //     return formatDate(data);
-                        // }
+                        render: function(data) {
+                            return formatDate(data);
+                        }
                     },
                     {
                         data: null,
-                        className: 'text-center',
+                        className: 'text-center text-nowrap',
                         orderable: false,
                         render: function(data, type, row) {
                             const id = row.emp_uid;
@@ -280,13 +314,6 @@
                                 <button class="btn btn-action-edit edit me-1" data-id="${id}" title="Edit">
                                     <i class="bi bi-pencil fs-6"></i>
                                 </button>`;
-
-                            // if (hasAuditData) {
-                            //     buttons += `
-                            //         <button class="btn btn-action-audit audit me-1" data-id="${id}" title="Audit Details">
-                            //             <i class="bi bi-clock-history fs-6"></i>
-                            //         </button>`;
-                            // }
 
                             buttons += `
                                 <button class="btn btn-action-delete delete" data-id="${id}" title="Delete">

@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -813,7 +813,7 @@ namespace EMS.WebApp.Controllers
                 _logger.LogError(ex, $"💥 Error saving prescription for employee {empId}: {ex.Message}");
                 await _auditService.LogAsync("doctor_diagnosis", "SAVE_ERROR", empId ?? "null", null, null,
                     $"Prescription save failed with error: {ex.Message}");
-                var errorMessage = "Error saving prescription.";
+                var errorMessage = $"Error saving prescription: {ex.Message}";
                 return Json(new { success = false, message = errorMessage });
             }
         }

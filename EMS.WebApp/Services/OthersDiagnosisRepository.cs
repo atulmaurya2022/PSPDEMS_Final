@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -457,6 +457,14 @@ namespace EMS.WebApp.Services
                 }
 
                 // Handle patient creation/update
+                // Get plant code for BCM check and approval logic
+                var plantCode = userPlantId.HasValue ? await GetPlantCodeAsync(userPlantId.Value) : null;
+                var category = model.Category?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(category) && plantCode?.ToUpper() == "BCM")
+                {
+                    category = "Others";
+                }
+
                 OtherPatient? patient;
 
                 if (model.PatientId.HasValue)
@@ -475,7 +483,7 @@ namespace EMS.WebApp.Services
                     patient.PatientName = model.PatientName;
                     patient.Age = model.Age ?? 0;
                     patient.PNumber = model.PNumber ?? string.Empty;
-                    patient.Category = model.Category ?? string.Empty;
+                    patient.Category = category;
                     patient.OtherDetails = model.OtherDetails;
                 }
                 else
@@ -496,7 +504,7 @@ namespace EMS.WebApp.Services
                         patient.PatientName = model.PatientName;
                         patient.Age = model.Age ?? 0;
                         patient.PNumber = model.PNumber ?? string.Empty;
-                        patient.Category = model.Category ?? string.Empty;
+                        patient.Category = category;
                         patient.OtherDetails = model.OtherDetails;
                     }
                     else
@@ -507,7 +515,7 @@ namespace EMS.WebApp.Services
                             PatientName = model.PatientName,
                             Age = model.Age ?? 0,
                             PNumber = model.PNumber ?? string.Empty,
-                            Category = model.Category ?? string.Empty,
+                            Category = category,
                             OtherDetails = model.OtherDetails,
                             CreatedBy = createdBy,
                             CreatedDate = DateTime.Now
@@ -520,7 +528,6 @@ namespace EMS.WebApp.Services
                 await _db.SaveChangesAsync();
 
                 // Enhanced approval logic
-                var plantCode = await GetPlantCodeAsync(userPlantId.Value);
                 string approvalStatus;
                 string? approvedBy = null;
                 DateTime? approvedDate = null;
@@ -1913,10 +1920,17 @@ namespace EMS.WebApp.Services
                 // Update patient info if provided
                 if (diagnosis.Patient != null && basicInfo != null)
                 {
+                    var updatePlantCode = await GetPlantCodeAsync(diagnosis.PlantId);
+                    var updateCategory = basicInfo.Category?.Trim() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(updateCategory) && updatePlantCode?.ToUpper() == "BCM")
+                    {
+                        updateCategory = "Others";
+                    }
+
                     diagnosis.Patient.PatientName = basicInfo.PatientName;
                     diagnosis.Patient.Age = basicInfo.Age ?? 0;
                     diagnosis.Patient.PNumber = basicInfo.PNumber ?? "";
-                    diagnosis.Patient.Category = basicInfo.Category ?? "";
+                    diagnosis.Patient.Category = updateCategory;
                     diagnosis.Patient.OtherDetails = basicInfo.OtherDetails;
                 }
 

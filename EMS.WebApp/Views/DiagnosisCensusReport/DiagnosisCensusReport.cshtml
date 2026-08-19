@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Diagnosis Census Report";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
@@ -180,6 +180,10 @@
                     <tbody id="reportBody"></tbody>
                 </table>
             </div>
+            <p class="text-muted small mt-1 mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                VISITORS / MANAGER / ESP / CHILDREN / SPOUSE rows are shown separately below the employee TOTAL and are not included in it.
+            </p>
         </div>
     </div>
 
@@ -260,7 +264,11 @@
             $('#noDataMessage').hide();
             $('#actionButtons').hide();
 
-            $.get('@Url.Action("GetReport", "DiagnosisCensusReport")', { fromDate: fromDate, toDate: toDate, deptId: deptId }, function(res) {
+            $.get('@Url.Action("GetReport", "DiagnosisCensusReport")', {
+                fromDate: fromDate,
+                toDate: toDate,
+                deptId: deptId
+            }, function(res) {
                 $('#loadingSpinner').hide();
 
                 if (res && res.success) {
@@ -268,8 +276,8 @@
                     diseasesList = res.diseases;
                     departmentsList = res.departments;
 
-                    // build pivot including totals
-                    buildPivot(res.diseases, res.departments, res.data);
+                    // build pivot including totals + the separate Visitors/Children/Spouse rows
+                    buildPivot(res.diseases, res.departments, res.data, res.extraRows);
 
                     // set plant information fields
                     $('#currentPlantCode').text(res.reportInfo.plantCode || 'N/A');
@@ -294,7 +302,7 @@
             });
         }
 
-        function buildPivot(diseases, departments, data) {
+        function buildPivot(diseases, departments, data, extraRows) {
             // header row (diseases + TOTAL column)
             var thead = '<tr><th>Department</th>';
             diseases.forEach(function(d) {
@@ -335,7 +343,7 @@
             // append body
             $('#reportBody').html(tbody);
 
-            // append totals footer row (as last row)
+            // append totals footer row (employee rows only)
             var footer = '<tr>';
             footer += '<td style="font-weight:800">TOTAL</td>';
             for (var j = 0; j < colTotals.length; j++) {
@@ -343,9 +351,28 @@
             }
             footer += '<td class="grand-total">' + grandTotal + '</td>';
             footer += '</tr>';
-
-            // if table has a tfoot in markup, append there, otherwise append to tbody
             $('#reportBody').append(footer);
+
+            // ✅ Visitors / Children / Spouse — appended after TOTAL, own row totals only,
+            // deliberately NOT folded into colTotals/grandTotal above.
+            if (extraRows && extraRows.length) {
+                extraRows.forEach(function(bucket) {
+                    var rowTotal = 0;
+                    var row = '<tr class="extra-bucket-row">';
+                    row += '<td style="font-style:italic">' + bucket.label + '</td>';
+
+                    diseases.forEach(function(dis) {
+                        var rec = bucket.counts.find(function(c) { return c.diseaseId == dis.diseaseId; });
+                        var val = rec ? Number(rec.count) : 0;
+                        rowTotal += val;
+                        row += '<td class="count-cell" style="font-style:italic">' + val + '</td>';
+                    });
+
+                    row += '<td class="row-total" style="font-style:italic">' + rowTotal + '</td>';
+                    row += '</tr>';
+                    $('#reportBody').append(row);
+                });
+            }
         }
 
         function exportReport() {

@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -34,7 +34,7 @@ namespace EMS.WebApp.Controllers
         /// </summary>
         /// <returns>Medicine Master Store Report data</returns>
         [HttpGet]
-        public async Task<IActionResult> GetReport()
+        public async Task<IActionResult> GetReport(DateTime? fromDate = null, DateTime? toDate = null)
         {
             try
             {
@@ -51,8 +51,8 @@ namespace EMS.WebApp.Controllers
                     .Select(p => new { p.plant_name, p.plant_code })
                     .FirstOrDefaultAsync();
 
-                // Pass plant filtering to repository
-                var reportData = await _repo.GetMedicineMasterStoreReportAsync(userPlantId);
+                // Pass plant and date filtering to repository
+                var reportData = await _repo.GetMedicineMasterStoreReportAsync(userPlantId, fromDate, toDate);
 
                 var result = new
                 {
@@ -71,8 +71,10 @@ namespace EMS.WebApp.Controllers
                     reportInfo = new
                     {
                         title = "MEDICINE MASTER STORE REPORT",
-                        plantCode = plantInfo?.plant_code ?? "N/A", // NEW: Dynamic plant code
-                        plantName = plantInfo?.plant_name ?? "Unknown Plant", // NEW: Dynamic plant name
+                        plantCode = plantInfo?.plant_code ?? "N/A",
+                        plantName = plantInfo?.plant_name ?? "Unknown Plant",
+                        fromDate = fromDate?.ToString("dd/MM/yyyy"),
+                        toDate = toDate?.ToString("dd/MM/yyyy"),
                         generatedBy = User.Identity?.Name + " - " + User.GetFullName(),
                         generatedOn = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"),
                         totalRecords = reportData.Count(),
@@ -121,7 +123,7 @@ namespace EMS.WebApp.Controllers
         /// </summary>
         /// <returns>Excel file</returns>
         [HttpGet]
-        public async Task<IActionResult> Export()
+        public async Task<IActionResult> Export(DateTime? fromDate = null, DateTime? toDate = null)
         {
             try
             {
@@ -138,8 +140,8 @@ namespace EMS.WebApp.Controllers
                     .Select(p => new { p.plant_name, p.plant_code })
                     .FirstOrDefaultAsync();
 
-                // FIXED: Pass plant filtering to repository
-                var reportData = await _repo.GetMedicineMasterStoreReportAsync(userPlantId);
+                // FIXED: Pass plant and date filtering to repository
+                var reportData = await _repo.GetMedicineMasterStoreReportAsync(userPlantId, fromDate, toDate);
 
                 // Check if data exists
                 if (reportData == null)
@@ -150,7 +152,7 @@ namespace EMS.WebApp.Controllers
                 // Set EPPlus license context (required for EPPlus 5.0+)
                 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-                var fileBytes = GenerateExcelFile(reportData, plantInfo?.plant_name, plantInfo?.plant_code);
+                var fileBytes = GenerateExcelFile(reportData, plantInfo?.plant_name, plantInfo?.plant_code, fromDate, toDate);
                 var fileName = $"MedicineMasterStoreReport_{plantInfo?.plant_code ?? "Plant"}_{DateTime.Now:ddMMyyyy_HHmm}.xlsx";
 
                 return File(fileBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
@@ -166,7 +168,7 @@ namespace EMS.WebApp.Controllers
             }
         }
 
-        private byte[] GenerateExcelFile(IEnumerable<MedicineMasterStoreReportDto> reportData, string plantName = null, string plantCode = null)
+        private byte[] GenerateExcelFile(IEnumerable<MedicineMasterStoreReportDto> reportData, string plantName = null, string plantCode = null, DateTime? fromDate = null, DateTime? toDate = null)
         {
             using var package = new ExcelPackage();
             var worksheet = package.Workbook.Worksheets.Add("Medicine Master Store Report");
@@ -181,7 +183,8 @@ namespace EMS.WebApp.Controllers
                 worksheet.Cells[1, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
 
                 // Add plant information (FIXED: Include plant details)
-                worksheet.Cells[2, 1].Value = $"Plant: {plantCode ?? "N/A"} - {plantName ?? "Unknown Plant"}";
+                worksheet.Cells[2, 1].Value = $"Plant: {plantCode ?? "N/A"} - {plantName ?? "Unknown Plant"}" +
+                    (fromDate.HasValue || toDate.HasValue ? $" | Date Range: {fromDate:dd/MM/yyyy} to {toDate:dd/MM/yyyy}" : "");
                 worksheet.Cells[2, 1, 2, 7].Merge = true;
                 worksheet.Cells[2, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
                 worksheet.Cells[2, 1].Style.Font.Size = 12;
@@ -340,7 +343,7 @@ namespace EMS.WebApp.Controllers
         /// Fallback CSV Export with plant-wise access control
         /// </summary>
         [HttpGet]
-        public async Task<IActionResult> ExportCSV()
+        public async Task<IActionResult> ExportCSV(DateTime? fromDate = null, DateTime? toDate = null)
         {
             try
             {
@@ -358,13 +361,15 @@ namespace EMS.WebApp.Controllers
                     .FirstOrDefaultAsync();
 
                 // FIXED: Pass plant filtering to repository
-                var reportData = await _repo.GetMedicineMasterStoreReportAsync(userPlantId);
+                var reportData = await _repo.GetMedicineMasterStoreReportAsync(userPlantId, fromDate, toDate);
 
                 var csv = new System.Text.StringBuilder();
 
                 // Add header with plant information
                 csv.AppendLine($"MEDICINE MASTER STORE REPORT");
                 csv.AppendLine($"Plant: {plantInfo?.plant_code ?? "N/A"} - {plantInfo?.plant_name ?? "Unknown Plant"}");
+                if (fromDate.HasValue) csv.AppendLine($"From Date: {fromDate:dd/MM/yyyy}");
+                if (toDate.HasValue) csv.AppendLine($"To Date: {toDate:dd/MM/yyyy}");
                 csv.AppendLine($"Generated by: {User.Identity?.Name ?? "System"} - {User.GetFullName()}");
                 csv.AppendLine($"Generated on: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
                 csv.AppendLine(); // Empty line

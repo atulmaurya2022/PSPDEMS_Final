@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Medicine Master Store Report";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
@@ -22,29 +22,34 @@
 </div>
 
 <div class="container-fluid">
-    <!-- Enhanced Control Section (Master Store Report - No Date Filters) -->
+    <!-- Enhanced Filter Controls Section -->
     <div class="report-controls-section">
         <div class="controls-row">
             <div class="control-group">
                 <label class="control-label">
-                    <i class="bi bi-shop me-2"></i>
-                    Report Type
+                    <i class="bi bi-calendar-range me-2"></i>
+                    Date Range (Created Date)
                 </label>
-                <div class="filter-controls">
-                    <span class="badge bg-success">Medicine Master Store</span>
-                    <small class="text-muted ms-2">Store-level inventory analysis</small>
+                <div class="date-range-inputs">
+                    <input type="date" class="form-control form-control-enhanced" id="fromDate" />
+                    <span class="date-separator">to</span>
+                    <input type="date" class="form-control form-control-enhanced" id="toDate" />
                 </div>
             </div>
 
             <div class="control-actions">
                 <button type="button" class="btn btn-primary btn-enhanced" onclick="loadReport()">
-                    <i class="bi bi-arrow-clockwise"></i>
-                    Refresh Data
+                    <i class="bi bi-search"></i>
+                    Generate Report
                 </button>
                 <div class="action-buttons" id="actionButtons" style="display: none;">
                     <button type="button" class="btn btn-secondary btn-enhanced" onclick="exportReport()">
                         <i class="bi bi-download"></i>
-                        Export
+                        Export Excel
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="exportCSV()">
+                        <i class="bi bi-file-earmark-spreadsheet"></i>
+                        Export CSV
                     </button>
                     <button type="button" class="btn btn-outline-secondary btn-enhanced" onclick="printReport()">
                         <i class="bi bi-printer"></i>
@@ -325,6 +330,18 @@
         var currentFilteredData = []; // Store currently filtered data
 
         $(document).ready(function() {
+            // Set default dates (current month)
+            var now = new Date();
+            var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            var today = new Date();
+
+            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
+            $('#toDate').val(today.toISOString().split('T')[0]);
+
+            $('#fromDate, #toDate').on('change', function() {
+                validateDateRange();
+            });
+
             // Load report on page initialization
             loadReport();
 
@@ -340,6 +357,18 @@
             }, 300));
         });
 
+        // Enhanced date validation
+        function validateDateRange() {
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
+            if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                showAlert('warning', 'From Date cannot be greater than To Date', 'Invalid Date Range');
+                return false;
+            }
+            return true;
+        }
+
         // Debounce function for search input
         function debounce(func, wait) {
             let timeout;
@@ -354,6 +383,13 @@
         }
 
         function loadReport() {
+            if (!validateDateRange()) {
+                return;
+            }
+
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+
             // Show loading state
             $('#loadingSpinner').show();
             $('#reportTableSection').hide();
@@ -368,6 +404,10 @@
             $.ajax({
                 url: '@Url.Action("GetReport", "MedicineMasterStoreReport")',
                 type: 'GET',
+                data: {
+                    fromDate: fromDate,
+                    toDate: toDate
+                },
                 success: function(response) {
                     $('#loadingSpinner').hide();
 
@@ -688,7 +728,27 @@
         function exportReport() {
             showAlert('info', 'Preparing store master export file...', 'Export Started');
 
-            window.location.href = '@Url.Action("Export", "MedicineMasterStoreReport")';
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+            var url = '@Url.Action("Export", "MedicineMasterStoreReport")';
+            if (fromDate && toDate) {
+                url += '?fromDate=' + encodeURIComponent(fromDate) + '&toDate=' + encodeURIComponent(toDate);
+            }
+
+            window.location.href = url;
+        }
+
+        function exportCSV() {
+            showAlert('info', 'Preparing store master CSV export file...', 'Export Started');
+
+            var fromDate = $('#fromDate').val();
+            var toDate = $('#toDate').val();
+            var url = '@Url.Action("ExportCSV", "MedicineMasterStoreReport")';
+            if (fromDate && toDate) {
+                url += '?fromDate=' + encodeURIComponent(fromDate) + '&toDate=' + encodeURIComponent(toDate);
+            }
+
+            window.location.href = url;
         }
 
         function printReport() {

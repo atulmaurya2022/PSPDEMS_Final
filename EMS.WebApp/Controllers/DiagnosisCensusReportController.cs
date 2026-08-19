@@ -1,4 +1,4 @@
-﻿// File: Controllers/DiagnosisCensusReportController.cs
+// File: Controllers/DiagnosisCensusReportController.cs
 using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services.Reports;
@@ -100,7 +100,17 @@ namespace EMS.WebApp.Controllers
                 var diseases = await _service.GetAllDiseasesAsync(userPlantId);
                 var departments = (await _service.GetDepartmentsAsync()).ToList();
 
-
+                // ✅ Bottom-of-report breakdowns — Visitors / Manager / ESP / Children / Spouse
+                var visitorCounts = (await _service.GetVisitorDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, deptId, isDoctor, userRole, currentUserDisplay)).ToList();
+                var managerCounts = (await _service.GetManagerDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, isDoctor, userRole, currentUserDisplay)).ToList();
+                var espCounts = (await _service.GetEspDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, isDoctor, userRole, currentUserDisplay)).ToList();
+                var childCounts = (await _service.GetChildDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, isDoctor, userRole, currentUserDisplay)).ToList();
+                var spouseCounts = (await _service.GetSpouseDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, isDoctor, userRole, currentUserDisplay)).ToList();
 
                 var plantInfo = await _db.org_plants
                     .Where(p => p.plant_id == userPlantId)
@@ -121,6 +131,40 @@ namespace EMS.WebApp.Controllers
                     }),
                     diseases = diseases.Select(d => new { d.DiseaseId, d.DiseaseName }),
                     departments = departments.Select(d => new { d.DeptId, d.DeptName }),
+                    // ✅ extra bottom rows — kept separate from the department pivot's totals
+                    extraRows = new object[]
+                    {
+                        new
+                        {
+                            label = "VISITORS",
+                            isVisitorRow = false,
+                            counts = visitorCounts.Select(c => new { diseaseId = c.DiseaseId, count = c.Count })
+                        },
+                        new
+                        {
+                            label = "MANAGER",
+                            isVisitorRow = false,
+                            counts = managerCounts.Select(c => new { diseaseId = c.DiseaseId, count = c.Count })
+                        },
+                        new
+                        {
+                            label = "ESP",
+                            isVisitorRow = false,
+                            counts = espCounts.Select(c => new { diseaseId = c.DiseaseId, count = c.Count })
+                        },
+                        new
+                        {
+                            label = "CHILDREN",
+                            isVisitorRow = false,
+                            counts = childCounts.Select(c => new { diseaseId = c.DiseaseId, count = c.Count })
+                        },
+                        new
+                        {
+                            label = "SPOUSE",
+                            isVisitorRow = false,
+                            counts = spouseCounts.Select(c => new { diseaseId = c.DiseaseId, count = c.Count })
+                        }
+                    },
                     reportInfo = new
                     {
                         title = "DIAGNOSIS CENSUS REPORT",
@@ -161,6 +205,25 @@ namespace EMS.WebApp.Controllers
                     isDoctor, userRole, currentUserDisplay)).ToList();
                 var diseases = (await _service.GetAllDiseasesAsync(userPlantId)).ToList();
                 var departments = (await _service.GetDepartmentsAsync()).ToList();
+
+                // Ensure standard Other Diagnosis categories (Manager, ESP) are always included as rows
+                var standardCategories = new List<OrgDepartmentDto>
+                {
+                    new OrgDepartmentDto { DeptId = -101, DeptName = "Manager" },
+                    new OrgDepartmentDto { DeptId = -102, DeptName = "ESP" }
+                };
+
+                // ✅ Bottom-of-report breakdowns — Visitors / Manager / ESP / Children / Spouse
+                var visitorCounts = (await _service.GetVisitorDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, deptId, isDoctor, userRole, currentUserDisplay)).ToList();
+                var managerCounts = (await _service.GetManagerDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, isDoctor, userRole, currentUserDisplay)).ToList();
+                var espCounts = (await _service.GetEspDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, isDoctor, userRole, currentUserDisplay)).ToList();
+                var childCounts = (await _service.GetChildDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, isDoctor, userRole, currentUserDisplay)).ToList();
+                var spouseCounts = (await _service.GetSpouseDiseaseCountsAsync(
+                    currentUserName, fromDate, toDate, isDoctor, userRole, currentUserDisplay)).ToList();
 
                 var plantInfo = await _db.org_plants
                     .Where(p => p.plant_id == userPlantId)
@@ -215,12 +278,42 @@ namespace EMS.WebApp.Controllers
                     csv.AppendLine(string.Join(",", cols.Select(EscapeCsv)));
                 }
 
-                // Totals row (FINAL)
+                // Totals row (FINAL) — employee department rows only; extra buckets below are kept separate
                 var totalRow = new System.Collections.Generic.List<string> { "TOTAL" };
                 for (int i = 0; i < diseases.Count; i++)
                     totalRow.Add(columnTotals[i].ToString());
                 totalRow.Add(grandTotal.ToString());
                 csv.AppendLine(string.Join(",", totalRow.Select(EscapeCsv)));
+
+                // ✅ Visitors / Manager / ESP / Children / Spouse rows — same disease columns, own row totals,
+                // deliberately excluded from the employee TOTAL row above.
+                csv.AppendLine();
+                var extraBuckets = new (string Label, System.Collections.Generic.List<DiagnosisCensusCountDto> Rows)[]
+                {
+                    ("VISITORS", visitorCounts),
+                    ("MANAGER", managerCounts),
+                    ("ESP", espCounts),
+                    ("CHILDREN", childCounts),
+                    ("SPOUSE", spouseCounts)
+                };
+
+                foreach (var bucket in extraBuckets)
+                {
+                    var cols = new System.Collections.Generic.List<string> { bucket.Label };
+                    long rowTotal = 0;
+
+                    for (int i = 0; i < diseases.Count; i++)
+                    {
+                        var dis = diseases[i];
+                        var match = bucket.Rows.FirstOrDefault(c => c.DiseaseId == dis.DiseaseId);
+                        var val = match?.Count ?? 0;
+                        cols.Add(val.ToString());
+                        rowTotal += val;
+                    }
+
+                    cols.Add(rowTotal.ToString());
+                    csv.AppendLine(string.Join(",", cols.Select(EscapeCsv)));
+                }
 
                 var fileName = $"DiagnosisCensus_{fromDate:ddMMyyyy}_to_{toDate:ddMMyyyy}.csv";
                 return File(System.Text.Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", fileName);

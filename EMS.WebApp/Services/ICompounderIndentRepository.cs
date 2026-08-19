@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using static EMS.WebApp.Controllers.StoreIndentController;
@@ -79,7 +79,7 @@ namespace EMS.WebApp.Services
             string currentUser = null,
             bool isDoctor = false);
 
-        Task<IEnumerable<MedicineMasterCompounderReportDto>> GetMedicineMasterCompounderReportAsync(int? userPlantId = null);
+        Task<IEnumerable<MedicineMasterCompounderReportDto>> GetMedicineMasterCompounderReportAsync(int? userPlantId = null, DateTime? fromDate = null, DateTime? toDate = null);
     }
 
     // Updated DTOs for Reports with plant information

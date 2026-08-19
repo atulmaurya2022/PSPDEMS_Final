@@ -423,7 +423,6 @@ namespace EMS.WebApp.Services
 
         public async Task<bool> UpdateAvailableStockAsync(int indentItemId, int quantityUsed, int? userPlantId = null)
         {
-            using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
                 Console.WriteLine($"🔄 Updating available stock for IndentItemId {indentItemId}, using {quantityUsed} units with FIFO logic (Plant: {userPlantId})");
@@ -477,14 +476,12 @@ namespace EMS.WebApp.Services
                 }
 
                 await _db.SaveChangesAsync();
-                await transaction.CommitAsync();
 
                 Console.WriteLine($"✅ FIFO Stock updated successfully for IndentItemId {indentItemId}: Deducted {quantityUsed} units across batches.");
                 return true;
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 Console.WriteLine($"❌ Error updating available stock for item {indentItemId}: {ex.Message}");
                 return false;
             }
@@ -774,6 +771,7 @@ namespace EMS.WebApp.Services
                                     .FirstOrDefaultAsync();
                                 resolvedBatchId = fifoBatch?.BatchId;
                             }
+                            med.BatchId = resolvedBatchId;
 
                             prescriptionMedicines.Add(new MedPrescriptionMedicine
                             {
@@ -2125,6 +2123,7 @@ namespace EMS.WebApp.Services
                                 .FirstOrDefault();
                             resolvedBatchId = fifoBatch?.BatchId;
                         }
+                        med.BatchId = resolvedBatchId;
 
                         return new MedPrescriptionMedicine
                         {

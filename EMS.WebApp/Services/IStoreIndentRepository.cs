@@ -42,7 +42,7 @@ namespace EMS.WebApp.Services
         // Updated Report methods with plant filtering
         Task<IEnumerable<StoreIndentBatchReportDto>> GetStoreIndentBatchReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null);
         Task<IEnumerable<StoreInventoryBatchReportDto>> GetStoreInventoryBatchReportAsync(DateTime? fromDate = null, DateTime? toDate = null, int? userPlantId = null);
-        Task<IEnumerable<MedicineMasterStoreReportDto>> GetMedicineMasterStoreReportAsync(int? userPlantId = null);
+        Task<IEnumerable<MedicineMasterStoreReportDto>> GetMedicineMasterStoreReportAsync(int? userPlantId = null, DateTime? fromDate = null, DateTime? toDate = null);
 
         Task<StoreCompounderSummaryReportResponse> GetStoreCompounderSummaryReportAsync(DateTime? fromDate = null,DateTime? toDate = null,int? userPlantId = null);
 

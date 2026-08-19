@@ -1,4 +1,4 @@
-﻿@model EMS.WebApp.Data.OthersDiagnosisViewModel
+@model EMS.WebApp.Data.OthersDiagnosisViewModel
 @{
     ViewData["Title"] = "Add Diagnosis - Others";
     var shouldMaskData = ViewBag.ShouldMaskData ?? true;
@@ -124,7 +124,7 @@
                         <option value="">-- Select --</option>
                         <option value="Manager">Manager</option>
                         <option value="ESP">ESP</option>
-                        <option value="Others">Others</option>
+                        <option value="Others" selected>Others</option>
                     </select>
                 }
                 else
@@ -1017,7 +1017,7 @@
                 PatientName: $('#PatientName').val().trim(),
                 Age: ($('#Age').val() && $('#Age').val().trim() !== '') ? parseFloat($('#Age').val()) : null,
                 PNumber: $('#PNumber').val().trim() || '',
-                Category: $('#Category').val().trim() || '',
+                Category: ($('#Category').val()?.trim() || (@((ViewBag.IsBCMPlant == true).ToString().ToLower()) ? 'Others' : '')),
                 OtherDetails: $('#OtherDetails').val().trim() || '',
                 LastVisitDate: $('#LastVisitDate').val() || null,
                 BloodPressure: $('#BloodPressure').val().trim() || '',

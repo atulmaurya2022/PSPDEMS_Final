@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -1149,11 +1149,12 @@ namespace EMS.WebApp.Services
             }
         }
 
-        public async Task<IEnumerable<MedicineMasterCompounderReportDto>> GetMedicineMasterCompounderReportAsync(int? userPlantId = null)
+        public async Task<IEnumerable<MedicineMasterCompounderReportDto>> GetMedicineMasterCompounderReportAsync(
+            int? userPlantId = null, DateTime? fromDate = null, DateTime? toDate = null)
         {
             var today = DateTime.Today;
 
-            // FIXED: Start with medicines filtered by plant
+            // Start with medicines filtered by plant
             var medicinesQuery = _db.med_masters.AsQueryable();
 
             if (userPlantId.HasValue)
@@ -1175,25 +1176,35 @@ namespace EMS.WebApp.Services
 
             foreach (var medicine in allMedicines)
             {
-                // Get total quantity in store from StoreIndentBatches with plant filtering
+                // Get total quantity in store from StoreIndentBatches with plant and CreatedDate filtering
                 var storeQuery = from si in _db.StoreIndents
                                  join sii in _db.StoreIndentItems on si.IndentId equals sii.IndentId
                                  join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
                                  where sii.MedItemId == medicine.MedItemId
-                                       && si.PlantId == medicine.plant_id  // FIXED: Use medicine's plant_id
-                                 select new { sib.AvailableStock, si.OrgPlant.plant_name };
+                                       && si.PlantId == medicine.plant_id
+                                 select new { si.CreatedDate, sib.AvailableStock, si.OrgPlant.plant_name };
+
+                if (fromDate.HasValue)
+                    storeQuery = storeQuery.Where(s => s.CreatedDate >= fromDate.Value.Date);
+                if (toDate.HasValue)
+                    storeQuery = storeQuery.Where(s => s.CreatedDate < toDate.Value.Date.AddDays(1));
 
                 var storeData = await storeQuery.ToListAsync();
                 var totalQtyInStore = storeData.Sum(s => s.AvailableStock);
 
-                // Get expired quantity from CompounderIndentBatches with plant filtering
+                // Get expired quantity from CompounderIndentBatches with plant and CreatedDate filtering
                 var expiredQuery = from ci in _db.CompounderIndents
                                    join cii in _db.CompounderIndentItems on ci.IndentId equals cii.IndentId
                                    join cib in _db.CompounderIndentBatches on cii.IndentItemId equals cib.IndentItemId
                                    where cii.MedItemId == medicine.MedItemId
                                          && cib.ExpiryDate < today
-                                         && ci.plant_id == medicine.plant_id  // FIXED: Use medicine's plant_id
-                                   select new { cib.AvailableStock, ci.OrgPlant.plant_name };
+                                         && ci.plant_id == medicine.plant_id
+                                   select new { ci.CreatedDate, cib.AvailableStock, ci.OrgPlant.plant_name };
+
+                if (fromDate.HasValue)
+                    expiredQuery = expiredQuery.Where(e => e.CreatedDate >= fromDate.Value.Date);
+                if (toDate.HasValue)
+                    expiredQuery = expiredQuery.Where(e => e.CreatedDate < toDate.Value.Date.AddDays(1));
 
                 var expiredData = await expiredQuery.ToListAsync();
                 var expiredQty = expiredData.Sum(e => e.AvailableStock);
