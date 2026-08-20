@@ -87,6 +87,30 @@ namespace EMS.WebApp.Controllers
             }
         }
 
+        private async Task PopulateCreateEditViewBagAsync(int? userPlantId, int? selectedEmpUid = null, string? selectedRelation = null)
+        {
+            var empDependent = await _repo.GetBaseListAsync(userPlantId); // Returns only married employees from user's plant
+
+            if (!empDependent.Any())
+            {
+                ViewBag.EmpDependentList = new SelectList(Enumerable.Empty<SelectListItem>());
+                if (ViewBag.Error == null)
+                {
+                    ViewBag.Error = "⚠ No married employees found in your plant! Only married employees can have dependents.";
+                }
+            }
+            else
+            {
+                ViewBag.EmpDependentList = new SelectList(empDependent, "emp_uid", "emp_name", selectedEmpUid);
+            }
+
+            var plantObj = userPlantId.HasValue ? await _repo.GetPlantByIdAsync(userPlantId.Value) : null;
+            ViewBag.MaxChildAge = plantObj != null ? plantObj.EffectiveMaxChildAge : 21;
+
+            var allowedRelations = await _repo.GetAllowedRelationsByPlantAsync(userPlantId);
+            ViewBag.RelationList = new SelectList(allowedRelations, selectedRelation);
+        }
+
         public async Task<IActionResult> Create()
         {
             try
@@ -101,31 +125,17 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "CREATE_NO_PLANT", "new", null, null,
                         "Create failed - user has no plant assigned");
                     ViewBag.EmpDependentList = new SelectList(Enumerable.Empty<SelectListItem>());
+                    ViewBag.RelationList = new SelectList(Enumerable.Empty<SelectListItem>());
                     ViewBag.Error = "User is not assigned to any plant. Please contact administrator.";
-                    return PartialView("_CreateEdit", new HrEmployeeDependent());
+                    return PartialView("_CreateEdit", new HrEmployeeDependent { is_active = true });
                 }
 
-                var empDependent = await _repo.GetBaseListAsync(userPlantId); // Returns only married employees from user's plant
-
-                if (!empDependent.Any())
-                {
-                    ViewBag.EmpDependentList = new SelectList(Enumerable.Empty<SelectListItem>());
-                    ViewBag.Error = "⚠ No married employees found in your plant! Only married employees can have dependents.";
-                }
-                else
-                {
-                    ViewBag.EmpDependentList = new SelectList(empDependent, "emp_uid", "emp_name");
-                }
-
-                var plantObj = userPlantId.HasValue ? await _repo.GetPlantByIdAsync(userPlantId.Value) : null;
-                ViewBag.MaxChildAge = plantObj != null ? plantObj.EffectiveMaxChildAge : 21;
-
-                var allowedRelations = await _repo.GetAllowedRelationsByPlantAsync(userPlantId);
-                ViewBag.RelationList = new SelectList(allowedRelations);
+                await PopulateCreateEditViewBagAsync(userPlantId);
 
                 var model = new HrEmployeeDependent
                 {
-                    plant_id = (short)userPlantId.Value
+                    plant_id = (short)userPlantId.Value,
+                    is_active = true
                 };
 
                 await _auditService.LogAsync("hr_employee_dependent", "CREATE_FORM_OK", "new", null, null,
@@ -139,7 +149,9 @@ namespace EMS.WebApp.Controllers
                     $"Error loading create form: {ex.Message}");
 
                 ViewBag.Error = "Error loading employee list.";
-                return PartialView("_CreateEdit", new HrEmployeeDependent());
+                ViewBag.EmpDependentList = new SelectList(Enumerable.Empty<SelectListItem>());
+                ViewBag.RelationList = new SelectList(Enumerable.Empty<SelectListItem>());
+                return PartialView("_CreateEdit", new HrEmployeeDependent { is_active = true });
             }
         }
 
@@ -159,7 +171,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "CREATE_NO_PLANT", recordId, null, model,
                         "Create failed - user has no plant assigned");
                     ViewBag.Error = "User is not assigned to any plant. Please contact administrator.";
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -175,7 +187,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "CREATE_EMPLOYEE_PLANT_DENY", recordId, null, model,
                         $"Create denied - selected employee {model.emp_uid} does not belong to user plant: {userPlantId}");
                     ViewBag.Error = "Selected employee does not belong to your plant. Please refresh and try again.";
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name");
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -193,7 +205,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "CREATE_SECURITY_VIOLATION", recordId, null, model,
                         "Insecure input detected during employee dependent record creation");
 
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -209,7 +221,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "CREATE_BUSINESS_RULE_VIOLATION", recordId, null, model,
                         $"Business rule violation: {businessValidationResult.ErrorMessage}");
 
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -253,7 +265,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "CREATE_VALIDATION_FAILED", recordId, null, model,
                         $"Validation failed: {validationErrors}");
 
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -275,7 +287,7 @@ namespace EMS.WebApp.Controllers
                         $"Rate limit exceeded: {timestamps.Count} attempts in 5 minutes");
 
                     ViewBag.Error = "⚠ You can only create 5 dependents every 5 minutes. Please wait and try again.";
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -323,7 +335,7 @@ namespace EMS.WebApp.Controllers
                     ViewBag.Error = "An error occurred while creating the dependent record. Please try again.";
                 }
 
-                ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(await GetCurrentUserPlantIdAsync()), "emp_uid", "emp_name", model.emp_uid);
+                await PopulateCreateEditViewBagAsync(await GetCurrentUserPlantIdAsync(), model.emp_uid, model.relation);
                 return PartialView("_CreateEdit", model);
             }
         }
@@ -357,13 +369,7 @@ namespace EMS.WebApp.Controllers
                 await _auditService.LogViewAsync("hr_employee_dependent", id.ToString(),
                     $"Edit form accessed for employee dependent: {item.dep_name} (Relation: {item.relation}) in plant: {item.OrgPlant?.plant_name}");
 
-                var plantObj = userPlantId.HasValue ? await _repo.GetPlantByIdAsync(userPlantId.Value) : item.OrgPlant;
-                ViewBag.MaxChildAge = plantObj != null ? plantObj.EffectiveMaxChildAge : (item.OrgPlant?.EffectiveMaxChildAge ?? 21);
-
-                var allowedRelations = await _repo.GetAllowedRelationsByPlantAsync(userPlantId);
-                ViewBag.RelationList = new SelectList(allowedRelations, item.relation);
-
-                ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", item.emp_uid);
+                await PopulateCreateEditViewBagAsync(userPlantId, item.emp_uid, item.relation);
                 return PartialView("_CreateEdit", item);
             }
             catch (Exception ex)
@@ -410,7 +416,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "UPDATE_EMPLOYEE_PLANT_DENY", recordId, oldDependent, model,
                         $"Update denied - selected employee {model.emp_uid} does not belong to user plant: {userPlantId}");
                     ViewBag.Error = "Selected employee does not belong to your plant. Please refresh and try again.";
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -431,7 +437,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "UPDATE_SECURITY_VIOLATION", recordId, oldDependent, model,
                         "Insecure input detected during employee dependent record update");
 
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -444,7 +450,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "UPDATE_BUSINESS_RULE_VIOLATION", recordId, oldDependent, model,
                         $"Business rule violation: {businessValidationResult.ErrorMessage}");
 
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -492,7 +498,7 @@ namespace EMS.WebApp.Controllers
                     await _auditService.LogAsync("hr_employee_dependent", "UPDATE_VALIDATION_FAILED", recordId, oldDependent, model,
                         $"Validation failed: {validationErrors}");
 
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -514,7 +520,7 @@ namespace EMS.WebApp.Controllers
                         $"Rate limit exceeded: {timestamps.Count} attempts in 5 minutes");
 
                     ViewBag.Error = "⚠ You can only edit 10 dependents every 5 minutes. Please wait and try again.";
-                    ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(userPlantId), "emp_uid", "emp_name", model.emp_uid);
+                    await PopulateCreateEditViewBagAsync(userPlantId, model.emp_uid, model.relation);
                     return PartialView("_CreateEdit", model);
                 }
 
@@ -544,7 +550,7 @@ namespace EMS.WebApp.Controllers
                     ViewBag.Error = "An error occurred while updating the dependent record. Please try again.";
                 }
 
-                ViewBag.EmpDependentList = new SelectList(await _repo.GetBaseListAsync(await GetCurrentUserPlantIdAsync()), "emp_uid", "emp_name", model.emp_uid);
+                await PopulateCreateEditViewBagAsync(await GetCurrentUserPlantIdAsync(), model.emp_uid, model.relation);
                 return PartialView("_CreateEdit", model);
             }
         }

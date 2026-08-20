@@ -44,7 +44,9 @@ public partial class OrgPlant
             if (max_child_dependent_age.HasValue && max_child_dependent_age.Value > 0)
                 return max_child_dependent_age.Value;
 
-            if (plant_id == 2)
+            if (plant_id == 2 ||
+                string.Equals(plant_name, "Tribeni", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(plant_code, "TRB", StringComparison.OrdinalIgnoreCase))
             {
                 return 24;
             }

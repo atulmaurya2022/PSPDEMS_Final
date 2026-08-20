@@ -423,13 +423,14 @@
             function updateAgeDisplay() {
                 const dob = depDobInput.val();
                 const relation = relationInput.val();
+                const maxChildAge = parseInt($('#maxChildAge').val()) || 21;
 
                 if (dob) {
                     const age = calculateAge(dob);
                     ageDisplay.text(`Age: ${age} years`);
 
-                    // Show warning for children over 21
-                    if (relation?.toLowerCase() === 'child' && age > 21) {
+                    // Show warning for children over plant limit
+                    if (relation?.toLowerCase() === 'child' && age > maxChildAge) {
                         ageWarning.show();
                         ageDisplay.addClass('text-warning');
                     } else {
@@ -581,12 +582,16 @@
                 const depDob = depDobInput.val();
                 const relation = relationInput.val();
                 const validationSpan = $('#depDobValidation');
+                const maxChildAge = parseInt($('#maxChildAge').val()) || 21;
                 let isValid = true;
 
                 validationSpan.text('').removeClass('field-validation-error').hide();
                 depDobInput.removeClass('is-invalid is-valid');
 
-                if (depDob) {
+                if (!depDob) {
+                    showFieldError(validationSpan, depDobInput, 'Date of Birth is required.');
+                    isValid = false;
+                } else {
                     const dobDate = new Date(depDob);
                     const today = new Date();
                     const age = calculateAge(depDob);
@@ -597,8 +602,8 @@
                     } else if (age > 100) {
                         showFieldError(validationSpan, depDobInput, 'Age cannot exceed 100 years.');
                         isValid = false;
-                    } else if (relation?.toLowerCase() === 'child' && age > 21) {
-                        showFieldError(validationSpan, depDobInput, 'Child dependents cannot be older than 21 years.');
+                    } else if (relation?.toLowerCase() === 'child' && age > maxChildAge) {
+                        showFieldError(validationSpan, depDobInput, `Child dependents cannot be older than ${maxChildAge} years for this plant.`);
                         isValid = false;
                     } else {
                         depDobInput.addClass('is-valid');
@@ -632,56 +637,46 @@
             }
 
             function updateSubmitButton() {
-                const hasErrors = $('.field-validation-error:visible').length > 0 ||
-                                $('.is-invalid').length > 0;
-                submitBtn.prop('disabled', hasErrors);
+                // Keep submit button clickable so user clicking triggers validation feedback
             }
 
             // Event handlers
             empUidInput.on('change', function() {
                 validateEmployee();
                 loadExistingDependents($(this).val());
-                updateSubmitButton();
             });
 
             depNameInput.on('input paste keyup', function() {
                 setTimeout(() => {
                     updateCharCount($(this), depNameCharCount, 100);
-                    validateDependentName();
-                    updateSubmitButton();
+                    if ($(this).val().trim().length > 0) {
+                        validateDependentName();
+                    }
                 }, 10);
             });
 
             relationInput.on('change', function() {
                 validateRelation();
                 updateAgeDisplay();
-                updateSubmitButton();
             });
 
             genderInput.on('change', function() {
                 validateGender();
-                updateSubmitButton();
             });
 
             depDobInput.on('change blur', function() {
-                validateDateOfBirth();
+                if ($(this).val()) {
+                    validateDateOfBirth();
+                }
                 updateAgeDisplay();
-                updateSubmitButton();
             });
 
             isActiveInputs.on('change', function() {
                 validateStatus();
-                updateSubmitButton();
             });
 
-            // Initialize on page load
+            // Initialize on page load (without showing error states immediately)
             updateCharCount(depNameInput, depNameCharCount, 100);
-            validateEmployee();
-            validateDependentName();
-            validateRelation();
-            validateGender();
-            validateDateOfBirth();
-            validateStatus();
             updateAgeDisplay();
 
             // Load existing dependents if editing
@@ -690,19 +685,25 @@
                 loadExistingDependents(initialEmpUid);
             }
 
-            updateSubmitButton();
-
             // Prevent form submission if validation fails
             form.on('submit', function(e) {
-                if (!validateEmployee() || !validateDependentName() || !validateRelation() ||
-                    !validateGender() || !validateDateOfBirth() || !validateStatus()) {
+                const isEmpValid = validateEmployee();
+                const isNameValid = validateDependentName();
+                const isRelationValid = validateRelation();
+                const isGenderValid = validateGender();
+                const isDobValid = validateDateOfBirth();
+                const isStatusValid = validateStatus();
+
+                if (!isEmpValid || !isNameValid || !isRelationValid || !isGenderValid || !isDobValid || !isStatusValid) {
                     e.preventDefault();
+                    e.stopImmediatePropagation();
                     return false;
                 }
 
                 // Final check for any visible errors
                 if ($('.field-validation-error:visible').length > 0) {
                     e.preventDefault();
+                    e.stopImmediatePropagation();
                     return false;
                 }
 
@@ -711,6 +712,7 @@
 
                 if (containsDangerousInput(depName)) {
                     e.preventDefault();
+                    e.stopImmediatePropagation();
                     alert('Invalid input detected. Please remove any script tags or unsafe characters.');
                     return false;
                 }
@@ -818,7 +820,7 @@
 
                 $.post(form.attr('action'), form.serialize())
                     .done(function(res) {
-                        if (res.success) {
+                        if (res && res.success) {
                             modalEl.modal('hide');
                             tbl.ajax.reload(null, false);
                             const isCreate = form.attr('action').includes('Create');
@@ -828,6 +830,7 @@
                             );
                         } else {
                             $('#modalBody').html(res);
+                            window.initOrgPlantForm();
                         }
                     })
                     .fail(function() {

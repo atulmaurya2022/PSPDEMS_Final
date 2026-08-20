@@ -101,7 +101,7 @@ public partial class HrEmployeeDependent
         get
         {
             if (relation?.ToLower() != "child" || !Age.HasValue) return false;
-            int maxAge = OrgPlant != null ? OrgPlant.EffectiveMaxChildAge : 21;
+            int maxAge = OrgPlant != null ? OrgPlant.EffectiveMaxChildAge : (plant_id == 2 ? 24 : 21);
             return Age.Value > maxAge;
         }
     }
@@ -138,7 +138,28 @@ public class DependentDateOfBirthValidationAttribute : ValidationAttribute
             // Check child age limit dynamically per plant
             if (dependent.relation?.ToLower() == "child")
             {
-                int maxAge = dependent.OrgPlant != null ? dependent.OrgPlant.EffectiveMaxChildAge : 21;
+                int maxAge = 21;
+                if (dependent.OrgPlant != null)
+                {
+                    maxAge = dependent.OrgPlant.EffectiveMaxChildAge;
+                }
+                else
+                {
+                    var db = validationContext.GetService(typeof(ApplicationDbContext)) as ApplicationDbContext;
+                    if (db != null && dependent.plant_id > 0)
+                    {
+                        var plant = db.org_plants.FirstOrDefault(p => p.plant_id == dependent.plant_id);
+                        if (plant != null)
+                        {
+                            maxAge = plant.EffectiveMaxChildAge;
+                        }
+                    }
+                    else if (dependent.plant_id == 2)
+                    {
+                        maxAge = 24;
+                    }
+                }
+
                 if (age > maxAge)
                 {
                     return new ValidationResult($"Child dependents cannot be older than {maxAge} years for this plant.");
