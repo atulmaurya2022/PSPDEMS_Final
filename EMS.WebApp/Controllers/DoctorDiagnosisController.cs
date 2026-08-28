@@ -917,36 +917,35 @@ namespace EMS.WebApp.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> SearchEmployeeIds(string term)
+        public async Task<IActionResult> SearchEmployeeIds(string? term, string? q)
         {
             try
             {
-                var userPlantId = await GetCurrentUserPlantIdAsync();
-
-                // Log employee ID search attempt with plant info
-                await _auditService.LogAsync("doctor_diagnosis", "SEARCH_IDS", "bulk", null, null,
-                    $"Employee ID search attempted with term: {term ?? "null"}, Plant: {userPlantId}");
-
-                if (string.IsNullOrWhiteSpace(term))
+                var searchTerm = term ?? q;
+                if (string.IsNullOrWhiteSpace(searchTerm))
                 {
                     return Json(new List<string>());
                 }
 
-                var matchingIds = await _doctorDiagnosisRepository.SearchEmployeeIdsAsync(term, userPlantId);
+                var userPlantId = await GetCurrentUserPlantIdAsync();
+                _logger.LogInformation($"🔍 Searching employee IDs with term: '{searchTerm}', Plant: {userPlantId}");
 
-                // Log search results (without exposing actual IDs in audit) with plant info
-                await _auditService.LogAsync("doctor_diagnosis", "SEARCH_IDS_OK", "bulk", null, null,
-                    $"Employee ID search completed - Found: {matchingIds.Count()} matches, Plant: {userPlantId}");
+                var matchingIds = await _doctorDiagnosisRepository.SearchEmployeeIdsAsync(searchTerm, userPlantId);
 
+                _logger.LogInformation($"✅ Found {matchingIds.Count} matching employee IDs for plant: {userPlantId}");
                 return Json(matchingIds);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error searching employee IDs with term: {term}");
-                await _auditService.LogAsync("doctor_diagnosis", "SEARCH_IDS_ERR", "bulk", null, null,
-                    $"Employee ID search failed: {ex.Message}");
                 return Json(new List<string>());
             }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> SearchEmployeeNos(string? term, string? q)
+        {
+            return await SearchEmployeeIds(term, q);
         }
 
         [HttpGet]

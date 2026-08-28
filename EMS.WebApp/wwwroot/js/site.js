@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bootstrap 5 alert
  * @param {string} type    – one of 'success', 'danger', 'warning', 'info'
  * @param {string} message – the alert text
@@ -124,9 +124,14 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     function updateUserInfo(data) {
+        if (!data) return;
+
         // Update user initial
-        const initial = data.fullName ? data.fullName.charAt(0).toUpperCase() : 'U';
-        document.getElementById('userInitial').textContent = initial;
+        const userInitialEl = document.getElementById('userInitial');
+        if (userInitialEl) {
+            const initial = data.fullName ? data.fullName.charAt(0).toUpperCase() : 'U';
+            userInitialEl.textContent = initial;
+        }
 
         // Determine display role based on plant
         let displayRole = data.roleName || '';
@@ -138,11 +143,17 @@ document.addEventListener('DOMContentLoaded', function () {
             displayRole = displayRole.replace(/compounder/gi, 'Pharmacist');
         }
 
-        document.getElementById('userName').textContent = data.fullName || '';
-        document.getElementById('userEmpId').textContent = data.adid || '';
-        document.getElementById('userDesignation').textContent = displayRole;
-        document.getElementById('userPlant').textContent = data.plantName || '';
+        const userNameEl = document.getElementById('userName');
+        if (userNameEl) userNameEl.textContent = data.fullName || '';
 
+        const userEmpIdEl = document.getElementById('userEmpId');
+        if (userEmpIdEl) userEmpIdEl.textContent = data.adid || '';
+
+        const userDesignationEl = document.getElementById('userDesignation');
+        if (userDesignationEl) userDesignationEl.textContent = displayRole;
+
+        const userPlantEl = document.getElementById('userPlant');
+        if (userPlantEl) userPlantEl.textContent = data.plantName || '';
     }
 
     updateUserInfo(userData);
@@ -170,14 +181,6 @@ async function fetchUserData() {
         return data;
     } catch (error) {
         console.error('Error fetching user data:', error);
-
-        //const fallback = {
-        //    fullName: '',
-        //    adid: 'AD000',
-        //    roleName: 'User',
-        //    plantName: 'Plant'
-        //};
-        //console.log('User info (fallback):', fallback);
-        return fallback;
+        return {};
     }
 }

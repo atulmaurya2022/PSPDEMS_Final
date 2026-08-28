@@ -99,17 +99,9 @@ namespace EMS.WebApp.Services
                 .ToListAsync();
         }
 
-        /// <summary>
-        /// ✅ FIX: Now loads from org_employee_category master table.
-        /// Only shows: TR Employee, Manager, ESP, Others.
-        /// Ensure these 4 names exist in org_employee_category table (case-insensitive match).
-        /// </summary>
         public async Task<List<DropdownItem>> GetEmployeeTypesAsync()
         {
-            var allowedNames = new[] { "tr employee", "manager", "esp", "others" };
-
             return await _db.org_employee_categories
-                .Where(c => allowedNames.Contains(c.emp_category_name.ToLower()))
                 .OrderBy(c => c.emp_category_name)
                 .Select(c => new DropdownItem
                 {
@@ -571,11 +563,11 @@ namespace EMS.WebApp.Services
                     });
 
                 // Map others results to view model.
-                // ✅ FIX: If EmployeeCategoryId is selected, OtherPatients are excluded entirely
-                //    because they have no emp_category_id.
+                // ✅ FIX: If EmployeeCategoryId or DepartmentId is selected, OtherPatients are excluded entirely
+                //    because they have no emp_category_id and do not belong to any department.
                 //    Using Enumerable.Empty<T>() avoids the CS0173 anonymous type mismatch
                 //    that occurs when using a ternary with two different anonymous type shapes.
-                var othersMapped = filter.EmployeeCategoryId.HasValue
+                var othersMapped = (filter.EmployeeCategoryId.HasValue || filter.DepartmentId.HasValue)
                     ? Enumerable.Empty<DiseaseTrendPatientWiseViewModel>()
                     : othersResults.Select(r => new DiseaseTrendPatientWiseViewModel
                     {

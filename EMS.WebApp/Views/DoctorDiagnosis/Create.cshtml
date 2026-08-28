@@ -1,4 +1,4 @@
-﻿@{
+@{
     ViewData["Title"] = "Create - Doctor Diagnosis";
     var shouldMaskData = ViewBag.ShouldMaskData ?? true;
     var userRole = ViewBag.UserRole ?? "";
@@ -32,7 +32,7 @@
         </div>
         <div class="col-sm-3 col-md-2">
             <label class="form-label" for="empId">Emp ID</label>
-            <input type="text" id="empId" class="form-control glass" onkeyup="this.value = this.value.replace(/[^a-zA-Z0-9._\s-]/g, '');" autocomplete="off" required />
+            <input type="text" id="empId" class="form-control" autocomplete="off" placeholder="Enter Employee ID" required />
         </div>
         <div class="col-sm-3 col-md-3">
             <label class="form-label" for="examDate">Examination Date</label>
@@ -321,11 +321,11 @@
 </div>
 
 @section Scripts {
-    <link rel="stylesheet" href="~/css/jquery-ui.css">
-    <script src="~/js/jquery-ui.min.js"></script>
-    <link href="~/css/select2.min.css" rel="stylesheet" />
-    <link href="~/css/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
-    <script src="~/js/select2.min.js"></script>
+    <link rel="stylesheet" href="@Url.Content("~/css/jquery-ui.min.css")" />
+    <script src="@Url.Content("~/js/jquery-ui.min.js")"></script>
+    <link href="@Url.Content("~/css/select2.min.css")" rel="stylesheet" />
+    <link href="@Url.Content("~/css/select2-bootstrap-5-theme.min.css")" rel="stylesheet" />
+    <script src="@Url.Content("~/js/select2.min.js")"></script>
 
 
     <script>
@@ -347,22 +347,33 @@
             // Load prescription data
             loadPrescriptionData();
 
-            // Employee ID autocomplete
-            $("#empId").autocomplete({
-                source: function (request, response) {
-                    $.ajax({
-                        url: '@Url.Action("SearchEmployeeIds", "DoctorDiagnosis")',
-                        data: { term: request.term },
-                        success: function (data) {
-                            response(data);
-                        }
-                    });
-                },
-                minLength: 1
-            });
+            // Employee ID autocomplete via jQuery UI
+            if (typeof $.fn.autocomplete === 'function') {
+                $("#empId").autocomplete({
+                    source: function (request, response) {
+                        $.ajax({
+                            url: '@Url.Action("SearchEmployeeIds", "DoctorDiagnosis")',
+                            data: { term: request.term },
+                            success: function (data) {
+                                response(data);
+                            },
+                            error: function () {
+                                response([]);
+                            }
+                        });
+                    },
+                    minLength: 1,
+                    select: function (event, ui) {
+                        var selectedId = (ui.item ? ui.item.value : '').trim();
+                        $(this).val(selectedId);
+                        loadEmployeeDependents(selectedId);
+                        return false;
+                    }
+                });
+            }
 
-            // Load dependents when employee is searched
-            $('#empId').on('blur', function() {
+            // Load dependents when employee ID changes or loses focus
+            $('#empId').on('change blur', function() {
                 var empId = $(this).val().trim();
                 if (empId) {
                     loadEmployeeDependents(empId);
@@ -1349,5 +1360,40 @@
         .medicine-select, #diseaseCheckboxContainer {
             font-size: 0.8rem;
         }
+    }
+
+    /* Autocomplete dropdown menu styling */
+    .ui-autocomplete {
+        z-index: 99999 !important;
+        max-height: 220px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: #ffffff !important;
+        border: 1px solid rgba(0, 0, 0, 0.2) !important;
+        border-radius: 6px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        padding: 4px 0 !important;
+        list-style: none !important;
+    }
+
+    .ui-autocomplete .ui-menu-item {
+        list-style: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .ui-autocomplete .ui-menu-item-wrapper {
+        display: block !important;
+        padding: 6px 14px !important;
+        color: #212529 !important;
+        font-size: 0.9rem !important;
+        text-decoration: none !important;
+        cursor: pointer !important;
+    }
+
+    .ui-autocomplete .ui-menu-item-wrapper.ui-state-active,
+    .ui-autocomplete .ui-menu-item-wrapper:hover {
+        background-color: #0d6efd !important;
+        color: #ffffff !important;
     }
 </style>

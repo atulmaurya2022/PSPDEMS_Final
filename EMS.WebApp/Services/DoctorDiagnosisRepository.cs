@@ -53,15 +53,21 @@ namespace EMS.WebApp.Services
         }
         public async Task<HrEmployee?> GetEmployeeByEmpIdAsync(string empId, int? userPlantId = null)
         {
+            if (string.IsNullOrWhiteSpace(empId))
+                return null;
+
+            var cleanEmpId = empId.Trim();
             var query = _db.HrEmployees
                 .Include(e => e.org_department)
                 .Include(e => e.org_plant)
-                .Where(e => e.emp_id.ToLower() == empId.ToLower());
+                .Where(e => e.emp_id != null && (e.emp_id == cleanEmpId || e.emp_id.Trim() == cleanEmpId));
 
-            // Plant-wise filtering
+            // Plant-wise filtering with fallback
             if (userPlantId.HasValue)
             {
-                query = query.Where(e => e.plant_id == userPlantId.Value);
+                var employeeInPlant = await query.FirstOrDefaultAsync(e => e.plant_id == userPlantId.Value);
+                if (employeeInPlant != null)
+                    return employeeInPlant;
             }
 
             return await query.FirstOrDefaultAsync();
@@ -144,23 +150,43 @@ namespace EMS.WebApp.Services
         // UPDATED: Plant-wise employee search
         public async Task<List<string>> SearchEmployeeIdsAsync(string term, int? userPlantId = null)
         {
-            if (string.IsNullOrWhiteSpace(term))
-                return new List<string>();
-
-            var query = _db.HrEmployees
-                .Where(e => e.emp_id.ToLower().Contains(term.ToLower()));
-
-            // Plant-wise filtering
-            if (userPlantId.HasValue)
+            try
             {
-                query = query.Where(e => e.plant_id == userPlantId.Value);
-            }
+                if (string.IsNullOrWhiteSpace(term))
+                    return new List<string>();
 
-            return await query
-                .OrderBy(e => e.emp_id)
-                .Select(e => e.emp_id)
-                .Take(10)
-                .ToListAsync();
+                var trimmedTerm = term.Trim();
+                var query = _db.HrEmployees.AsNoTracking()
+                    .Where(e => e.emp_id != null && (e.emp_id.StartsWith(trimmedTerm) || e.emp_id.Contains(trimmedTerm)));
+
+                // If user has a plant, first try to find matching employees in their plant
+                if (userPlantId.HasValue)
+                {
+                    var plantResults = await query
+                        .Where(e => e.plant_id == userPlantId.Value)
+                        .OrderBy(e => e.emp_id)
+                        .Select(e => e.emp_id.Trim())
+                        .Distinct()
+                        .Take(20)
+                        .ToListAsync();
+
+                    if (plantResults.Any())
+                        return plantResults;
+                }
+
+                // Fallback: Return matching employees from any plant
+                return await query
+                    .OrderBy(e => e.emp_id)
+                    .Select(e => e.emp_id.Trim())
+                    .Distinct()
+                    .Take(20)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error searching employee IDs for term {term}: {ex.Message}");
+                return new List<string>();
+            }
         }
 
         // UPDATED: Plant-wise diagnosis filtering
