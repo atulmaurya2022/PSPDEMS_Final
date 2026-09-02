@@ -71,7 +71,7 @@ namespace EMS.WebApp.Services.Reports
                     DeptName = g.Key.dept_name,
                     DiseaseId = g.Key.DiseaseId,
                     DiseaseName = "",
-                    Count = g.Select(x => x.emp_uid).Distinct().Count()
+                    Count = g.LongCount()
                 })
                 .ToList();
 
@@ -162,7 +162,7 @@ namespace EMS.WebApp.Services.Reports
                             join op in _db.OtherPatients on od.PatientId equals op.PatientId
                             where od.ApprovalStatus == "Approved"
                                   && (op.Category == null || op.Category.Trim() == "" || op.Category.Trim().ToLower() == "others")
-                                  && (!applyCreatedByFilter || od.CreatedBy == createdByFilter)
+                                  && (!applyCreatedByFilter || od.CreatedBy == createdByFilter || od.CreatedBy == currentUserName)
                                   && od.PlantId == (userPlantId ?? od.PlantId)
                                   && od.VisitDate >= fromDate.Value.Date
                                   && od.VisitDate < toDate.Value.Date.AddDays(1)
@@ -337,7 +337,7 @@ namespace EMS.WebApp.Services.Reports
                                   && p.DependentName != null && p.DependentName != "Self"
                                   && dep.is_active
                                   && relations.Contains(dep.relation.ToLower())
-                                  && (!applyCreatedByFilter || p.CreatedBy == createdByFilter)
+                                  && (!applyCreatedByFilter || p.CreatedBy == createdByFilter || p.CreatedBy == currentUserName)
                                   && p.PlantId == (userPlantId ?? p.PlantId)
                                   && p.PrescriptionDate >= fromDate.Value.Date
                                   && p.PrescriptionDate < toDate.Value.Date.AddDays(1)

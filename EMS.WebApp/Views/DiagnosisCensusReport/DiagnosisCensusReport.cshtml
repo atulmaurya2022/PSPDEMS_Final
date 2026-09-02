@@ -15,23 +15,67 @@
         font-weight: 600;
     }
 
-    .row-total {
-        background: linear-gradient(180deg, #f1f3f5 0%, #e2e6ea 100%);
-        text-align: center;
-        font-weight: 700;
+    /* === TOTAL COLUMN HIGHLIGHT === */
+    .total-col-header,
+    th.total-col-header {
+        background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%) !important;
+        color: #78350f !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+        border-left: 2px solid #cbd5e1 !important;
+        border-right: 2px solid #cbd5e1 !important;
     }
 
-    .col-total {
-        background: linear-gradient(180deg, #f1f3f5 0%, #e2e6ea 100%);
-        text-align: center;
-        font-weight: 700;
+    .row-total,
+    td.row-total {
+        background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%) !important;
+        color: #78350f !important;
+        text-align: center !important;
+        font-weight: 700 !important;
+        border-left: 2px solid #cbd5e1 !important;
+        border-right: 2px solid #cbd5e1 !important;
     }
 
-    .grand-total {
-        background: linear-gradient(180deg, #dfe7ef 0%, #cfdfe7 100%);
-        text-align: center;
-        font-weight: 800;
+    /* === TOTAL ROW HIGHLIGHT === */
+    tr.total-row,
+    tr.total-row > td {
+        background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%) !important;
+        color: #78350f !important;
+        font-weight: 700 !important;
+        border-top: 2px solid #94a3b8 !important;
+        border-bottom: 2px solid #94a3b8 !important;
     }
+
+    .total-row-label,
+    td.total-row-label {
+        background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%) !important;
+        color: #78350f !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px;
+    }
+
+    .col-total,
+    td.col-total {
+        background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%) !important;
+        color: #78350f !important;
+        text-align: center !important;
+        font-weight: 700 !important;
+    }
+
+    /* === GRAND TOTAL INTERSECTION HIGHLIGHT === */
+    .grand-total,
+    td.grand-total {
+        background: linear-gradient(180deg, #fcd34d 0%, #fbbf24 100%) !important;
+        color: #713f12 !important;
+        text-align: center !important;
+        font-weight: 900 !important;
+        font-size: 1.05em !important;
+        border-left: 2px solid #94a3b8 !important;
+        border-right: 2px solid #94a3b8 !important;
+        border-top: 2px solid #94a3b8 !important;
+        border-bottom: 2px solid #94a3b8 !important;
+    }
+
     /* Make header sticky and bold for readability */
     #reportHead th {
         position: sticky;
@@ -308,7 +352,7 @@
             diseases.forEach(function(d) {
                 thead += '<th>' + d.diseaseName + '</th>';
             });
-            thead += '<th style="text-align:center">TOTAL</th>';
+            thead += '<th class="total-col-header" style="text-align:center">TOTAL</th>';
             thead += '</tr>';
             $('#reportHead').html(thead);
 
@@ -344,8 +388,8 @@
             $('#reportBody').html(tbody);
 
             // append totals footer row (employee rows only)
-            var footer = '<tr>';
-            footer += '<td style="font-weight:800">TOTAL</td>';
+            var footer = '<tr class="total-row">';
+            footer += '<td class="total-row-label" style="font-weight:800">TOTAL</td>';
             for (var j = 0; j < colTotals.length; j++) {
                 footer += '<td class="col-total">' + colTotals[j] + '</td>';
             }

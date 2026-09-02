@@ -330,14 +330,6 @@
         var currentFilteredData = []; // Store currently filtered data
 
         $(document).ready(function() {
-            // Set default dates (current month)
-            var now = new Date();
-            var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-            var today = new Date();
-
-            $('#fromDate').val(firstDay.toISOString().split('T')[0]);
-            $('#toDate').val(today.toISOString().split('T')[0]);
-
             $('#fromDate, #toDate').on('change', function() {
                 validateDateRange();
             });
@@ -731,8 +723,11 @@
             var fromDate = $('#fromDate').val();
             var toDate = $('#toDate').val();
             var url = '@Url.Action("Export", "MedicineMasterStoreReport")';
-            if (fromDate && toDate) {
-                url += '?fromDate=' + encodeURIComponent(fromDate) + '&toDate=' + encodeURIComponent(toDate);
+            var params = [];
+            if (fromDate) params.push('fromDate=' + encodeURIComponent(fromDate));
+            if (toDate) params.push('toDate=' + encodeURIComponent(toDate));
+            if (params.length > 0) {
+                url += '?' + params.join('&');
             }
 
             window.location.href = url;
@@ -744,8 +739,11 @@
             var fromDate = $('#fromDate').val();
             var toDate = $('#toDate').val();
             var url = '@Url.Action("ExportCSV", "MedicineMasterStoreReport")';
-            if (fromDate && toDate) {
-                url += '?fromDate=' + encodeURIComponent(fromDate) + '&toDate=' + encodeURIComponent(toDate);
+            var params = [];
+            if (fromDate) params.push('fromDate=' + encodeURIComponent(fromDate));
+            if (toDate) params.push('toDate=' + encodeURIComponent(toDate));
+            if (params.length > 0) {
+                url += '?' + params.join('&');
             }
 
             window.location.href = url;

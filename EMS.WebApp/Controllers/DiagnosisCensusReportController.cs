@@ -174,7 +174,7 @@ namespace EMS.WebApp.Controllers
                         toDate = toDate?.ToString("dd/MM/yyyy"),
                         generatedBy = User.Identity?.Name + " - " + User.GetFullName(),
                         generatedOn = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"),
-                        totalRecords = counts.Count()
+                        totalRecords = counts.Sum(c => c.Count)
                     }
                 };
 
