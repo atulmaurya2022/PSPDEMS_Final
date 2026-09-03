@@ -1,6 +1,12 @@
-﻿@{
+@{
     ViewData["Title"] = "Daily Medicine Consumption Report";
     Layout = "~/Views/Shared/_Layout.cshtml";
+    var UserPlant = User.FindFirst("PlantName")?.Value ?? "";
+    var UserPlantCode = User.FindFirst("PlantCode")?.Value ?? "";
+    var isTribeniPlant = UserPlant.Equals("Tribeni", StringComparison.OrdinalIgnoreCase)
+                         || UserPlantCode.Equals("TRB", StringComparison.OrdinalIgnoreCase);
+    var roleLabelUpper = isTribeniPlant ? "PHARMACIST" : "COMPOUNDER";
+    var roleLabelSingular = isTribeniPlant ? "Pharmacist" : "Compounder";
 }
 
 <link href="~/css/report.css" rel="stylesheet" />
@@ -237,11 +243,11 @@
                             <th class="col-sl">SL NO</th>
                             <th class="col-medicine-name">MEDICINE NAME</th>
                             <!-- NEW: Added new column -->
-                            <th class="col-total-available total-available-header">TOTAL AVAILABLE AT COMPOUNDER INVENTORY</th>
+                            <th class="col-total-available total-available-header" id="thTotalAvailable">TOTAL AVAILABLE AT @roleLabelUpper INVENTORY</th>
                             <th class="col-consumed consumption-header">ISSUED QTY</th>
                             <th class="col-expired text-center">EXPIRED QTY</th>
                             <!-- UPDATED: Renamed column -->
-                            <th class="col-available">TOTAL AVAILABLE AT COMPOUNDER STOCK</th>
+                            <th class="col-available" id="thTotalStock">TOTAL AVAILABLE AT @roleLabelUpper STOCK</th>
                             
                         </tr>
                     </thead>
@@ -420,7 +426,37 @@
         var currentFilteredData = []; // Store currently filtered data
         var currentReportInfo = {}; // Store current report info
 
+        // Plant-based label configuration
+        let isTribeniPlant = @(isTribeniPlant ? "true" : "false");
+        let roleLabelSingular = isTribeniPlant ? 'Pharmacist' : 'Compounder';
+        let roleLabelUpper = isTribeniPlant ? 'PHARMACIST' : 'COMPOUNDER';
+
+        // Function to update page labels based on plant
+        function updateReportLabels() {
+            roleLabelSingular = isTribeniPlant ? 'Pharmacist' : 'Compounder';
+            roleLabelUpper = isTribeniPlant ? 'PHARMACIST' : 'COMPOUNDER';
+
+            $('#thTotalAvailable').text('TOTAL AVAILABLE AT ' + roleLabelUpper + ' INVENTORY');
+            $('#thTotalStock').text('TOTAL AVAILABLE AT ' + roleLabelUpper + ' STOCK');
+        }
+
         $(document).ready(function() {
+            // Fetch plant info and update labels
+            $.get('@Url.Action("GetPlantInfo", "CompounderDashboard")')
+                .done(function(response) {
+                    if (response && (response.plantName || response.plantCode)) {
+                        var pName = (response.plantName || '').toLowerCase();
+                        var pCode = (response.plantCode || '').toLowerCase();
+                        if (pName === 'tribeni' || pCode === 'trb') {
+                            isTribeniPlant = true;
+                            updateReportLabels();
+                        }
+                    }
+                })
+                .fail(function() {
+                    console.log('Could not determine plant info');
+                });
+
             // Set default to today's date
             setTodayFilter();
 
@@ -547,6 +583,15 @@
                         allReportData = response.data;
                         currentFilteredData = [...allReportData];
                         currentReportInfo = response.reportInfo;
+
+                        if (response.reportInfo) {
+                            var pName = (response.reportInfo.plantName || '').toLowerCase();
+                            var pCode = (response.reportInfo.plantCode || '').toLowerCase();
+                            if (pName === 'tribeni' || pCode === 'trb') {
+                                isTribeniPlant = true;
+                                updateReportLabels();
+                            }
+                        }
 
                         applyFilters();
                         updateReportHeader(response.reportInfo);
