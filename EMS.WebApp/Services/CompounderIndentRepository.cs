@@ -454,12 +454,33 @@ namespace EMS.WebApp.Services
                 throw new InvalidOperationException("Deleting batch has invalid available stock.");
 
 
-            var storeBatch = await GetStoreBatchByBatchNoAndMedicineAsync(batchNo, medItemId, userPlantId);
-            if (storeBatch != null)
+            if (addBackQty > 0)
             {
-                // 3) Compute new store stock and persist using your Update helper
-                var newStoreStock = storeBatch.AvailableStock + addBackQty;
-                await UpdateBatchAvailableStockAsync(storeBatch.BatchId, newStoreStock, userPlantId);
+                var storeBatches = await GetStoreBatchesByBatchNoAndMedicineAsync(batchNo, medItemId, userPlantId ?? (int)data.Indent.plant_id);
+                if (storeBatches.Any())
+                {
+                    var remainingToAdd = addBackQty;
+                    // Add back to the latest store batches first (LIFO restoration) up to ReceivedQuantity
+                    foreach (var sb in storeBatches.OrderByDescending(b => b.BatchId))
+                    {
+                        if (remainingToAdd <= 0) break;
+                        var space = sb.ReceivedQuantity - sb.AvailableStock;
+                        if (space > 0)
+                        {
+                            var add = Math.Min(space, remainingToAdd);
+                            sb.AvailableStock += add;
+                            remainingToAdd -= add;
+                        }
+                    }
+
+                    // If any remainder, add to the latest batch
+                    if (remainingToAdd > 0)
+                    {
+                        storeBatches.Last().AvailableStock += remainingToAdd;
+                    }
+
+                    await _db.SaveChangesAsync();
+                }
             }
 
             // Now delete the compounder batch
@@ -527,114 +548,97 @@ namespace EMS.WebApp.Services
             }
         }
 
-        //Corrected plant filtering for available store batches
+        // Corrected plant filtering for available store batches - grouped by BatchNo to aggregate multiple receipts
         public async Task<IEnumerable<StoreIndentBatchDto>> GetAvailableStoreBatchesForMedicineAsync(int medItemId, int? userPlantId = null)
         {
-            if (userPlantId.HasValue)
-            {
-                // Enhanced query with better sorting for FIFO compliance
-                var query = from si in _db.StoreIndents
-                            join sii in _db.StoreIndentItems on si.IndentId equals sii.IndentId
-                            join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
-                            where si.Status == "Approved"
-                                  && sii.MedItemId == medItemId
-                                  && sib.AvailableStock > 0
-                                  && sib.ExpiryDate > DateTime.Today
-                                  && si.PlantId == userPlantId.Value
-                            // Enhanced ordering: Expiry date first (FIFO), then batch number
-                            orderby sib.ExpiryDate ascending, sib.BatchNo ascending
-                            select new StoreIndentBatchDto
-                            {
-                                BatchNo = sib.BatchNo,
-                                ExpiryDate = sib.ExpiryDate,
-                                AvailableStock = sib.AvailableStock,
-                                VendorCode = sib.VendorCode ?? "",
-                                DisplayText = sib.BatchNo,
-                                // Additional properties for early expiry detection
-                                DaysToExpiry = EF.Functions.DateDiffDay(DateTime.Today, sib.ExpiryDate),
-                                IsEarliestExpiry = false, // Will be set in post-processing
-                                ExpiryPriority = EF.Functions.DateDiffDay(DateTime.Today, sib.ExpiryDate) <= 30 ? "URGENT" :
-                                               EF.Functions.DateDiffDay(DateTime.Today, sib.ExpiryDate) <= 90 ? "SOON" : "NORMAL"
-                            };
-
-                var batches = await query.ToListAsync();
-
-                // Post-process to mark the earliest expiry batch
-                if (batches.Any())
-                {
-                    var earliestExpiry = batches.First(); // Already sorted by expiry date
-                    earliestExpiry.IsEarliestExpiry = true;
-                }
-
-                return batches;
-            }
-            else
-            {
-                // No plant filtering - return all plants with enhanced sorting
-                var query = from si in _db.StoreIndents
+            var baseQuery = from si in _db.StoreIndents
                             join sii in _db.StoreIndentItems on si.IndentId equals sii.IndentId
                             join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
                             where si.Status == "Approved"
                                   && sii.MedItemId == medItemId
                                   && sib.AvailableStock > 0
                                   && sib.ExpiryDate >= DateTime.Today
-                            // Enhanced ordering: Expiry date first (FIFO), then batch number
-                            orderby sib.ExpiryDate ascending, sib.BatchNo ascending
-                            select new StoreIndentBatchDto
+                            select new
                             {
-                                BatchNo = sib.BatchNo,
-                                ExpiryDate = sib.ExpiryDate,
-                                AvailableStock = sib.AvailableStock,
+                                sib.BatchId,
+                                sib.BatchNo,
+                                sib.ExpiryDate,
+                                sib.AvailableStock,
                                 VendorCode = sib.VendorCode ?? "",
-                                DisplayText = sib.BatchNo,
-                                DaysToExpiry = EF.Functions.DateDiffDay(DateTime.Today, sib.ExpiryDate),
-                                IsEarliestExpiry = false,
-                                ExpiryPriority = EF.Functions.DateDiffDay(DateTime.Today, sib.ExpiryDate) <= 30 ? "URGENT" :
-                                               EF.Functions.DateDiffDay(DateTime.Today, sib.ExpiryDate) <= 90 ? "SOON" : "NORMAL"
+                                si.PlantId
                             };
 
-                var batches = await query.ToListAsync();
-
-                // Post-process to mark the earliest expiry batch
-                if (batches.Any())
-                {
-                    var earliestExpiry = batches.First();
-                    earliestExpiry.IsEarliestExpiry = true;
-                }
-
-                return batches;
-            }
-        }
-        // FIXED: Corrected plant filtering for store batch lookup
-        public async Task<StoreIndentBatch?> GetStoreBatchByBatchNoAndMedicineAsync(string batchNo, int medItemId, int? userPlantId = null)
-        {
             if (userPlantId.HasValue)
             {
-                // FIXED: Direct plant filtering using si.PlantId
-                var query = from sib in _db.StoreIndentBatches
-                            join sii in _db.StoreIndentItems on sib.IndentItemId equals sii.IndentItemId
-                            join si in _db.StoreIndents on sii.IndentId equals si.IndentId
-                            where sib.BatchNo == batchNo
-                                  && sii.MedItemId == medItemId
-                                  && si.Status == "Approved"
-                                  && si.PlantId == userPlantId.Value  // CRITICAL: Direct plant filtering
-                            select sib;
-
-                return await query.FirstOrDefaultAsync();
+                baseQuery = baseQuery.Where(x => x.PlantId == userPlantId.Value);
             }
-            else
+
+            var rawBatches = await baseQuery.ToListAsync();
+
+            // Group by BatchNo to aggregate AvailableStock across multiple receipt dates and take earliest expiry
+            var groupedBatches = rawBatches
+                .GroupBy(b => b.BatchNo)
+                .Select(g =>
+                {
+                    var earliestExpiry = g.Min(x => x.ExpiryDate);
+                    var totalAvailableStock = g.Sum(x => x.AvailableStock);
+                    var firstItem = g.OrderBy(x => x.ExpiryDate).ThenBy(x => x.BatchId).First();
+                    var daysToExpiry = (int)(earliestExpiry.Date - DateTime.Today).TotalDays;
+
+                    return new StoreIndentBatchDto
+                    {
+                        BatchNo = g.Key,
+                        ExpiryDate = earliestExpiry,
+                        AvailableStock = totalAvailableStock,
+                        VendorCode = firstItem.VendorCode,
+                        DisplayText = g.Key,
+                        DaysToExpiry = daysToExpiry,
+                        IsEarliestExpiry = false,
+                        ExpiryPriority = daysToExpiry <= 30 ? "URGENT" :
+                                         daysToExpiry <= 90 ? "SOON" : "NORMAL"
+                    };
+                })
+                .OrderBy(b => b.ExpiryDate)
+                .ThenBy(b => b.BatchNo)
+                .ToList();
+
+            // Post-process to mark the earliest expiry batch
+            if (groupedBatches.Any())
             {
-                // No plant filtering
-                var query = from sib in _db.StoreIndentBatches
-                            join sii in _db.StoreIndentItems on sib.IndentItemId equals sii.IndentItemId
-                            join si in _db.StoreIndents on sii.IndentId equals si.IndentId
-                            where sib.BatchNo == batchNo
-                                  && sii.MedItemId == medItemId
-                                  && si.Status == "Approved"
-                            select sib;
-
-                return await query.FirstOrDefaultAsync();
+                groupedBatches.First().IsEarliestExpiry = true;
             }
+
+            return groupedBatches;
+        }
+
+        // Retrieve all active store batches for a medicine and batch number in FIFO order
+        public async Task<List<StoreIndentBatch>> GetStoreBatchesByBatchNoAndMedicineAsync(string batchNo, int medItemId, int? userPlantId = null)
+        {
+            var query = from sib in _db.StoreIndentBatches
+                        join sii in _db.StoreIndentItems on sib.IndentItemId equals sii.IndentItemId
+                        join si in _db.StoreIndents on sii.IndentId equals si.IndentId
+                        where sib.BatchNo == batchNo
+                              && sii.MedItemId == medItemId
+                              && si.Status == "Approved"
+                        select new { Batch = sib, si.PlantId };
+
+            if (userPlantId.HasValue)
+            {
+                query = query.Where(x => x.PlantId == userPlantId.Value);
+            }
+
+            return await query
+                .OrderBy(x => x.Batch.ExpiryDate)
+                .ThenBy(x => x.Batch.BatchId)
+                .Select(x => x.Batch)
+                .ToListAsync();
+        }
+
+        // FIXED: Corrected plant filtering for store batch lookup (prioritizes batch with available stock)
+        public async Task<StoreIndentBatch?> GetStoreBatchByBatchNoAndMedicineAsync(string batchNo, int medItemId, int? userPlantId = null)
+        {
+            var batches = await GetStoreBatchesByBatchNoAndMedicineAsync(batchNo, medItemId, userPlantId);
+            return batches.FirstOrDefault(b => b.AvailableStock > 0) ?? batches.FirstOrDefault();
         }
 
 

@@ -46,6 +46,7 @@ namespace EMS.WebApp.Services
         Task<int> GetTotalReceivedFromStoreAsync(int medItemId, int? userPlantId = null);
         Task<int> GetTotalAvailableStockFromStoreAsync(int medItemId, int? userPlantId = null);
         Task<StoreIndentBatch?> GetStoreBatchByBatchNoAndMedicineAsync(string batchNo, int medItemId, int? userPlantId = null);
+        Task<List<StoreIndentBatch>> GetStoreBatchesByBatchNoAndMedicineAsync(string batchNo, int medItemId, int? userPlantId = null);
         Task UpdateBatchAvailableStockAsync(int batchId, int newAvailableStock, int? userPlantId = null);
 
         // NEW: Helper methods for plant-based operations

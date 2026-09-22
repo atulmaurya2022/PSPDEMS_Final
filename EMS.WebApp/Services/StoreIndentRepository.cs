@@ -441,19 +441,20 @@ namespace EMS.WebApp.Services
                         where sib.BatchNo == batchNo
                               && sii.MedItemId == medItemId
                               && si.Status == "Approved"
-                        select sib;
+                        select new { Batch = sib, si.PlantId };
 
-            // Plant-wise filtering
             if (userPlantId.HasValue)
             {
-                query = query.Where(sib =>
-                    _db.StoreIndentItems.Any(sii =>
-                        sii.IndentItemId == sib.IndentItemId &&
-                        _db.StoreIndents.Any(si =>
-                            si.IndentId == sii.IndentId && si.PlantId == userPlantId.Value)));
+                query = query.Where(x => x.PlantId == userPlantId.Value);
             }
 
-            return await query.FirstOrDefaultAsync();
+            var batches = await query
+                .OrderBy(x => x.Batch.ExpiryDate)
+                .ThenBy(x => x.Batch.BatchId)
+                .Select(x => x.Batch)
+                .ToListAsync();
+
+            return batches.FirstOrDefault(b => b.AvailableStock > 0) ?? batches.FirstOrDefault();
         }
 
         public async Task UpdateBatchAvailableStockAsync(int batchId, int newAvailableStock, int? userPlantId = null)
@@ -549,28 +550,31 @@ namespace EMS.WebApp.Services
 
         public async Task<int> GetTotalAvailableStockFromStoreAsync(int medItemId, int? userPlantId = null)
         {
-            var query = from si in _db.StoreIndents
-                        join sii in _db.StoreIndentItems on si.IndentId equals sii.IndentId
-                        join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
-                        //where si.Status == "Approved" && sii.MedItemId == medItemId
-                        where si.Status == "Approved" && sii.MedItemId == medItemId && sib.ExpiryDate >= DateTime.Today
-                        select sib.AvailableStock;
-
-            // Plant-wise filtering
             if (userPlantId.HasValue)
             {
-                query = query.Where(stock =>
-                    _db.StoreIndents.Any(si =>
-                        _db.StoreIndentItems.Any(sii =>
-                            _db.StoreIndentBatches.Any(sib =>
-                                sib.AvailableStock == stock &&
-                                sii.IndentItemId == sib.IndentItemId
-                                && sib.ExpiryDate >= DateTime.Today
-                                && si.IndentId == sii.IndentId &&
-                                si.PlantId == userPlantId.Value))));
-            }
+                var query = from si in _db.StoreIndents
+                            join sii in _db.StoreIndentItems on si.IndentId equals sii.IndentId
+                            join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
+                            where si.Status == "Approved"
+                                  && sii.MedItemId == medItemId
+                                  && sib.ExpiryDate >= DateTime.Today
+                                  && si.PlantId == userPlantId.Value
+                            select sib.AvailableStock;
 
-            return await query.SumAsync();
+                return await query.SumAsync();
+            }
+            else
+            {
+                var query = from si in _db.StoreIndents
+                            join sii in _db.StoreIndentItems on si.IndentId equals sii.IndentId
+                            join sib in _db.StoreIndentBatches on sii.IndentItemId equals sib.IndentItemId
+                            where si.Status == "Approved"
+                                  && sii.MedItemId == medItemId
+                                  && sib.ExpiryDate >= DateTime.Today
+                            select sib.AvailableStock;
+
+                return await query.SumAsync();
+            }
         }
 
         // New helper methods for plant-based operations

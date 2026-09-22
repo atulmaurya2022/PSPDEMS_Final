@@ -1,4 +1,4 @@
-﻿using EMS.WebApp.Data;
+using EMS.WebApp.Data;
 using EMS.WebApp.Extensions;
 using EMS.WebApp.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -2450,36 +2450,97 @@ namespace EMS.WebApp.Controllers
                     {
                         // Check if this batch exists in store
                         var userPlantId = await GetCurrentUserPlantIdAsync();
-                        var storeBatch = await _repo.GetStoreBatchByBatchNoAndMedicineAsync(batchNo, indentItem.MedItemId, userPlantId);
+                        var storeBatches = await _repo.GetStoreBatchesByBatchNoAndMedicineAsync(batchNo, indentItem.MedItemId, userPlantId);
 
-                        if (storeBatch != null)
+                        if (storeBatches != null && storeBatches.Count > 0)
                         {
-                            // This is a store batch, calculate stock update
-                            var newStoreStock = storeBatch.AvailableStock - netIssuedDifference;
+                            var totalAvailableStock = storeBatches.Sum(b => b.AvailableStock);
 
-                            Console.WriteLine($"Store batch {batchNo}: Current stock={storeBatch.AvailableStock}, After update={newStoreStock}");
-
-                            if (newStoreStock < 0)
+                            if (netIssuedDifference > 0)
                             {
-                                await _auditService.LogAsync("compounder_indent", "SAVE_BATCH_INSUFFICIENT", indentItemId.ToString(), null, null,
-                                    $"Insufficient store stock for batch {batchNo}");
-                                return Json(new
+                                // Issuing more: check if total store stock across all receipts is sufficient
+                                if (totalAvailableStock < netIssuedDifference)
                                 {
-                                    success = false,
-                                    message = $"Insufficient stock in store for batch \"{batchNo}\". Available: {storeBatch.AvailableStock}, Required additional: {netIssuedDifference}, Previous total issued: {previousTotalIssued}, New total requested: {newTotalIssued}"
-                                });
-                            }
+                                    await _auditService.LogAsync("compounder_indent", "SAVE_BATCH_INSUFFICIENT", indentItemId.ToString(), null, null,
+                                        $"Insufficient store stock for batch {batchNo}");
+                                    return Json(new
+                                    {
+                                        success = false,
+                                        message = $"Insufficient stock in store for batch \"{batchNo}\". Available: {totalAvailableStock}, Required additional: {netIssuedDifference}, Previous total issued: {previousTotalIssued}, New total requested: {newTotalIssued}"
+                                    });
+                                }
 
-                            storeStockUpdates.Add(new StoreStockUpdate
+                                // FIFO deduction across all store batch receipts
+                                var remainingToDeduct = netIssuedDifference;
+                                foreach (var sb in storeBatches.Where(b => b.AvailableStock > 0).OrderBy(b => b.ExpiryDate).ThenBy(b => b.BatchId))
+                                {
+                                    if (remainingToDeduct <= 0) break;
+                                    var deduct = Math.Min(sb.AvailableStock, remainingToDeduct);
+                                    var newStoreStock = sb.AvailableStock - deduct;
+
+                                    storeStockUpdates.Add(new StoreStockUpdate
+                                    {
+                                        BatchId = sb.BatchId,
+                                        BatchNo = batchNo,
+                                        PreviousStock = sb.AvailableStock,
+                                        NewStock = newStoreStock,
+                                        IssuedQuantity = deduct,
+                                        PreviousIssued = previousTotalIssued,
+                                        NewTotalIssued = newTotalIssued
+                                    });
+
+                                    remainingToDeduct -= deduct;
+                                }
+                            }
+                            else
                             {
-                                BatchId = storeBatch.BatchId,
-                                BatchNo = batchNo,
-                                PreviousStock = storeBatch.AvailableStock,
-                                NewStock = newStoreStock,
-                                IssuedQuantity = netIssuedDifference,
-                                PreviousIssued = previousTotalIssued,
-                                NewTotalIssued = newTotalIssued
-                            });
+                                // netIssuedDifference < 0: Returning stock to store (LIFO restoration)
+                                var remainingToAdd = -netIssuedDifference;
+                                foreach (var sb in storeBatches.OrderByDescending(b => b.BatchId))
+                                {
+                                    if (remainingToAdd <= 0) break;
+                                    var space = sb.ReceivedQuantity - sb.AvailableStock;
+                                    var add = space > 0 ? Math.Min(space, remainingToAdd) : remainingToAdd;
+                                    var newStoreStock = sb.AvailableStock + add;
+
+                                    storeStockUpdates.Add(new StoreStockUpdate
+                                    {
+                                        BatchId = sb.BatchId,
+                                        BatchNo = batchNo,
+                                        PreviousStock = sb.AvailableStock,
+                                        NewStock = newStoreStock,
+                                        IssuedQuantity = -add,
+                                        PreviousIssued = previousTotalIssued,
+                                        NewTotalIssued = newTotalIssued
+                                    });
+
+                                    remainingToAdd -= add;
+                                }
+
+                                if (remainingToAdd > 0 && storeBatches.Any())
+                                {
+                                    var lastBatch = storeBatches.Last();
+                                    var existingUpdate = storeStockUpdates.FirstOrDefault(u => u.BatchId == lastBatch.BatchId);
+                                    if (existingUpdate != null)
+                                    {
+                                        existingUpdate.NewStock += remainingToAdd;
+                                        existingUpdate.IssuedQuantity -= remainingToAdd;
+                                    }
+                                    else
+                                    {
+                                        storeStockUpdates.Add(new StoreStockUpdate
+                                        {
+                                            BatchId = lastBatch.BatchId,
+                                            BatchNo = batchNo,
+                                            PreviousStock = lastBatch.AvailableStock,
+                                            NewStock = lastBatch.AvailableStock + remainingToAdd,
+                                            IssuedQuantity = -remainingToAdd,
+                                            PreviousIssued = previousTotalIssued,
+                                            NewTotalIssued = newTotalIssued
+                                        });
+                                    }
+                                }
+                            }
                         }
                         else
                         {
