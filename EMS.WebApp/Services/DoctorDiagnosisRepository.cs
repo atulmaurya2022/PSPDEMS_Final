@@ -62,12 +62,10 @@ namespace EMS.WebApp.Services
                 .Include(e => e.org_plant)
                 .Where(e => e.emp_id != null && (e.emp_id == cleanEmpId || e.emp_id.Trim() == cleanEmpId));
 
-            // Plant-wise filtering with fallback
+            // Plant-wise filtering: strictly enforce user's plant if provided
             if (userPlantId.HasValue)
             {
-                var employeeInPlant = await query.FirstOrDefaultAsync(e => e.plant_id == userPlantId.Value);
-                if (employeeInPlant != null)
-                    return employeeInPlant;
+                return await query.FirstOrDefaultAsync(e => e.plant_id == userPlantId.Value);
             }
 
             return await query.FirstOrDefaultAsync();
@@ -159,22 +157,19 @@ namespace EMS.WebApp.Services
                 var query = _db.HrEmployees.AsNoTracking()
                     .Where(e => e.emp_id != null && (e.emp_id.StartsWith(trimmedTerm) || e.emp_id.Contains(trimmedTerm)));
 
-                // If user has a plant, first try to find matching employees in their plant
+                // If user has a plant, strictly return matching employees from their plant
                 if (userPlantId.HasValue)
                 {
-                    var plantResults = await query
+                    return await query
                         .Where(e => e.plant_id == userPlantId.Value)
                         .OrderBy(e => e.emp_id)
                         .Select(e => e.emp_id.Trim())
                         .Distinct()
                         .Take(20)
                         .ToListAsync();
-
-                    if (plantResults.Any())
-                        return plantResults;
                 }
 
-                // Fallback: Return matching employees from any plant
+                // Fallback: If no plant specified, return matching employees from any plant
                 return await query
                     .OrderBy(e => e.emp_id)
                     .Select(e => e.emp_id.Trim())
@@ -656,6 +651,7 @@ namespace EMS.WebApp.Services
                 }
 
                 var employeePlantId = employee.plant_id;
+                var targetPlantId = userPlantId ?? employeePlantId;
                 var examDateOnly = DateOnly.FromDateTime(examDate.Date);
 
                 // Find or create exam header with plant info
@@ -677,14 +673,14 @@ namespace EMS.WebApp.Services
                     {
                         emp_uid = employee.emp_uid,
                         exam_date = examDateOnly,
-                        PlantId = (short)employeePlantId
+                        PlantId = (short)targetPlantId
                     };
                     _db.MedExamHeaders.Add(exam);
                     await _db.SaveChangesAsync(); // Save to get the exam_id
                 }
 
                 // Enhanced approval logic for BCM plant
-                var plantCode = await GetPlantCodeAsync(employeePlantId);
+                var plantCode = await GetPlantCodeAsync(targetPlantId);
                 string approvalStatus;
                 string? approvedBy = null;
                 DateTime? approvedDate = null;
@@ -750,7 +746,7 @@ namespace EMS.WebApp.Services
                     ApprovalStatus = approvalStatus,
                     ApprovedBy = approvedBy,
                     ApprovedDate = approvedDate,
-                    PlantId = (short)employeePlantId,
+                    PlantId = (short)targetPlantId,
                     // Store dependent name (you might need to add this field to MedPrescription table)
                     DependentName = selectedDependentName != "Self" ? selectedDependentName : null
                 };
@@ -866,7 +862,7 @@ namespace EMS.WebApp.Services
                         exam_id = exam.exam_id,
                         bp = _encryptionService.Encrypt(vitalSigns.BloodPressure),
                         pulse = _encryptionService.Encrypt(vitalSigns.Pulse),
-                        PlantId = (short)employeePlantId
+                        PlantId = (short)targetPlantId
                     };
                     _db.MedGeneralExams.Add(generalExam);
                 }

@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace EMS.WebApp.Controllers
 {
-    [Authorize("AccessAuditLog")] // Add this policy to your authorization setup
+    //[Authorize("AccessAuditLog")] // Add this policy to your authorization setup
+    [Authorize]
     public class AuditLogController : Controller
     {
         private readonly IAuditLogRepository _auditRepo;
