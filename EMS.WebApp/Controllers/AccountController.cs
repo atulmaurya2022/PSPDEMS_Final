@@ -264,12 +264,9 @@ namespace EMS.WebApp.Controllers
             return RedirectToAction("Login", "Account");
         }
 
+        [AllowAnonymous]
         public async Task<IActionResult> LogoutView(string reason = "")
         {
-
-
-
-
             var message = reason switch
             {
                 "SessionTimeout" => "Your session has expired due to inactivity.",
@@ -280,9 +277,7 @@ namespace EMS.WebApp.Controllers
             ViewBag.Message = message;
             ViewBag.Reason = reason;
 
-
             var userName = User.Identity?.Name;
-
             if (userName != null)
             {
                 var user = await _repo.GetByEmailAsync(userName);
@@ -293,17 +288,10 @@ namespace EMS.WebApp.Controllers
                     await _repo.UpdateAsync(user);
                 }
 
-
                 await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-
-
-                return View();
             }
-            else
-            { 
-                return RedirectToAction("AutoLogin", new { confirm = true });
 
-            }
+            return View();
         }
 
         [HttpGet]

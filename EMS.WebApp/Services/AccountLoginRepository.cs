@@ -34,7 +34,7 @@ namespace EMS.WebApp.Services
 
         public async Task UpdateLastActivityAsync(string userName)
         {
-            var user = await _db.SysUsers.FirstOrDefaultAsync(u => u.adid == userName && u.is_active);
+            var user = await _db.SysUsers.FirstOrDefaultAsync(u => (u.adid == userName || u.email == userName || u.full_name == userName) && u.is_active);
             if (user != null)
             {
                 user.LastActivityTime = DateTime.UtcNow;

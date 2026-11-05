@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
 @inject IAuthorizationService AuthorizationService
@@ -63,7 +63,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/bootstrap-icons/bootstrap-icons.css" />
 
 </head>
-<body>
+<body data-authenticated="@(User.Identity?.IsAuthenticated == true ? "true" : "false")">
     <!-- ===== Header ===== -->
 
     <header class="app-header d-flex align-items-center justify-content-between">
@@ -527,6 +527,25 @@
         window.app.logout = '@Url.Action("LogoutView", "Account")';
         window.app.logoutUrl = '@Url.Action("LogoutView", "Account", new { reason = "UserLogout" })';
         window.app.timeoutUrl = '@Url.Action("LogoutView", "Account", new { reason = "SessionTimeout" })';
+
+        window.Logout = function () {
+            if (window.sessionTimeoutManager) {
+                window.sessionTimeoutManager.logout();
+            } else {
+                window.location.href = window.app.logoutUrl || '@Url.Action("LogoutView", "Account", new { reason = "UserLogout" })';
+            }
+        };
+
+        // Global handler for AJAX 401 Unauthorized responses to immediately trigger session expiration
+        $(document).ajaxError(function (event, jqXHR) {
+            if (jqXHR.status === 401) {
+                if (window.sessionTimeoutManager) {
+                    window.sessionTimeoutManager.handleSessionExpired();
+                } else {
+                    window.location.href = window.app.timeoutUrl || '@Url.Action("LogoutView", "Account", new { reason = "SessionTimeout" })';
+                }
+            }
+        });
     </script>
     <script src="~/js/site.js"></script>
 
@@ -536,26 +555,6 @@
 </body>
 </html>
 
-
-<script>
-    setInterval(() => {
-        fetch('@Url.Action("check", "session")', {
-            method: 'GET',
-            credentials: 'same-origin'
-        }).then(res => {
-            if (res.status === 401 || res.redirected) {
-                console.log("Session invalidated. Redirecting...");
-
-                 window.location.href = '@Url.Action("LogoutView", "Account", new { reason = "SessionExpired" })';
-            }
-        }).catch(err => {
-            console.warn("Session check failed. Forcing logout.");
-
-            window.location.href = '@Url.Action("LogoutView", "Account", new { reason = "SessionExpired" })';
-
-        });
-    }, 15000); // check every 15 seconds
-</script>
 <script>
     document.addEventListener('contextmenu', function (e) {
         e.preventDefault();

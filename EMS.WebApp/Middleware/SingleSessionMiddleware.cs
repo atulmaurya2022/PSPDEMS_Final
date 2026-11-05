@@ -76,11 +76,12 @@ namespace EMS.WebApp.Middleware
                         }
                     }
 
-                    // Update last activity time only if at least 5 minutes have elapsed since last DB update
-                    if (!path.Contains("/session/heartbeat"))
+                    // Update last activity time only if at least 2 minutes have elapsed since last DB update
+                    // Automated background polling requests are excluded so idle users time out properly
+                    if (!IsBackgroundPollingRequest(path))
                     {
                         var nowUtc = DateTime.UtcNow;
-                        if (!user.LastActivityTime.HasValue || (nowUtc - user.LastActivityTime.Value).TotalMinutes >= 5)
+                        if (!user.LastActivityTime.HasValue || (nowUtc - user.LastActivityTime.Value).TotalMinutes >= 2)
                         {
                             user.LastActivityTime = nowUtc;
                             await repo.UpdateAsync(user);
@@ -90,6 +91,17 @@ namespace EMS.WebApp.Middleware
             }
 
             await _next(context);
+        }
+
+        private static bool IsBackgroundPollingRequest(string? path)
+        {
+            if (string.IsNullOrEmpty(path)) return false;
+            return path.Contains("/session/") ||
+                   path.Contains("/dashboard/get") ||
+                   path.Contains("/compounderdashboard/get") ||
+                   path.Contains("/storedashboard/get") ||
+                   path.Contains("/auditlog/loaddata") ||
+                   path.Contains("/getpendingapprovalcount");
         }
 
         private async Task LogoutUser(HttpContext context, string reason)
